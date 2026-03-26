@@ -1,11 +1,12 @@
 import { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Settings, Users, Rocket, FolderKanban, Plus, Store } from "lucide-react";
+import { LogOut, Settings, Users, Rocket, FolderKanban, Plus, Store, Shield } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import OrgSwitcher from "@/components/layout/OrgSwitcher";
+import NotificationBell from "@/components/layout/NotificationBell";
 import { useAuthStore } from "@/stores/auth";
 import { useOrgStore } from "@/stores/org";
 import { projectsApi } from "@/api/projects";
@@ -124,6 +125,13 @@ function Dashboard({ children }: { children?: ReactNode }) {
               </Link>
               <Separator className="my-2" />
 
+              <Link to={`/orgs/${currentOrg.slug}/audit-logs`}>
+                <Button variant="ghost" className="w-full justify-start" size="sm">
+                  <Shield className="mr-2 h-4 w-4" />
+                  Audit Log
+                </Button>
+              </Link>
+
               <Link to="/admin/nodes">
                 <Button variant="ghost" className="w-full justify-start" size="sm">
                   <Settings className="mr-2 h-4 w-4" />
@@ -150,7 +158,13 @@ function Dashboard({ children }: { children?: ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-8">
+      <div className="flex-1 flex flex-col">
+        {/* Top bar */}
+        <header className="flex items-center justify-end border-b px-6 py-2 gap-2">
+          {currentOrg && <NotificationBell />}
+        </header>
+
+        <main className="flex-1 p-8">
         {children || (
           currentOrg ? (
             <Projects />
@@ -167,6 +181,7 @@ function Dashboard({ children }: { children?: ReactNode }) {
           )
         )}
       </main>
+      </div>
     </div>
   );
 }

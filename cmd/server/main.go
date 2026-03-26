@@ -102,6 +102,10 @@ func main() {
 	envRepo := repository.NewEnvRepository(db)
 	envService := service.NewEnvService(envRepo, encryptionKey)
 
+	// Initialize notification & audit service
+	notifRepo := repository.NewNotificationRepository(db)
+	notifService := service.NewNotificationService(notifRepo)
+
 	// Initialize node manager
 	nodeRepo := repository.NewNodeRepository(db)
 	nodeManager := orchestrator.NewNodeManager(nodeRepo)
@@ -134,8 +138,9 @@ func main() {
 		CronService:    cronService,
 		DomainService:   domainService,
 		TemplateService: templateService,
-		EnvService:      envService,
-		GitService:      gitService,
+		EnvService:           envService,
+		NotificationService:  notifService,
+		GitService:           gitService,
 		NodeManager:    nodeManager,
 		UserRepo:       userRepo,
 		OrgRepo:        orgRepo,

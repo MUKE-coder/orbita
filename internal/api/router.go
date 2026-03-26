@@ -33,8 +33,9 @@ type RouterDeps struct {
 	CronService    *service.CronService
 	DomainService   *service.DomainService
 	TemplateService *service.TemplateService
-	EnvService      *service.EnvService
-	GitService      *service.GitService
+	EnvService           *service.EnvService
+	NotificationService  *service.NotificationService
+	GitService           *service.GitService
 	NodeManager    *orchestrator.NodeManager
 	UserRepo       *repository.UserRepository
 	OrgRepo        *repository.OrgRepository
@@ -80,6 +81,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	domainHandler := handlers.NewDomainHandler(deps.DomainService)
 	serviceHandler := handlers.NewServiceHandler(deps.TemplateService)
 	envHandler := handlers.NewEnvHandler(deps.EnvService)
+	notifHandler := handlers.NewNotificationHandler(deps.NotificationService)
 	gitHandler := handlers.NewGitHandler(deps.GitService)
 	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService)
 	nodeHandler := handlers.NewNodeHandler(deps.NodeManager)
@@ -175,6 +177,14 @@ func NewRouter(deps *RouterDeps) *Router {
 					viewerAccess.GET("/cron-jobs/:cronId", cronHandler.GetCronJob)
 					viewerAccess.GET("/cron-jobs/:cronId/runs", cronHandler.ListRuns)
 					viewerAccess.GET("/cron-jobs/:cronId/runs/:runId/logs", cronHandler.GetRunLogs)
+
+					// Notifications & audit (viewer+ can read)
+					viewerAccess.GET("/notifications", notifHandler.ListNotifications)
+					viewerAccess.PUT("/notifications/:id/read", notifHandler.MarkRead)
+					viewerAccess.PUT("/notifications/read-all", notifHandler.MarkAllRead)
+					viewerAccess.GET("/notification-settings", notifHandler.GetSettings)
+					viewerAccess.PUT("/notification-settings", notifHandler.UpdateSettings)
+					viewerAccess.GET("/audit-logs", notifHandler.ListAuditLogs)
 				}
 
 				// Developer+ access

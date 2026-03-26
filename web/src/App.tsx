@@ -21,6 +21,7 @@ import CronDetail from "./pages/CronDetail";
 import CreateCron from "./pages/CreateCron";
 import Marketplace from "./pages/Marketplace";
 import AdminNodes from "./pages/AdminNodes";
+import AuditLogs from "./pages/AuditLogs";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -135,6 +136,16 @@ function App() {
             <ProtectedRoute>
               <Dashboard>
                 <CronDetail />
+              </Dashboard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orgs/:orgSlug/audit-logs"
+          element={
+            <ProtectedRoute>
+              <Dashboard>
+                <AuditLogs />
               </Dashboard>
             </ProtectedRoute>
           }
