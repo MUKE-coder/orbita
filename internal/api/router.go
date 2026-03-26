@@ -17,6 +17,7 @@ import (
 	"github.com/orbita-sh/orbita/internal/orchestrator"
 	"github.com/orbita-sh/orbita/internal/repository"
 	"github.com/orbita-sh/orbita/internal/service"
+	ws "github.com/orbita-sh/orbita/internal/websocket"
 )
 
 type Router struct {
@@ -84,8 +85,12 @@ func NewRouter(deps *RouterDeps) *Router {
 	notifHandler := handlers.NewNotificationHandler(deps.NotificationService)
 	gitHandler := handlers.NewGitHandler(deps.GitService)
 	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService)
+	execHandler := handlers.NewExecHandler()
 	nodeHandler := handlers.NewNodeHandler(deps.NodeManager)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService)
+
+	// WebSocket terminal handler
+	terminalHandler := ws.NewTerminalHandler(deps.Config.JWTSecret)
 
 	// Middleware
 	authRateLimit := mw.RateLimit(deps.Redis, 5, 15*time.Minute)
@@ -205,6 +210,9 @@ func NewRouter(deps *RouterDeps) *Router {
 					devAccess.POST("/apps/:appId/stop", appHandler.Stop)
 					devAccess.POST("/apps/:appId/start", appHandler.Start)
 					devAccess.DELETE("/apps/:appId", appHandler.DeleteApp)
+					devAccess.POST("/apps/:appId/exec", execHandler.ExecInApp)
+					devAccess.GET("/apps/:appId/terminal", terminalHandler.HandleTerminal)
+					devAccess.GET("/apps/:appId/logs/stream", terminalHandler.HandleLogStream)
 
 					// Env vars (developer+ can manage)
 					devAccess.POST("/apps/:appId/env", envHandler.SetAppEnvVar)

@@ -39,6 +39,8 @@ import { appsApi } from "@/api/apps";
 import { useOrgStore } from "@/stores/org";
 import DomainList from "@/components/domains/DomainList";
 import EnvVarEditor from "@/components/env/EnvVarEditor";
+import XtermTerminal from "@/components/terminal/XtermTerminal";
+import { useAuthStore } from "@/stores/auth";
 
 const statusColor: Record<string, string> = {
   running: "bg-green-500/10 text-green-500",
@@ -53,6 +55,7 @@ function AppDetail() {
   const currentOrg = useOrgStore((s) => s.currentOrg);
   const queryClient = useQueryClient();
   const slug = orgSlug || currentOrg?.slug || "";
+  const accessToken = useAuthStore((s) => s.accessToken);
 
   const { data: appData, isLoading } = useQuery({
     queryKey: ["app", slug, appId],
@@ -189,6 +192,7 @@ function AppDetail() {
           <TabsTrigger value="logs">Logs</TabsTrigger>
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
           <TabsTrigger value="env">Environment</TabsTrigger>
+          <TabsTrigger value="terminal">Terminal</TabsTrigger>
           <TabsTrigger value="domains">Domains</TabsTrigger>
         </TabsList>
 
@@ -300,6 +304,19 @@ function AppDetail() {
         {/* Environment Variables */}
         <TabsContent value="env">
           <EnvVarEditor orgSlug={slug} appId={appId!} />
+        </TabsContent>
+
+        {/* Terminal */}
+        <TabsContent value="terminal">
+          {accessToken && appId ? (
+            <XtermTerminal
+              wsUrl={`${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/api/v1/orgs/${slug}/apps/${appId}/terminal?token=${accessToken}`}
+            />
+          ) : (
+            <p className="text-muted-foreground text-center py-8">
+              Authentication required for terminal access.
+            </p>
+          )}
         </TabsContent>
 
         <TabsContent value="domains">
