@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  orbita:
+    image: ghcr.io/muke-coder/orbita:latest
+    container_name: orbita
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://orbita:${DB_PASSWORD}@postgres:5432/orbita?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - APP_BASE_URL=${APP_BASE_URL}
+      - RESEND_API_KEY=${RESEND_API_KEY:-re_placeholder}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-noreply@localhost}
+      - TRAEFIK_CONFIG_DIR=/etc/orbita/traefik
+      - DOCKER_SOCKET=/var/run/docker.sock
+      - IS_PRODUCTION=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - traefik_dynamic:/etc/orbita/traefik
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: orbita-postgres
+    environment:
+      - POSTGRES_DB=orbita
+      - POSTGRES_USER=orbita
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orbita"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: orbita-redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  traefik:
+    image: traefik:v3.0
+    container_name: orbita-traefik
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_dynamic:/etc/orbita/traefik
+      - traefik_certs:/etc/traefik/acme
+    command:
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--providers.file.directory=/etc/orbita/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@localhost}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--log.level=INFO"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  traefik_dynamic:
+  traefik_certs:
