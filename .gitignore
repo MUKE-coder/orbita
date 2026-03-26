@@ -1,0 +1,33 @@
+# Binaries
+orbita
+orbita.exe
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Environment
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
+*.test
+*.out
+coverage.txt
+
+# Frontend
+web/node_modules/
+web/dist/
+
+# Air
+tmp/
