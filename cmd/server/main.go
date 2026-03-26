@@ -22,6 +22,7 @@ import (
 	"github.com/orbita-sh/orbita/internal/orchestrator"
 	orbitaCron "github.com/orbita-sh/orbita/internal/cron"
 	orbitaRedis "github.com/orbita-sh/orbita/internal/redis"
+	orbitaTraefik "github.com/orbita-sh/orbita/internal/traefik"
 	"github.com/orbita-sh/orbita/internal/repository"
 	"github.com/orbita-sh/orbita/internal/service"
 )
@@ -88,6 +89,11 @@ func main() {
 	dbService := service.NewDBService(dbRepo, orch, encryptionKey)
 	gitService := service.NewGitService(gitRepo, encryptionKey)
 
+	// Initialize Traefik manager and domain service
+	domainRepo := repository.NewDomainRepository(db)
+	traefikMgr := orbitaTraefik.NewManager(cfg.TraefikConfigDir)
+	domainService := service.NewDomainService(domainRepo, traefikMgr)
+
 	// Initialize cron system
 	cronRepo := repository.NewCronRepository(db)
 	cronExecutor := orbitaCron.NewExecutor(cronRepo)
@@ -114,6 +120,7 @@ func main() {
 		AppService:     appService,
 		DBService:      dbService,
 		CronService:    cronService,
+		DomainService:  domainService,
 		GitService:     gitService,
 		UserRepo:       userRepo,
 		OrgRepo:        orgRepo,

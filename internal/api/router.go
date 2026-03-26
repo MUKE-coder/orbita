@@ -30,6 +30,7 @@ type RouterDeps struct {
 	AppService     *service.AppService
 	DBService      *service.DBService
 	CronService    *service.CronService
+	DomainService  *service.DomainService
 	GitService     *service.GitService
 	UserRepo       *repository.UserRepository
 	OrgRepo        *repository.OrgRepository
@@ -72,6 +73,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	appHandler := handlers.NewAppHandler(deps.AppService)
 	dbHandler := handlers.NewDBHandler(deps.DBService)
 	cronHandler := handlers.NewCronHandler(deps.CronService)
+	domainHandler := handlers.NewDomainHandler(deps.DomainService)
 	gitHandler := handlers.NewGitHandler(deps.GitService)
 	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService)
@@ -147,6 +149,11 @@ func NewRouter(deps *RouterDeps) *Router {
 					viewerAccess.GET("/databases/:dbId/backups", dbHandler.ListBackups)
 					viewerAccess.GET("/databases/:dbId/backup-schedule", dbHandler.GetBackupSchedule)
 
+					// Domains (viewer+ can read)
+					viewerAccess.GET("/domains", domainHandler.ListOrgDomains)
+					viewerAccess.GET("/apps/:appId/domains", domainHandler.ListAppDomains)
+					viewerAccess.GET("/domains/verify", domainHandler.VerifyDomain)
+
 					// Cron jobs (viewer+ can read)
 					viewerAccess.GET("/cron-jobs", cronHandler.ListCronJobs)
 					viewerAccess.GET("/cron-jobs/:cronId", cronHandler.GetCronJob)
@@ -172,6 +179,10 @@ func NewRouter(deps *RouterDeps) *Router {
 					devAccess.POST("/apps/:appId/stop", appHandler.Stop)
 					devAccess.POST("/apps/:appId/start", appHandler.Start)
 					devAccess.DELETE("/apps/:appId", appHandler.DeleteApp)
+
+					// Domains (developer+ can manage)
+					devAccess.POST("/apps/:appId/domains", domainHandler.AddAppDomain)
+					devAccess.DELETE("/domains/:domainId", domainHandler.RemoveDomain)
 
 					// Cron jobs (developer+ can manage)
 					devAccess.POST("/cron-jobs", cronHandler.CreateCronJob)

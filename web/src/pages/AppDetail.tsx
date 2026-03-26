@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { appsApi } from "@/api/apps";
 import { useOrgStore } from "@/stores/org";
+import DomainList from "@/components/domains/DomainList";
 
 const statusColor: Record<string, string> = {
   running: "bg-green-500/10 text-green-500",
@@ -186,6 +187,7 @@ function AppDetail() {
           <TabsTrigger value="deployments">Deployments</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
+          <TabsTrigger value="domains">Domains</TabsTrigger>
         </TabsList>
 
         {/* Overview */}
@@ -290,6 +292,11 @@ function AppDetail() {
               <CardContent><p className="text-2xl font-bold">{metrics ? `${(metrics.network_tx / 1024).toFixed(0)} KB` : "0"}</p></CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Domains */}
+        <TabsContent value="domains">
+          <DomainList orgSlug={slug} appId={appId!} />
         </TabsContent>
       </Tabs>
     </div>
