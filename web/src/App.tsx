@@ -8,6 +8,10 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
 import Dashboard from "./pages/Dashboard";
+import CreateOrg from "./pages/CreateOrg";
+import OrgMembers from "./pages/OrgMembers";
+import JoinOrg from "./pages/JoinOrg";
+import OrgSettings from "./pages/OrgSettings";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -21,16 +25,46 @@ function App() {
   return (
     <>
       <Routes>
+        {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/join" element={<JoinOrg />} />
+
+        {/* Protected routes */}
         <Route
           path="/"
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orgs/new"
+          element={
+            <ProtectedRoute>
+              <CreateOrg />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orgs/:orgSlug/settings/members"
+          element={
+            <ProtectedRoute>
+              <OrgSettings>
+                <OrgMembers />
+              </OrgSettings>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orgs/:orgSlug/settings"
+          element={
+            <ProtectedRoute>
+              <OrgSettings />
             </ProtectedRoute>
           }
         />

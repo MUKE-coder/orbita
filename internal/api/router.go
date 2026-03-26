@@ -25,7 +25,9 @@ type Router struct {
 type RouterDeps struct {
 	Config      *config.Config
 	AuthService *service.AuthService
+	OrgService  *service.OrgService
 	UserRepo    *repository.UserRepository
+	OrgRepo     *repository.OrgRepository
 	Redis       *redis.Client
 	StaticFS    fs.FS
 }
@@ -60,9 +62,13 @@ func NewRouter(deps *RouterDeps) *Router {
 	// Handlers
 	authHandler := handlers.NewAuthHandler(deps.AuthService)
 	meHandler := handlers.NewMeHandler(deps.AuthService)
+	orgHandler := handlers.NewOrgHandler(deps.OrgService)
+	adminHandler := handlers.NewAdminHandler(deps.OrgService)
 
-	// Rate limiter for auth endpoints
+	// Middleware
 	authRateLimit := mw.RateLimit(deps.Redis, 5, 15*time.Minute)
+	requireAuth := mw.RequireAuth(deps.Config.JWTSecret)
+	requireSuperAdmin := mw.RequireSuperAdmin(deps.Config.JWTSecret)
 
 	v1 := engine.Group("/api/v1")
 	{
@@ -79,7 +85,7 @@ func NewRouter(deps *RouterDeps) *Router {
 		}
 
 		// Me routes (authenticated)
-		meGroup := v1.Group("/me", mw.RequireAuth(deps.Config.JWTSecret))
+		meGroup := v1.Group("/me", requireAuth)
 		{
 			meGroup.GET("", meHandler.GetProfile)
 			meGroup.PUT("", meHandler.UpdateProfile)
@@ -91,9 +97,58 @@ func NewRouter(deps *RouterDeps) *Router {
 			meGroup.DELETE("/api-keys/:id", meHandler.DeleteAPIKey)
 		}
 
-		// Placeholder groups for future phases
-		v1.Group("/orgs")
-		v1.Group("/admin")
+		// Join routes (invite acceptance)
+		v1.GET("/join", orgHandler.GetInviteInfo)
+		v1.POST("/join", requireAuth, orgHandler.AcceptInvite)
+
+		// Org routes (authenticated)
+		orgsGroup := v1.Group("/orgs", requireAuth)
+		{
+			orgsGroup.GET("", orgHandler.ListOrgs)
+			orgsGroup.POST("", orgHandler.CreateOrg)
+
+			// Org-scoped routes
+			orgGroup := orgsGroup.Group("/:orgSlug")
+			{
+				// Viewer+ access
+				viewerAccess := orgGroup.Group("", mw.RequireOrgMember(deps.OrgRepo, "viewer"))
+				{
+					viewerAccess.GET("", orgHandler.GetOrg)
+					viewerAccess.GET("/members", orgHandler.ListMembers)
+					viewerAccess.POST("/leave", orgHandler.LeaveOrg)
+				}
+
+				// Admin+ access
+				adminAccess := orgGroup.Group("", mw.RequireOrgMember(deps.OrgRepo, "admin"))
+				{
+					adminAccess.PUT("", orgHandler.UpdateOrg)
+					adminAccess.POST("/invites", orgHandler.InviteMember)
+					adminAccess.GET("/invites", orgHandler.ListInvites)
+					adminAccess.DELETE("/invites/:id", orgHandler.RevokeInvite)
+					adminAccess.DELETE("/members/:userId", orgHandler.RemoveMember)
+				}
+
+				// Owner access
+				ownerAccess := orgGroup.Group("", mw.RequireOrgMember(deps.OrgRepo, "owner"))
+				{
+					ownerAccess.DELETE("", orgHandler.DeleteOrg)
+					ownerAccess.PUT("/members/:userId/role", orgHandler.UpdateMemberRole)
+				}
+			}
+		}
+
+		// Admin routes (super admin only)
+		adminGroup := v1.Group("/admin", requireSuperAdmin)
+		{
+			adminGroup.GET("/plans", adminHandler.ListPlans)
+			adminGroup.POST("/plans", adminHandler.CreatePlan)
+			adminGroup.PUT("/plans/:planId", adminHandler.UpdatePlan)
+			adminGroup.DELETE("/plans/:planId", adminHandler.DeletePlan)
+			adminGroup.GET("/orgs", adminHandler.ListAllOrgs)
+			adminGroup.PUT("/orgs/:orgSlug/plan", adminHandler.AssignPlanToOrg)
+		}
+
+		// Placeholder for future phases
 		v1.Group("/webhooks")
 	}
 
