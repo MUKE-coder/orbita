@@ -98,6 +98,10 @@ func main() {
 	serviceRepo := repository.NewServiceRepository(db)
 	templateService := service.NewTemplateService(serviceRepo, dockerClient)
 
+	// Initialize node manager
+	nodeRepo := repository.NewNodeRepository(db)
+	nodeManager := orchestrator.NewNodeManager(nodeRepo)
+
 	// Initialize cron system
 	cronRepo := repository.NewCronRepository(db)
 	cronExecutor := orbitaCron.NewExecutor(cronRepo)
@@ -127,6 +131,7 @@ func main() {
 		DomainService:   domainService,
 		TemplateService: templateService,
 		GitService:      gitService,
+		NodeManager:    nodeManager,
 		UserRepo:       userRepo,
 		OrgRepo:        orgRepo,
 		Redis:          rdb,

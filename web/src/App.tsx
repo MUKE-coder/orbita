@@ -20,6 +20,7 @@ import CreateDatabase from "./pages/CreateDatabase";
 import CronDetail from "./pages/CronDetail";
 import CreateCron from "./pages/CreateCron";
 import Marketplace from "./pages/Marketplace";
+import AdminNodes from "./pages/AdminNodes";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -134,6 +135,16 @@ function App() {
             <ProtectedRoute>
               <Dashboard>
                 <CronDetail />
+              </Dashboard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/nodes"
+          element={
+            <ProtectedRoute>
+              <Dashboard>
+                <AdminNodes />
               </Dashboard>
             </ProtectedRoute>
           }

@@ -14,6 +14,7 @@ import (
 	"github.com/orbita-sh/orbita/internal/api/handlers"
 	"github.com/orbita-sh/orbita/internal/config"
 	mw "github.com/orbita-sh/orbita/internal/middleware"
+	"github.com/orbita-sh/orbita/internal/orchestrator"
 	"github.com/orbita-sh/orbita/internal/repository"
 	"github.com/orbita-sh/orbita/internal/service"
 )
@@ -33,6 +34,7 @@ type RouterDeps struct {
 	DomainService   *service.DomainService
 	TemplateService *service.TemplateService
 	GitService      *service.GitService
+	NodeManager    *orchestrator.NodeManager
 	UserRepo       *repository.UserRepository
 	OrgRepo        *repository.OrgRepository
 	Redis          *redis.Client
@@ -78,6 +80,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	serviceHandler := handlers.NewServiceHandler(deps.TemplateService)
 	gitHandler := handlers.NewGitHandler(deps.GitService)
 	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService)
+	nodeHandler := handlers.NewNodeHandler(deps.NodeManager)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService)
 
 	// Middleware
@@ -252,6 +255,15 @@ func NewRouter(deps *RouterDeps) *Router {
 			adminGroup.DELETE("/plans/:planId", adminHandler.DeletePlan)
 			adminGroup.GET("/orgs", adminHandler.ListAllOrgs)
 			adminGroup.PUT("/orgs/:orgSlug/plan", adminHandler.AssignPlanToOrg)
+
+			// Nodes (super admin)
+			adminGroup.GET("/nodes", nodeHandler.ListNodes)
+			adminGroup.POST("/nodes", nodeHandler.AddNode)
+			adminGroup.GET("/nodes/:nodeId", nodeHandler.GetNode)
+			adminGroup.GET("/nodes/:nodeId/metrics", nodeHandler.GetNodeMetrics)
+			adminGroup.POST("/nodes/:nodeId/drain", nodeHandler.DrainNode)
+			adminGroup.DELETE("/nodes/:nodeId", nodeHandler.RemoveNode)
+			adminGroup.GET("/platform/metrics", nodeHandler.GetPlatformMetrics)
 		}
 
 		// Webhook routes (public — verified by signature)

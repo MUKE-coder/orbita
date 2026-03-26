@@ -122,6 +122,14 @@ function Dashboard({ children }: { children?: ReactNode }) {
                   Org Settings
                 </Button>
               </Link>
+              <Separator className="my-2" />
+
+              <Link to="/admin/nodes">
+                <Button variant="ghost" className="w-full justify-start" size="sm">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Admin: Nodes
+                </Button>
+              </Link>
             </>
           )}
         </nav>
