@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Settings, Users, Rocket, FolderKanban } from "lucide-react";
+import { LogOut, Settings, Users, Rocket, FolderKanban, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -79,6 +79,15 @@ function Dashboard({ children }: { children?: ReactNode }) {
                   ))}
                 </div>
               )}
+
+              <Separator className="my-2" />
+
+              <Link to={`/orgs/${currentOrg.slug}/apps/new`}>
+                <Button variant="ghost" className="w-full justify-start" size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New App
+                </Button>
+              </Link>
 
               <Separator className="my-2" />
 

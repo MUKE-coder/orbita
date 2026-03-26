@@ -14,6 +14,7 @@ import JoinOrg from "./pages/JoinOrg";
 import OrgSettings from "./pages/OrgSettings";
 import ProjectDetail from "./pages/ProjectDetail";
 import AppDetail from "./pages/AppDetail";
+import CreateApp from "./pages/CreateApp";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -58,6 +59,16 @@ function App() {
             <ProtectedRoute>
               <Dashboard>
                 <ProjectDetail />
+              </Dashboard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orgs/:orgSlug/apps/new"
+          element={
+            <ProtectedRoute>
+              <Dashboard>
+                <CreateApp />
               </Dashboard>
             </ProtectedRoute>
           }

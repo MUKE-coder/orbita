@@ -68,10 +68,14 @@ func main() {
 	orgRepo := repository.NewOrgRepository(db)
 	projectRepo := repository.NewProjectRepository(db)
 	appRepo := repository.NewAppRepository(db)
+	gitRepo := repository.NewGitRepository(db)
 
 	// Initialize Docker client and orchestrator
 	dockerClient := docker.NewClient(cfg.DockerSocket)
 	orch := orchestrator.New(dockerClient)
+
+	// Encryption key for secrets
+	encryptionKey := []byte(cfg.EncryptionMasterKey)
 
 	// Initialize services
 	mail := mailer.New(cfg.ResendAPIKey, cfg.ResendFromEmail)
@@ -79,6 +83,7 @@ func main() {
 	orgService := service.NewOrgService(orgRepo, userRepo, mail, cfg)
 	projectService := service.NewProjectService(projectRepo)
 	appService := service.NewAppService(appRepo, orch)
+	gitService := service.NewGitService(gitRepo, encryptionKey)
 
 	// Prepare embedded static files
 	staticFS, err := fs.Sub(orbita.StaticFiles, "web/dist")
@@ -93,6 +98,7 @@ func main() {
 		OrgService:     orgService,
 		ProjectService: projectService,
 		AppService:     appService,
+		GitService:     gitService,
 		UserRepo:       userRepo,
 		OrgRepo:        orgRepo,
 		Redis:          rdb,

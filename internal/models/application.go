@@ -21,6 +21,8 @@ type Application struct {
 	DockerServiceID *string         `json:"docker_service_id"`
 	Replicas        int             `json:"replicas" gorm:"not null;default:1"`
 	Port            *int            `json:"port"`
+	AutoDeploy      bool            `json:"auto_deploy" gorm:"not null;default:false"`
+	WebhookSecret   *string         `json:"-"`
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt  `json:"-" gorm:"index"`

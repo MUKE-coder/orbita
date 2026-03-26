@@ -28,6 +28,7 @@ type RouterDeps struct {
 	OrgService     *service.OrgService
 	ProjectService *service.ProjectService
 	AppService     *service.AppService
+	GitService     *service.GitService
 	UserRepo       *repository.UserRepository
 	OrgRepo        *repository.OrgRepository
 	Redis          *redis.Client
@@ -67,6 +68,8 @@ func NewRouter(deps *RouterDeps) *Router {
 	orgHandler := handlers.NewOrgHandler(deps.OrgService)
 	projectHandler := handlers.NewProjectHandler(deps.ProjectService)
 	appHandler := handlers.NewAppHandler(deps.AppService)
+	gitHandler := handlers.NewGitHandler(deps.GitService)
+	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService)
 
 	// Middleware
@@ -164,6 +167,13 @@ func NewRouter(deps *RouterDeps) *Router {
 					adminAccess.DELETE("/invites/:id", orgHandler.RevokeInvite)
 					adminAccess.DELETE("/members/:userId", orgHandler.RemoveMember)
 					adminAccess.DELETE("/projects/:projectId", projectHandler.DeleteProject)
+
+					// Git connections (admin+)
+					adminAccess.GET("/git-connections", gitHandler.ListConnections)
+					adminAccess.POST("/git-connections", gitHandler.CreateConnection)
+					adminAccess.DELETE("/git-connections/:id", gitHandler.DeleteConnection)
+					adminAccess.GET("/git-connections/:id/repos", gitHandler.ListRepos)
+					adminAccess.GET("/git-connections/:id/repos/:owner/:repo/branches", gitHandler.ListBranches)
 				}
 
 				// Owner access
@@ -186,8 +196,13 @@ func NewRouter(deps *RouterDeps) *Router {
 			adminGroup.PUT("/orgs/:orgSlug/plan", adminHandler.AssignPlanToOrg)
 		}
 
-		// Placeholder for future phases
-		v1.Group("/webhooks")
+		// Webhook routes (public — verified by signature)
+		webhooks := v1.Group("/webhooks")
+		{
+			webhooks.POST("/github", webhookHandler.HandleGitHub)
+			webhooks.POST("/gitlab", webhookHandler.HandleGitLab)
+			webhooks.POST("/gitea", webhookHandler.HandleGitea)
+		}
 	}
 
 	// Serve React SPA for all non-API routes
