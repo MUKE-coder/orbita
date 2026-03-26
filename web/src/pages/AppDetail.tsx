@@ -38,6 +38,7 @@ import {
 import { appsApi } from "@/api/apps";
 import { useOrgStore } from "@/stores/org";
 import DomainList from "@/components/domains/DomainList";
+import EnvVarEditor from "@/components/env/EnvVarEditor";
 
 const statusColor: Record<string, string> = {
   running: "bg-green-500/10 text-green-500",
@@ -187,6 +188,7 @@ function AppDetail() {
           <TabsTrigger value="deployments">Deployments</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
+          <TabsTrigger value="env">Environment</TabsTrigger>
           <TabsTrigger value="domains">Domains</TabsTrigger>
         </TabsList>
 
@@ -295,6 +297,11 @@ function AppDetail() {
         </TabsContent>
 
         {/* Domains */}
+        {/* Environment Variables */}
+        <TabsContent value="env">
+          <EnvVarEditor orgSlug={slug} appId={appId!} />
+        </TabsContent>
+
         <TabsContent value="domains">
           <DomainList orgSlug={slug} appId={appId!} />
         </TabsContent>

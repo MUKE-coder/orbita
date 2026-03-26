@@ -98,6 +98,10 @@ func main() {
 	serviceRepo := repository.NewServiceRepository(db)
 	templateService := service.NewTemplateService(serviceRepo, dockerClient)
 
+	// Initialize env var service
+	envRepo := repository.NewEnvRepository(db)
+	envService := service.NewEnvService(envRepo, encryptionKey)
+
 	// Initialize node manager
 	nodeRepo := repository.NewNodeRepository(db)
 	nodeManager := orchestrator.NewNodeManager(nodeRepo)
@@ -130,6 +134,7 @@ func main() {
 		CronService:    cronService,
 		DomainService:   domainService,
 		TemplateService: templateService,
+		EnvService:      envService,
 		GitService:      gitService,
 		NodeManager:    nodeManager,
 		UserRepo:       userRepo,

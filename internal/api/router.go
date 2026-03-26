@@ -33,6 +33,7 @@ type RouterDeps struct {
 	CronService    *service.CronService
 	DomainService   *service.DomainService
 	TemplateService *service.TemplateService
+	EnvService      *service.EnvService
 	GitService      *service.GitService
 	NodeManager    *orchestrator.NodeManager
 	UserRepo       *repository.UserRepository
@@ -78,6 +79,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	cronHandler := handlers.NewCronHandler(deps.CronService)
 	domainHandler := handlers.NewDomainHandler(deps.DomainService)
 	serviceHandler := handlers.NewServiceHandler(deps.TemplateService)
+	envHandler := handlers.NewEnvHandler(deps.EnvService)
 	gitHandler := handlers.NewGitHandler(deps.GitService)
 	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService)
 	nodeHandler := handlers.NewNodeHandler(deps.NodeManager)
@@ -150,6 +152,7 @@ func NewRouter(deps *RouterDeps) *Router {
 					viewerAccess.GET("/apps/:appId/deployments", appHandler.ListDeployments)
 					viewerAccess.GET("/apps/:appId/status", appHandler.GetStatus)
 					viewerAccess.GET("/apps/:appId/logs", appHandler.GetLogs)
+					viewerAccess.GET("/apps/:appId/env", envHandler.ListAppEnvVars)
 					viewerAccess.GET("/apps/:appId/metrics", appHandler.GetMetrics)
 
 					// Databases (viewer+ can read)
@@ -192,6 +195,12 @@ func NewRouter(deps *RouterDeps) *Router {
 					devAccess.POST("/apps/:appId/stop", appHandler.Stop)
 					devAccess.POST("/apps/:appId/start", appHandler.Start)
 					devAccess.DELETE("/apps/:appId", appHandler.DeleteApp)
+
+					// Env vars (developer+ can manage)
+					devAccess.POST("/apps/:appId/env", envHandler.SetAppEnvVar)
+					devAccess.PUT("/apps/:appId/env/bulk", envHandler.BulkSetAppEnvVars)
+					devAccess.POST("/apps/:appId/env/import", envHandler.ImportDotenv)
+					devAccess.DELETE("/apps/:appId/env/:envId", envHandler.DeleteAppEnvVar)
 
 					// Domains (developer+ can manage)
 					devAccess.POST("/apps/:appId/domains", domainHandler.AddAppDomain)
