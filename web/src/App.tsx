@@ -23,6 +23,7 @@ import Marketplace from "./pages/Marketplace";
 import AdminNodes from "./pages/AdminNodes";
 import AuditLogs from "./pages/AuditLogs";
 import Projects from "./pages/Projects";
+import NotFound from "./pages/NotFound";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -189,6 +190,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster richColors position="top-right" />
     </>
