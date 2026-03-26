@@ -46,7 +46,7 @@ function Register() {
       const res = await authApi.register(data);
       setAccessToken(res.data.data.access_token);
       toast.success("Account created! Check your email to verify.");
-      navigate("/");
+      navigate("/dashboard");
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { error?: { message?: string } } } })

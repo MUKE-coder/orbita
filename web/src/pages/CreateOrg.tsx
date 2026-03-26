@@ -46,7 +46,7 @@ function CreateOrg() {
     try {
       await orgsApi.create(data);
       toast.success("Organization created");
-      navigate("/");
+      navigate("/dashboard");
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { error?: { message?: string } } } })

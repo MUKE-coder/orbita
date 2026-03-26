@@ -11,7 +11,7 @@ function NotFound() {
       <p className="text-muted-foreground mb-6">
         The page you're looking for doesn't exist.
       </p>
-      <Link to="/">
+      <Link to="/dashboard">
         <Button>Back to Dashboard</Button>
       </Link>
     </div>

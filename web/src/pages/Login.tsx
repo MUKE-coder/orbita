@@ -45,7 +45,7 @@ function Login() {
       const res = await authApi.login(data);
       setAccessToken(res.data.data.access_token);
       toast.success("Welcome back!");
-      navigate("/");
+      navigate("/dashboard");
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { error?: { message?: string } } } })

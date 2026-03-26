@@ -100,7 +100,7 @@ function JoinOrg() {
             <>
               <CheckCircle className="h-12 w-12 text-green-500" />
               <p>You have joined the organization!</p>
-              <Button onClick={() => navigate("/")}>Go to Dashboard</Button>
+              <Button onClick={() => navigate("/dashboard")}>Go to Dashboard</Button>
             </>
           )}
 
@@ -110,7 +110,7 @@ function JoinOrg() {
               <p className="text-muted-foreground">
                 This invitation is invalid or has expired.
               </p>
-              <Button variant="outline" onClick={() => navigate("/")}>
+              <Button variant="outline" onClick={() => navigate("/dashboard")}>
                 Go Home
               </Button>
             </>

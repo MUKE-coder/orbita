@@ -27,7 +27,7 @@ function OrgSettings({ children }: { children?: ReactNode }) {
       <aside className="w-64 border-r p-4 space-y-4">
         <div>
           <Link
-            to="/"
+            to="/dashboard"
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />

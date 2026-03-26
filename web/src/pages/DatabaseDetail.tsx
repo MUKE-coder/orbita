@@ -116,7 +116,7 @@ function DatabaseDetail() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link to="/" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
+          <Link to="/dashboard" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
           <span className="text-2xl">{engineIcons[mdb.engine] || "🗄️"}</span>
           <div>
             <h1 className="text-xl font-semibold">{mdb.name}</h1>

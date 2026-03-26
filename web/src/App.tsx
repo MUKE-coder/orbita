@@ -24,6 +24,8 @@ import AdminNodes from "./pages/AdminNodes";
 import AuditLogs from "./pages/AuditLogs";
 import Projects from "./pages/Projects";
 import NotFound from "./pages/NotFound";
+import Landing from "./pages/Landing";
+import Docs from "./pages/Docs";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -38,6 +40,8 @@ function App() {
     <>
       <Routes>
         {/* Public routes */}
+        <Route path="/" element={<Landing />} />
+        <Route path="/docs" element={<Docs />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -47,7 +51,7 @@ function App() {
 
         {/* Protected routes */}
         <Route
-          path="/"
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <Dashboard />
