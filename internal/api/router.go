@@ -40,6 +40,9 @@ type RouterDeps struct {
 	NodeManager    *orchestrator.NodeManager
 	UserRepo       *repository.UserRepository
 	OrgRepo        *repository.OrgRepository
+	AppRepo        *repository.AppRepository
+	DBRepo         *repository.DBRepository
+	CronRepo       *repository.CronRepository
 	Redis          *redis.Client
 	StaticFS       fs.FS
 }
@@ -87,6 +90,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService)
 	execHandler := handlers.NewExecHandler()
 	nodeHandler := handlers.NewNodeHandler(deps.NodeManager)
+	dashboardHandler := handlers.NewDashboardHandler(deps.AppRepo, deps.DBRepo, deps.CronRepo)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService)
 
 	// WebSocket terminal handler
@@ -190,6 +194,10 @@ func NewRouter(deps *RouterDeps) *Router {
 					viewerAccess.GET("/notification-settings", notifHandler.GetSettings)
 					viewerAccess.PUT("/notification-settings", notifHandler.UpdateSettings)
 					viewerAccess.GET("/audit-logs", notifHandler.ListAuditLogs)
+
+					// Dashboard (viewer+ can read)
+					viewerAccess.GET("/dashboard", dashboardHandler.GetDashboard)
+					viewerAccess.GET("/metrics/overview", dashboardHandler.GetMetricsOverview)
 				}
 
 				// Developer+ access

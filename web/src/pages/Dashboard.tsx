@@ -10,7 +10,7 @@ import NotificationBell from "@/components/layout/NotificationBell";
 import { useAuthStore } from "@/stores/auth";
 import { useOrgStore } from "@/stores/org";
 import { projectsApi } from "@/api/projects";
-import Projects from "./Projects";
+import DashboardOverview from "./DashboardOverview";
 
 function Dashboard({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
@@ -53,7 +53,7 @@ function Dashboard({ children }: { children?: ReactNode }) {
         <nav className="flex-1 overflow-y-auto p-2 space-y-1">
           {currentOrg && (
             <>
-              <Link to="/">
+              <Link to={`/orgs/${currentOrg.slug}/projects`}>
                 <Button variant="ghost" className="w-full justify-start" size="sm">
                   <FolderKanban className="mr-2 h-4 w-4" />
                   Projects
@@ -165,21 +165,7 @@ function Dashboard({ children }: { children?: ReactNode }) {
         </header>
 
         <main className="flex-1 p-8">
-        {children || (
-          currentOrg ? (
-            <Projects />
-          ) : (
-            <div className="flex flex-col items-center gap-4 py-12 text-center">
-              <h1 className="text-3xl font-bold">Welcome to Orbita</h1>
-              <p className="text-muted-foreground">
-                Create or select an organization to get started.
-              </p>
-              <Link to="/orgs/new">
-                <Button>Create your first organization</Button>
-              </Link>
-            </div>
-          )
-        )}
+        {children || <DashboardOverview />}
       </main>
       </div>
     </div>

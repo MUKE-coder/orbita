@@ -144,6 +144,9 @@ func main() {
 		NodeManager:    nodeManager,
 		UserRepo:       userRepo,
 		OrgRepo:        orgRepo,
+		AppRepo:        appRepo,
+		DBRepo:         dbRepo,
+		CronRepo:       cronRepo,
 		Redis:          rdb,
 		StaticFS:       staticFS,
 	})
