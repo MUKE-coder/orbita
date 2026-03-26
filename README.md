@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="https://via.placeholder.com/120x120/6366f1/ffffff?text=O" alt="Orbita Logo" width="120" height="120" />
+  <img src="images/orbita_banner.png" alt="Orbita Banner" width="100%" />
+</p>
+
+<p align="center">
+  <img src="images/orbita_logo.png" alt="Orbita Logo" width="120" height="120" />
   <h1 align="center">Orbita</h1>
   <p align="center">
     <strong>Self-Hosted PaaS with True Multi-Tenancy</strong>
