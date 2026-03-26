@@ -68,6 +68,7 @@ func main() {
 	orgRepo := repository.NewOrgRepository(db)
 	projectRepo := repository.NewProjectRepository(db)
 	appRepo := repository.NewAppRepository(db)
+	dbRepo := repository.NewDBRepository(db)
 	gitRepo := repository.NewGitRepository(db)
 
 	// Initialize Docker client and orchestrator
@@ -83,6 +84,7 @@ func main() {
 	orgService := service.NewOrgService(orgRepo, userRepo, mail, cfg)
 	projectService := service.NewProjectService(projectRepo)
 	appService := service.NewAppService(appRepo, orch)
+	dbService := service.NewDBService(dbRepo, orch, encryptionKey)
 	gitService := service.NewGitService(gitRepo, encryptionKey)
 
 	// Prepare embedded static files
@@ -98,6 +100,7 @@ func main() {
 		OrgService:     orgService,
 		ProjectService: projectService,
 		AppService:     appService,
+		DBService:      dbService,
 		GitService:     gitService,
 		UserRepo:       userRepo,
 		OrgRepo:        orgRepo,

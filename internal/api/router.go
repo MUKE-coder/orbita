@@ -28,6 +28,7 @@ type RouterDeps struct {
 	OrgService     *service.OrgService
 	ProjectService *service.ProjectService
 	AppService     *service.AppService
+	DBService      *service.DBService
 	GitService     *service.GitService
 	UserRepo       *repository.UserRepository
 	OrgRepo        *repository.OrgRepository
@@ -68,6 +69,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	orgHandler := handlers.NewOrgHandler(deps.OrgService)
 	projectHandler := handlers.NewProjectHandler(deps.ProjectService)
 	appHandler := handlers.NewAppHandler(deps.AppService)
+	dbHandler := handlers.NewDBHandler(deps.DBService)
 	gitHandler := handlers.NewGitHandler(deps.GitService)
 	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService)
@@ -136,6 +138,12 @@ func NewRouter(deps *RouterDeps) *Router {
 					viewerAccess.GET("/apps/:appId/status", appHandler.GetStatus)
 					viewerAccess.GET("/apps/:appId/logs", appHandler.GetLogs)
 					viewerAccess.GET("/apps/:appId/metrics", appHandler.GetMetrics)
+
+					// Databases (viewer+ can read)
+					viewerAccess.GET("/databases", dbHandler.ListDatabases)
+					viewerAccess.GET("/databases/:dbId", dbHandler.GetDatabase)
+					viewerAccess.GET("/databases/:dbId/backups", dbHandler.ListBackups)
+					viewerAccess.GET("/databases/:dbId/backup-schedule", dbHandler.GetBackupSchedule)
 				}
 
 				// Developer+ access
@@ -156,6 +164,16 @@ func NewRouter(deps *RouterDeps) *Router {
 					devAccess.POST("/apps/:appId/stop", appHandler.Stop)
 					devAccess.POST("/apps/:appId/start", appHandler.Start)
 					devAccess.DELETE("/apps/:appId", appHandler.DeleteApp)
+
+					// Databases (developer+ can manage)
+					devAccess.POST("/databases", dbHandler.CreateDatabase)
+					devAccess.DELETE("/databases/:dbId", dbHandler.DeleteDatabase)
+					devAccess.POST("/databases/:dbId/restart", dbHandler.RestartDatabase)
+					devAccess.POST("/databases/:dbId/stop", dbHandler.StopDatabase)
+					devAccess.POST("/databases/:dbId/start", dbHandler.StartDatabase)
+					devAccess.POST("/databases/:dbId/backups", dbHandler.CreateBackup)
+					devAccess.POST("/databases/:dbId/backups/:backupId/restore", dbHandler.RestoreBackup)
+					devAccess.PUT("/databases/:dbId/backup-schedule", dbHandler.SetBackupSchedule)
 				}
 
 				// Admin+ access

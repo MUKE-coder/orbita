@@ -15,6 +15,8 @@ import OrgSettings from "./pages/OrgSettings";
 import ProjectDetail from "./pages/ProjectDetail";
 import AppDetail from "./pages/AppDetail";
 import CreateApp from "./pages/CreateApp";
+import DatabaseDetail from "./pages/DatabaseDetail";
+import CreateDatabase from "./pages/CreateDatabase";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -79,6 +81,26 @@ function App() {
             <ProtectedRoute>
               <Dashboard>
                 <AppDetail />
+              </Dashboard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orgs/:orgSlug/databases/new"
+          element={
+            <ProtectedRoute>
+              <Dashboard>
+                <CreateDatabase />
+              </Dashboard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orgs/:orgSlug/databases/:dbId"
+          element={
+            <ProtectedRoute>
+              <Dashboard>
+                <DatabaseDetail />
               </Dashboard>
             </ProtectedRoute>
           }
