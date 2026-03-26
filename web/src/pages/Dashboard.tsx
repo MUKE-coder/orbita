@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Settings, Users, Rocket, FolderKanban, Plus } from "lucide-react";
+import { LogOut, Settings, Users, Rocket, FolderKanban, Plus, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -98,6 +98,13 @@ function Dashboard({ children }: { children?: ReactNode }) {
                 <Button variant="ghost" className="w-full justify-start" size="sm">
                   <Plus className="mr-2 h-4 w-4" />
                   New Cron Job
+                </Button>
+              </Link>
+
+              <Link to={`/orgs/${currentOrg.slug}/services`}>
+                <Button variant="ghost" className="w-full justify-start" size="sm">
+                  <Store className="mr-2 h-4 w-4" />
+                  Services
                 </Button>
               </Link>
 

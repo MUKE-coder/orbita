@@ -94,6 +94,10 @@ func main() {
 	traefikMgr := orbitaTraefik.NewManager(cfg.TraefikConfigDir)
 	domainService := service.NewDomainService(domainRepo, traefikMgr)
 
+	// Initialize template/service system
+	serviceRepo := repository.NewServiceRepository(db)
+	templateService := service.NewTemplateService(serviceRepo, dockerClient)
+
 	// Initialize cron system
 	cronRepo := repository.NewCronRepository(db)
 	cronExecutor := orbitaCron.NewExecutor(cronRepo)
@@ -120,8 +124,9 @@ func main() {
 		AppService:     appService,
 		DBService:      dbService,
 		CronService:    cronService,
-		DomainService:  domainService,
-		GitService:     gitService,
+		DomainService:   domainService,
+		TemplateService: templateService,
+		GitService:      gitService,
 		UserRepo:       userRepo,
 		OrgRepo:        orgRepo,
 		Redis:          rdb,

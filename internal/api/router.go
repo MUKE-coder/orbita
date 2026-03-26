@@ -30,8 +30,9 @@ type RouterDeps struct {
 	AppService     *service.AppService
 	DBService      *service.DBService
 	CronService    *service.CronService
-	DomainService  *service.DomainService
-	GitService     *service.GitService
+	DomainService   *service.DomainService
+	TemplateService *service.TemplateService
+	GitService      *service.GitService
 	UserRepo       *repository.UserRepository
 	OrgRepo        *repository.OrgRepository
 	Redis          *redis.Client
@@ -74,6 +75,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	dbHandler := handlers.NewDBHandler(deps.DBService)
 	cronHandler := handlers.NewCronHandler(deps.CronService)
 	domainHandler := handlers.NewDomainHandler(deps.DomainService)
+	serviceHandler := handlers.NewServiceHandler(deps.TemplateService)
 	gitHandler := handlers.NewGitHandler(deps.GitService)
 	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService)
@@ -109,6 +111,10 @@ func NewRouter(deps *RouterDeps) *Router {
 			meGroup.POST("/api-keys", meHandler.CreateAPIKey)
 			meGroup.DELETE("/api-keys/:id", meHandler.DeleteAPIKey)
 		}
+
+		// Templates (authenticated)
+		v1.GET("/templates", requireAuth, serviceHandler.ListTemplates)
+		v1.GET("/templates/:templateId", requireAuth, serviceHandler.GetTemplate)
 
 		// Join routes (invite acceptance)
 		v1.GET("/join", orgHandler.GetInviteInfo)
@@ -154,6 +160,10 @@ func NewRouter(deps *RouterDeps) *Router {
 					viewerAccess.GET("/apps/:appId/domains", domainHandler.ListAppDomains)
 					viewerAccess.GET("/domains/verify", domainHandler.VerifyDomain)
 
+					// Services (viewer+ can read)
+					viewerAccess.GET("/services", serviceHandler.ListServices)
+					viewerAccess.GET("/services/:serviceId", serviceHandler.GetService)
+
 					// Cron jobs (viewer+ can read)
 					viewerAccess.GET("/cron-jobs", cronHandler.ListCronJobs)
 					viewerAccess.GET("/cron-jobs/:cronId", cronHandler.GetCronJob)
@@ -183,6 +193,10 @@ func NewRouter(deps *RouterDeps) *Router {
 					// Domains (developer+ can manage)
 					devAccess.POST("/apps/:appId/domains", domainHandler.AddAppDomain)
 					devAccess.DELETE("/domains/:domainId", domainHandler.RemoveDomain)
+
+					// Services (developer+ can deploy/delete)
+					devAccess.POST("/services", serviceHandler.DeployService)
+					devAccess.DELETE("/services/:serviceId", serviceHandler.DeleteService)
 
 					// Cron jobs (developer+ can manage)
 					devAccess.POST("/cron-jobs", cronHandler.CreateCronJob)
