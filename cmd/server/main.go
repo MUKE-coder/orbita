@@ -17,7 +17,10 @@ import (
 	"github.com/orbita-sh/orbita/internal/api"
 	"github.com/orbita-sh/orbita/internal/config"
 	"github.com/orbita-sh/orbita/internal/database"
+	"github.com/orbita-sh/orbita/internal/mailer"
 	orbitaRedis "github.com/orbita-sh/orbita/internal/redis"
+	"github.com/orbita-sh/orbita/internal/repository"
+	"github.com/orbita-sh/orbita/internal/service"
 )
 
 func main() {
@@ -58,9 +61,12 @@ func main() {
 	}
 	log.Info().Msg("Connected to Redis")
 
-	// Suppress unused variable warnings — these will be used in later phases
-	_ = db
-	_ = rdb
+	// Initialize repositories
+	userRepo := repository.NewUserRepository(db)
+
+	// Initialize services
+	mail := mailer.New(cfg.ResendAPIKey, cfg.ResendFromEmail)
+	authService := service.NewAuthService(userRepo, mail, cfg)
 
 	// Prepare embedded static files
 	staticFS, err := fs.Sub(orbita.StaticFiles, "web/dist")
@@ -69,7 +75,13 @@ func main() {
 	}
 
 	// Setup router
-	router := api.NewRouter(cfg.CORSOrigins, cfg.IsProduction, staticFS)
+	router := api.NewRouter(&api.RouterDeps{
+		Config:      cfg,
+		AuthService: authService,
+		UserRepo:    userRepo,
+		Redis:       rdb,
+		StaticFS:    staticFS,
+	})
 
 	// Create HTTP server
 	srv := &http.Server{
