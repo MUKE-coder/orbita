@@ -29,6 +29,7 @@ type RouterDeps struct {
 	ProjectService *service.ProjectService
 	AppService     *service.AppService
 	DBService      *service.DBService
+	CronService    *service.CronService
 	GitService     *service.GitService
 	UserRepo       *repository.UserRepository
 	OrgRepo        *repository.OrgRepository
@@ -70,6 +71,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	projectHandler := handlers.NewProjectHandler(deps.ProjectService)
 	appHandler := handlers.NewAppHandler(deps.AppService)
 	dbHandler := handlers.NewDBHandler(deps.DBService)
+	cronHandler := handlers.NewCronHandler(deps.CronService)
 	gitHandler := handlers.NewGitHandler(deps.GitService)
 	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService)
@@ -144,6 +146,12 @@ func NewRouter(deps *RouterDeps) *Router {
 					viewerAccess.GET("/databases/:dbId", dbHandler.GetDatabase)
 					viewerAccess.GET("/databases/:dbId/backups", dbHandler.ListBackups)
 					viewerAccess.GET("/databases/:dbId/backup-schedule", dbHandler.GetBackupSchedule)
+
+					// Cron jobs (viewer+ can read)
+					viewerAccess.GET("/cron-jobs", cronHandler.ListCronJobs)
+					viewerAccess.GET("/cron-jobs/:cronId", cronHandler.GetCronJob)
+					viewerAccess.GET("/cron-jobs/:cronId/runs", cronHandler.ListRuns)
+					viewerAccess.GET("/cron-jobs/:cronId/runs/:runId/logs", cronHandler.GetRunLogs)
 				}
 
 				// Developer+ access
@@ -164,6 +172,13 @@ func NewRouter(deps *RouterDeps) *Router {
 					devAccess.POST("/apps/:appId/stop", appHandler.Stop)
 					devAccess.POST("/apps/:appId/start", appHandler.Start)
 					devAccess.DELETE("/apps/:appId", appHandler.DeleteApp)
+
+					// Cron jobs (developer+ can manage)
+					devAccess.POST("/cron-jobs", cronHandler.CreateCronJob)
+					devAccess.PUT("/cron-jobs/:cronId", cronHandler.UpdateCronJob)
+					devAccess.DELETE("/cron-jobs/:cronId", cronHandler.DeleteCronJob)
+					devAccess.POST("/cron-jobs/:cronId/toggle", cronHandler.ToggleCronJob)
+					devAccess.POST("/cron-jobs/:cronId/run", cronHandler.TriggerCronJob)
 
 					// Databases (developer+ can manage)
 					devAccess.POST("/databases", dbHandler.CreateDatabase)

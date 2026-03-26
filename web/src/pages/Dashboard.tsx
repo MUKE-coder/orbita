@@ -94,6 +94,12 @@ function Dashboard({ children }: { children?: ReactNode }) {
                   New Database
                 </Button>
               </Link>
+              <Link to={`/orgs/${currentOrg.slug}/cron-jobs/new`}>
+                <Button variant="ghost" className="w-full justify-start" size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Cron Job
+                </Button>
+              </Link>
 
               <Separator className="my-2" />
 

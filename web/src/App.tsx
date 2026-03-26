@@ -17,6 +17,8 @@ import AppDetail from "./pages/AppDetail";
 import CreateApp from "./pages/CreateApp";
 import DatabaseDetail from "./pages/DatabaseDetail";
 import CreateDatabase from "./pages/CreateDatabase";
+import CronDetail from "./pages/CronDetail";
+import CreateCron from "./pages/CreateCron";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -101,6 +103,26 @@ function App() {
             <ProtectedRoute>
               <Dashboard>
                 <DatabaseDetail />
+              </Dashboard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orgs/:orgSlug/cron-jobs/new"
+          element={
+            <ProtectedRoute>
+              <Dashboard>
+                <CreateCron />
+              </Dashboard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orgs/:orgSlug/cron-jobs/:cronId"
+          element={
+            <ProtectedRoute>
+              <Dashboard>
+                <CronDetail />
               </Dashboard>
             </ProtectedRoute>
           }

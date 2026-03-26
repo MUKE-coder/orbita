@@ -20,6 +20,7 @@ import (
 	"github.com/orbita-sh/orbita/internal/docker"
 	"github.com/orbita-sh/orbita/internal/mailer"
 	"github.com/orbita-sh/orbita/internal/orchestrator"
+	orbitaCron "github.com/orbita-sh/orbita/internal/cron"
 	orbitaRedis "github.com/orbita-sh/orbita/internal/redis"
 	"github.com/orbita-sh/orbita/internal/repository"
 	"github.com/orbita-sh/orbita/internal/service"
@@ -87,6 +88,17 @@ func main() {
 	dbService := service.NewDBService(dbRepo, orch, encryptionKey)
 	gitService := service.NewGitService(gitRepo, encryptionKey)
 
+	// Initialize cron system
+	cronRepo := repository.NewCronRepository(db)
+	cronExecutor := orbitaCron.NewExecutor(cronRepo)
+	cronScheduler := orbitaCron.NewScheduler(cronRepo, cronExecutor)
+	cronService := service.NewCronService(cronRepo, cronScheduler)
+
+	// Start cron scheduler
+	if err := cronScheduler.Start(ctx); err != nil {
+		log.Error().Err(err).Msg("Failed to start cron scheduler")
+	}
+
 	// Prepare embedded static files
 	staticFS, err := fs.Sub(orbita.StaticFiles, "web/dist")
 	if err != nil {
@@ -101,6 +113,7 @@ func main() {
 		ProjectService: projectService,
 		AppService:     appService,
 		DBService:      dbService,
+		CronService:    cronService,
 		GitService:     gitService,
 		UserRepo:       userRepo,
 		OrgRepo:        orgRepo,
@@ -138,6 +151,9 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Error().Err(err).Msg("Server forced to shutdown")
 	}
+
+	// Stop cron scheduler
+	cronScheduler.Stop()
 
 	// Close Redis
 	if err := rdb.Close(); err != nil {
