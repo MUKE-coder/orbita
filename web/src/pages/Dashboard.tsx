@@ -1,16 +1,28 @@
+import { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LogOut, Settings, Rocket } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { LogOut, Settings, Users, Rocket, FolderKanban } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import OrgSwitcher from "@/components/layout/OrgSwitcher";
 import { useAuthStore } from "@/stores/auth";
 import { useOrgStore } from "@/stores/org";
+import { projectsApi } from "@/api/projects";
+import Projects from "./Projects";
 
-function Dashboard() {
+function Dashboard({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
   const currentOrg = useOrgStore((s) => s.currentOrg);
+
+  const { data: projectsData } = useQuery({
+    queryKey: ["projects", currentOrg?.slug],
+    queryFn: () => projectsApi.list(currentOrg!.slug),
+    enabled: !!currentOrg,
+  });
+
+  const projects = projectsData?.data?.data || [];
 
   const handleLogout = () => {
     logout();
@@ -37,18 +49,49 @@ function Dashboard() {
 
         <Separator />
 
-        <nav className="flex-1 p-2 space-y-1">
+        <nav className="flex-1 overflow-y-auto p-2 space-y-1">
           {currentOrg && (
             <>
+              <Link to="/">
+                <Button variant="ghost" className="w-full justify-start" size="sm">
+                  <FolderKanban className="mr-2 h-4 w-4" />
+                  Projects
+                </Button>
+              </Link>
+
+              {/* Project list in sidebar */}
+              {projects.length > 0 && (
+                <div className="ml-4 space-y-0.5">
+                  {projects.map((p) => (
+                    <Link
+                      key={p.id}
+                      to={`/orgs/${currentOrg.slug}/projects/${p.id}`}
+                    >
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-xs h-7"
+                        size="sm"
+                      >
+                        <span className="mr-1.5">{p.emoji || "🚀"}</span>
+                        <span className="truncate">{p.name}</span>
+                      </Button>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              <Separator className="my-2" />
+
+              <Link to={`/orgs/${currentOrg.slug}/settings/members`}>
+                <Button variant="ghost" className="w-full justify-start" size="sm">
+                  <Users className="mr-2 h-4 w-4" />
+                  Members
+                </Button>
+              </Link>
               <Link to={`/orgs/${currentOrg.slug}/settings`}>
                 <Button variant="ghost" className="w-full justify-start" size="sm">
                   <Settings className="mr-2 h-4 w-4" />
                   Org Settings
-                </Button>
-              </Link>
-              <Link to={`/orgs/${currentOrg.slug}/settings/members`}>
-                <Button variant="ghost" className="w-full justify-start" size="sm">
-                  Members
                 </Button>
               </Link>
             </>
@@ -72,21 +115,20 @@ function Dashboard() {
 
       {/* Main content */}
       <main className="flex-1 p-8">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        {currentOrg ? (
-          <p className="mt-4 text-muted-foreground">
-            Organization: <strong>{currentOrg.name}</strong> — Dashboard content
-            will be built in Phase 14.
-          </p>
-        ) : (
-          <div className="mt-8 flex flex-col items-center gap-4 text-center">
-            <p className="text-muted-foreground">
-              You don't belong to any organization yet.
-            </p>
-            <Link to="/orgs/new">
-              <Button>Create your first organization</Button>
-            </Link>
-          </div>
+        {children || (
+          currentOrg ? (
+            <Projects />
+          ) : (
+            <div className="flex flex-col items-center gap-4 py-12 text-center">
+              <h1 className="text-3xl font-bold">Welcome to Orbita</h1>
+              <p className="text-muted-foreground">
+                Create or select an organization to get started.
+              </p>
+              <Link to="/orgs/new">
+                <Button>Create your first organization</Button>
+              </Link>
+            </div>
+          )
         )}
       </main>
     </div>

@@ -23,13 +23,14 @@ type Router struct {
 }
 
 type RouterDeps struct {
-	Config      *config.Config
-	AuthService *service.AuthService
-	OrgService  *service.OrgService
-	UserRepo    *repository.UserRepository
-	OrgRepo     *repository.OrgRepository
-	Redis       *redis.Client
-	StaticFS    fs.FS
+	Config         *config.Config
+	AuthService    *service.AuthService
+	OrgService     *service.OrgService
+	ProjectService *service.ProjectService
+	UserRepo       *repository.UserRepository
+	OrgRepo        *repository.OrgRepository
+	Redis          *redis.Client
+	StaticFS       fs.FS
 }
 
 func NewRouter(deps *RouterDeps) *Router {
@@ -63,6 +64,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	authHandler := handlers.NewAuthHandler(deps.AuthService)
 	meHandler := handlers.NewMeHandler(deps.AuthService)
 	orgHandler := handlers.NewOrgHandler(deps.OrgService)
+	projectHandler := handlers.NewProjectHandler(deps.ProjectService)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService)
 
 	// Middleware
@@ -116,6 +118,21 @@ func NewRouter(deps *RouterDeps) *Router {
 					viewerAccess.GET("", orgHandler.GetOrg)
 					viewerAccess.GET("/members", orgHandler.ListMembers)
 					viewerAccess.POST("/leave", orgHandler.LeaveOrg)
+
+					// Projects (viewer+ can read)
+					viewerAccess.GET("/projects", projectHandler.ListProjects)
+					viewerAccess.GET("/projects/:projectId", projectHandler.GetProject)
+					viewerAccess.GET("/projects/:projectId/environments", projectHandler.ListEnvironments)
+				}
+
+				// Developer+ access
+				devAccess := orgGroup.Group("", mw.RequireOrgMember(deps.OrgRepo, "developer"))
+				{
+					devAccess.POST("/projects", projectHandler.CreateProject)
+					devAccess.PUT("/projects/:projectId", projectHandler.UpdateProject)
+					devAccess.POST("/projects/:projectId/environments", projectHandler.CreateEnvironment)
+					devAccess.PUT("/projects/:projectId/environments/:envId", projectHandler.UpdateEnvironment)
+					devAccess.DELETE("/projects/:projectId/environments/:envId", projectHandler.DeleteEnvironment)
 				}
 
 				// Admin+ access
@@ -126,6 +143,7 @@ func NewRouter(deps *RouterDeps) *Router {
 					adminAccess.GET("/invites", orgHandler.ListInvites)
 					adminAccess.DELETE("/invites/:id", orgHandler.RevokeInvite)
 					adminAccess.DELETE("/members/:userId", orgHandler.RemoveMember)
+					adminAccess.DELETE("/projects/:projectId", projectHandler.DeleteProject)
 				}
 
 				// Owner access

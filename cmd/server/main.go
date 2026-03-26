@@ -64,11 +64,13 @@ func main() {
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
 	orgRepo := repository.NewOrgRepository(db)
+	projectRepo := repository.NewProjectRepository(db)
 
 	// Initialize services
 	mail := mailer.New(cfg.ResendAPIKey, cfg.ResendFromEmail)
 	authService := service.NewAuthService(userRepo, mail, cfg)
 	orgService := service.NewOrgService(orgRepo, userRepo, mail, cfg)
+	projectService := service.NewProjectService(projectRepo)
 
 	// Prepare embedded static files
 	staticFS, err := fs.Sub(orbita.StaticFiles, "web/dist")
@@ -78,13 +80,14 @@ func main() {
 
 	// Setup router
 	router := api.NewRouter(&api.RouterDeps{
-		Config:      cfg,
-		AuthService: authService,
-		OrgService:  orgService,
-		UserRepo:    userRepo,
-		OrgRepo:     orgRepo,
-		Redis:       rdb,
-		StaticFS:    staticFS,
+		Config:         cfg,
+		AuthService:    authService,
+		OrgService:     orgService,
+		ProjectService: projectService,
+		UserRepo:       userRepo,
+		OrgRepo:        orgRepo,
+		Redis:          rdb,
+		StaticFS:       staticFS,
 	})
 
 	// Create HTTP server

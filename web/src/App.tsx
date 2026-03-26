@@ -12,6 +12,7 @@ import CreateOrg from "./pages/CreateOrg";
 import OrgMembers from "./pages/OrgMembers";
 import JoinOrg from "./pages/JoinOrg";
 import OrgSettings from "./pages/OrgSettings";
+import ProjectDetail from "./pages/ProjectDetail";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -47,6 +48,16 @@ function App() {
           element={
             <ProtectedRoute>
               <CreateOrg />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orgs/:orgSlug/projects/:projectId"
+          element={
+            <ProtectedRoute>
+              <Dashboard>
+                <ProjectDetail />
+              </Dashboard>
             </ProtectedRoute>
           }
         />
