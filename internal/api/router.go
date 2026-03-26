@@ -27,6 +27,7 @@ type RouterDeps struct {
 	AuthService    *service.AuthService
 	OrgService     *service.OrgService
 	ProjectService *service.ProjectService
+	AppService     *service.AppService
 	UserRepo       *repository.UserRepository
 	OrgRepo        *repository.OrgRepository
 	Redis          *redis.Client
@@ -65,6 +66,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	meHandler := handlers.NewMeHandler(deps.AuthService)
 	orgHandler := handlers.NewOrgHandler(deps.OrgService)
 	projectHandler := handlers.NewProjectHandler(deps.ProjectService)
+	appHandler := handlers.NewAppHandler(deps.AppService)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService)
 
 	// Middleware
@@ -123,6 +125,14 @@ func NewRouter(deps *RouterDeps) *Router {
 					viewerAccess.GET("/projects", projectHandler.ListProjects)
 					viewerAccess.GET("/projects/:projectId", projectHandler.GetProject)
 					viewerAccess.GET("/projects/:projectId/environments", projectHandler.ListEnvironments)
+
+					// Apps (viewer+ can read)
+					viewerAccess.GET("/apps", appHandler.ListApps)
+					viewerAccess.GET("/apps/:appId", appHandler.GetApp)
+					viewerAccess.GET("/apps/:appId/deployments", appHandler.ListDeployments)
+					viewerAccess.GET("/apps/:appId/status", appHandler.GetStatus)
+					viewerAccess.GET("/apps/:appId/logs", appHandler.GetLogs)
+					viewerAccess.GET("/apps/:appId/metrics", appHandler.GetMetrics)
 				}
 
 				// Developer+ access
@@ -133,6 +143,16 @@ func NewRouter(deps *RouterDeps) *Router {
 					devAccess.POST("/projects/:projectId/environments", projectHandler.CreateEnvironment)
 					devAccess.PUT("/projects/:projectId/environments/:envId", projectHandler.UpdateEnvironment)
 					devAccess.DELETE("/projects/:projectId/environments/:envId", projectHandler.DeleteEnvironment)
+
+					// Apps (developer+ can create/deploy/manage)
+					devAccess.POST("/apps", appHandler.CreateApp)
+					devAccess.PUT("/apps/:appId", appHandler.UpdateApp)
+					devAccess.POST("/apps/:appId/deploy", appHandler.Deploy)
+					devAccess.POST("/apps/:appId/rollback/:deploymentId", appHandler.Rollback)
+					devAccess.POST("/apps/:appId/restart", appHandler.Restart)
+					devAccess.POST("/apps/:appId/stop", appHandler.Stop)
+					devAccess.POST("/apps/:appId/start", appHandler.Start)
+					devAccess.DELETE("/apps/:appId", appHandler.DeleteApp)
 				}
 
 				// Admin+ access

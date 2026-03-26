@@ -17,7 +17,9 @@ import (
 	"github.com/orbita-sh/orbita/internal/api"
 	"github.com/orbita-sh/orbita/internal/config"
 	"github.com/orbita-sh/orbita/internal/database"
+	"github.com/orbita-sh/orbita/internal/docker"
 	"github.com/orbita-sh/orbita/internal/mailer"
+	"github.com/orbita-sh/orbita/internal/orchestrator"
 	orbitaRedis "github.com/orbita-sh/orbita/internal/redis"
 	"github.com/orbita-sh/orbita/internal/repository"
 	"github.com/orbita-sh/orbita/internal/service"
@@ -65,12 +67,18 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	orgRepo := repository.NewOrgRepository(db)
 	projectRepo := repository.NewProjectRepository(db)
+	appRepo := repository.NewAppRepository(db)
+
+	// Initialize Docker client and orchestrator
+	dockerClient := docker.NewClient(cfg.DockerSocket)
+	orch := orchestrator.New(dockerClient)
 
 	// Initialize services
 	mail := mailer.New(cfg.ResendAPIKey, cfg.ResendFromEmail)
 	authService := service.NewAuthService(userRepo, mail, cfg)
 	orgService := service.NewOrgService(orgRepo, userRepo, mail, cfg)
 	projectService := service.NewProjectService(projectRepo)
+	appService := service.NewAppService(appRepo, orch)
 
 	// Prepare embedded static files
 	staticFS, err := fs.Sub(orbita.StaticFiles, "web/dist")
@@ -84,6 +92,7 @@ func main() {
 		AuthService:    authService,
 		OrgService:     orgService,
 		ProjectService: projectService,
+		AppService:     appService,
 		UserRepo:       userRepo,
 		OrgRepo:        orgRepo,
 		Redis:          rdb,
