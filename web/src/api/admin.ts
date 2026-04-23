@@ -55,6 +55,22 @@ export const adminApi = {
   getPlatformMetrics: () =>
     apiClient.get<{ data: { total_nodes: number; online_nodes: number } }>("/admin/platform/metrics"),
 
+  getPlatformCapacity: () =>
+    apiClient.get<{
+      data: {
+        host: { cpu_cores: number; ram_mb: number; disk_gb: number };
+        allocated: { cpu_cores: number; ram_mb: number; disk_gb: number };
+        available: { cpu_cores: number; ram_mb: number; disk_gb: number };
+        orgs: Array<{
+          slug: string;
+          name: string;
+          cpu_cores: number;
+          ram_mb: number;
+          disk_gb: number;
+        }>;
+      };
+    }>("/admin/platform/capacity"),
+
   // Plans
   listPlans: () => apiClient.get<{ data: ResourcePlan[] }>("/admin/plans"),
 

@@ -320,6 +320,35 @@ func (c *Client) InspectService(ctx context.Context, serviceID string) (*Service
 	}, nil
 }
 
+// HostInfo summarizes the resources available on the Docker host.
+type HostInfo struct {
+	CPUCount   int    `json:"cpu_count"`    // logical CPUs
+	MemoryMB   int    `json:"memory_mb"`    // total RAM in MB
+	OSName     string `json:"os_name"`      // "linux" etc
+	Kernel     string `json:"kernel"`       // kernel version
+	ServerVer  string `json:"server_ver"`   // Docker daemon version
+	DataRoot   string `json:"data_root"`    // host path of /var/lib/docker
+}
+
+// HostInfo queries the Docker daemon for host capacity.
+func (c *Client) HostInfo(ctx context.Context) (*HostInfo, error) {
+	if c.cli == nil {
+		return nil, fmt.Errorf("HostInfo: client not initialized")
+	}
+	info, err := c.cli.Info(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("HostInfo: %w", err)
+	}
+	return &HostInfo{
+		CPUCount:  info.NCPU,
+		MemoryMB:  int(info.MemTotal / (1024 * 1024)),
+		OSName:    info.OperatingSystem,
+		Kernel:    info.KernelVersion,
+		ServerVer: info.ServerVersion,
+		DataRoot:  info.DockerRootDir,
+	}, nil
+}
+
 // GetContainerStats fetches a one-shot stats snapshot for a container.
 // Returns cpu_percent (0-100 across all CPUs), memory_usage, memory_limit,
 // network_rx, network_tx in bytes.

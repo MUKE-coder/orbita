@@ -149,6 +149,7 @@ func main() {
 		NotificationService:  notifService,
 		GitService:           gitService,
 		NodeManager:    nodeManager,
+		DockerClient:   dockerClient,
 		UserRepo:       userRepo,
 		OrgRepo:        orgRepo,
 		AppRepo:        appRepo,

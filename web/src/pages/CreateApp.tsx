@@ -16,6 +16,9 @@ import {
   ArrowRight,
   Info,
   ArrowLeft,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,6 +35,7 @@ import {
 import { appsApi } from "@/api/apps";
 import { projectsApi } from "@/api/projects";
 import { gitApi } from "@/api/git";
+import { envVarsApi } from "@/api/envvars";
 import { useOrgStore } from "@/stores/org";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +74,7 @@ export default function CreateApp() {
 
   const [source, setSource] = useState<"docker-image" | "git">("docker-image");
   const [selectedProject, setSelectedProject] = useState<string>("");
+  const [envText, setEnvText] = useState<string>("");
 
   const { data: projectsData } = useQuery({
     queryKey: ["projects", slug],
@@ -82,8 +87,22 @@ export default function CreateApp() {
   const environments = selectedProjectData?.environments || [];
 
   const createMutation = useMutation({
-    mutationFn: (data: Parameters<typeof appsApi.create>[1]) =>
-      appsApi.create(slug, data),
+    mutationFn: async (data: Parameters<typeof appsApi.create>[1]) => {
+      const res = await appsApi.create(slug, data);
+      const appId = res.data.data.id;
+
+      // Import env vars if provided — non-fatal if it fails.
+      const trimmed = envText.trim();
+      if (trimmed) {
+        try {
+          await envVarsApi.importDotenv(slug, appId, trimmed);
+        } catch (e) {
+          toast.error("App created but env vars failed to save. Add them from the app page.");
+          console.error("importDotenv failed", e);
+        }
+      }
+      return res;
+    },
     onSuccess: (res) => {
       toast.success("App created. Click Deploy to launch it.");
       navigate(`/orgs/${slug}/apps/${res.data.data.id}`);
@@ -177,6 +196,9 @@ export default function CreateApp() {
           </div>
         </div>
       </Section>
+
+      {/* Environment variables (shared between docker + git) */}
+      <EnvVarsSection value={envText} onChange={setEnvText} />
 
       {/* Source-specific forms */}
       {source === "docker-image" ? (
@@ -664,6 +686,91 @@ function RuntimeSection({
       </div>
       {errors.replicas && <Err msg={errors.replicas.message} />}
     </Section>
+  );
+}
+
+function EnvVarsSection({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [hidden, setHidden] = useState(false);
+  const lineCount = value.split("\n").filter((l) => l.trim() && !l.trim().startsWith("#")).length;
+
+  // Mask values to the right of '=' when `hidden` is true (rough preview, not sent to server)
+  const display = hidden
+    ? value
+        .split("\n")
+        .map((line) => {
+          if (!line.trim() || line.trim().startsWith("#")) return line;
+          const eq = line.indexOf("=");
+          if (eq < 0) return line;
+          return line.slice(0, eq + 1) + "•".repeat(Math.min(line.length - eq - 1, 12));
+        })
+        .join("\n")
+    : value;
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+      <header className="flex items-center justify-between border-b border-border bg-muted/30 px-5 py-3">
+        <div className="flex items-center gap-2">
+          <KeyRound className="h-4 w-4 text-brand" />
+          <h2 className="font-heading text-sm font-semibold tracking-tight">
+            Environment variables
+          </h2>
+          {lineCount > 0 && (
+            <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[10px] font-medium text-brand">
+              {lineCount}
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setHidden((h) => !h)}
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          {hidden ? (
+            <>
+              <Eye className="h-3 w-3" />
+              Show values
+            </>
+          ) : (
+            <>
+              <EyeOff className="h-3 w-3" />
+              Hide values
+            </>
+          )}
+        </button>
+      </header>
+      <div className="space-y-3 px-5 py-4">
+        <div className="relative">
+          <textarea
+            value={hidden ? display : value}
+            readOnly={hidden}
+            onChange={(e) => onChange(e.target.value)}
+            spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="off"
+            placeholder={`# Paste a .env-style list — one per line
+DATABASE_URL=postgres://user:pass@host/db
+JWT_SECRET=supersecret123
+PORT=3000
+NODE_ENV=production`}
+            className="block min-h-[180px] w-full resize-y rounded-lg border border-input bg-background/50 p-3 font-mono text-[13px] leading-relaxed outline-none transition-colors placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/40"
+          />
+        </div>
+        <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
+          <span>
+            Encrypted per-org (AES-256) before storage. Lines starting with{" "}
+            <code>#</code> are comments. You can edit these later from the app's
+            Env Variables tab.
+          </span>
+        </div>
+      </div>
+    </section>
   );
 }
 

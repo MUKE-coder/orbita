@@ -7,17 +7,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/orbita-sh/orbita/internal/docker"
 	"github.com/orbita-sh/orbita/internal/models"
 	"github.com/orbita-sh/orbita/internal/response"
 	"github.com/orbita-sh/orbita/internal/service"
 )
 
 type AdminHandler struct {
-	orgService *service.OrgService
+	orgService   *service.OrgService
+	dockerClient *docker.Client
 }
 
-func NewAdminHandler(orgService *service.OrgService) *AdminHandler {
-	return &AdminHandler{orgService: orgService}
+func NewAdminHandler(orgService *service.OrgService, dockerClient *docker.Client) *AdminHandler {
+	return &AdminHandler{orgService: orgService, dockerClient: dockerClient}
 }
 
 type CreatePlanRequest struct {
@@ -187,4 +189,90 @@ func (h *AdminHandler) AssignPlanToOrg(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, gin.H{"message": "Plan assigned"})
+}
+
+// ---------- Host capacity ----------
+
+// Capacity is the host's resource capacity + what's currently allocated across
+// all orgs, so super admin can make informed sizing decisions.
+type Capacity struct {
+	Host      ResourcePool `json:"host"`
+	Allocated ResourcePool `json:"allocated"`
+	Available ResourcePool `json:"available"`
+	Orgs      []OrgAlloc   `json:"orgs"`
+}
+
+type ResourcePool struct {
+	CPUCores int `json:"cpu_cores"`
+	RAMMB    int `json:"ram_mb"`
+	DiskGB   int `json:"disk_gb"`
+}
+
+type OrgAlloc struct {
+	Slug     string `json:"slug"`
+	Name     string `json:"name"`
+	CPUCores int    `json:"cpu_cores"`
+	RAMMB    int    `json:"ram_mb"`
+	DiskGB   int    `json:"disk_gb"`
+}
+
+// GetPlatformCapacity reports the host's total capacity (via Docker info +
+// statfs on /) and the aggregate quotas allocated to existing orgs.
+func (h *AdminHandler) GetPlatformCapacity(c *gin.Context) {
+	var host ResourcePool
+	info, err := h.dockerClient.HostInfo(c.Request.Context())
+	if err == nil && info != nil {
+		host.CPUCores = info.CPUCount
+		host.RAMMB = info.MemoryMB
+	}
+
+	// Disk — platform-specific syscall. statfs on the root filesystem is the
+	// closest we can get from inside a container. Implemented in
+	// admin_handler_linux.go; other platforms return 0.
+	host.DiskGB = diskGBRoot()
+
+	// Sum allocations across all orgs
+	orgs, err := h.orgService.ListAllOrgs(c.Request.Context())
+	if err != nil {
+		response.InternalError(c, "Failed to list organizations")
+		return
+	}
+
+	var allocated ResourcePool
+	allocList := make([]OrgAlloc, 0, len(orgs))
+	for _, o := range orgs {
+		cpu := o.EffectiveCPUCores()
+		ram := o.EffectiveRAMMB()
+		disk := o.EffectiveDiskGB()
+		allocated.CPUCores += cpu
+		allocated.RAMMB += ram
+		allocated.DiskGB += disk
+		allocList = append(allocList, OrgAlloc{
+			Slug:     o.Slug,
+			Name:     o.Name,
+			CPUCores: cpu,
+			RAMMB:    ram,
+			DiskGB:   disk,
+		})
+	}
+
+	available := ResourcePool{
+		CPUCores: max(host.CPUCores-allocated.CPUCores, 0),
+		RAMMB:    max(host.RAMMB-allocated.RAMMB, 0),
+		DiskGB:   max(host.DiskGB-allocated.DiskGB, 0),
+	}
+
+	response.Success(c, http.StatusOK, Capacity{
+		Host:      host,
+		Allocated: allocated,
+		Available: available,
+		Orgs:      allocList,
+	})
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

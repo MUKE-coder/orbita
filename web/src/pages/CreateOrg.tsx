@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +16,8 @@ import {
   CreditCard,
   Gift,
   Info,
+  Server,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { orgsApi, type CreateOrgInput } from "@/api/orgs";
+import { adminApi } from "@/api/admin";
 import { cn } from "@/lib/utils";
 
 // ---------- schema ----------
@@ -62,6 +66,14 @@ function CreateOrg() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
+  // Host capacity — fetched for super admin only; silently falls back if 403
+  const { data: capacityRes } = useQuery({
+    queryKey: ["platform-capacity"],
+    queryFn: () => adminApi.getPlatformCapacity(),
+    retry: false,
+  });
+  const capacity = capacityRes?.data?.data;
+
   const {
     register,
     handleSubmit,
@@ -84,6 +96,17 @@ function CreateOrg() {
   });
 
   const billingType = useWatch({ control, name: "billing_type" });
+  const watchedCPU = useWatch({ control, name: "custom_cpu_cores" });
+  const watchedRAM = useWatch({ control, name: "custom_ram_mb" });
+  const watchedDisk = useWatch({ control, name: "custom_disk_gb" });
+
+  const overAllocation = capacity
+    ? {
+        cpu: (watchedCPU ?? 0) > capacity.available.cpu_cores,
+        ram: (watchedRAM ?? 0) > capacity.available.ram_mb,
+        disk: (watchedDisk ?? 0) > capacity.available.disk_gb,
+      }
+    : null;
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const slug = e.target.value
@@ -211,6 +234,9 @@ function CreateOrg() {
             </div>
           </Section>
 
+          {/* --- Host capacity summary --- */}
+          {capacity && <CapacityPanel capacity={capacity} />}
+
           {/* --- Resource quota --- */}
           <Section
             title="Resource quota"
@@ -269,14 +295,20 @@ function CreateOrg() {
               />
             </div>
 
-            <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
-              <span>
-                Today these limits are stored and displayed, but cgroup enforcement
-                on the host is still being rolled out. Apps deploy without hard
-                caps until cgroup v2 slicing lands.
-              </span>
-            </div>
+            {overAllocation && (overAllocation.cpu || overAllocation.ram || overAllocation.disk) && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-xs text-destructive">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <div>
+                  <div className="font-medium">Over-allocating host capacity</div>
+                  <div className="mt-0.5 text-[11px] opacity-90">
+                    {overAllocation.cpu && "CPU "}
+                    {overAllocation.ram && "RAM "}
+                    {overAllocation.disk && "Disk "}
+                    exceed what's available. Other orgs may experience contention.
+                  </div>
+                </div>
+              </div>
+            )}
           </Section>
 
           {/* --- Billing --- */}
@@ -449,6 +481,138 @@ function BillingOption({
         <div className="mt-0.5 text-xs text-muted-foreground">{desc}</div>
       </div>
     </button>
+  );
+}
+
+function CapacityPanel({
+  capacity,
+}: {
+  capacity: {
+    host: { cpu_cores: number; ram_mb: number; disk_gb: number };
+    allocated: { cpu_cores: number; ram_mb: number; disk_gb: number };
+    available: { cpu_cores: number; ram_mb: number; disk_gb: number };
+    orgs: Array<{ slug: string; name: string; cpu_cores: number; ram_mb: number; disk_gb: number }>;
+  };
+}) {
+  const { host, allocated, available, orgs } = capacity;
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+      <header className="flex items-center gap-2 border-b border-border bg-muted/30 px-6 py-4">
+        <Server className="h-4 w-4 text-brand" />
+        <h2 className="font-heading text-[15px] font-semibold tracking-tight">
+          Host capacity
+        </h2>
+        <span className="ml-auto text-[11px] text-muted-foreground">
+          {orgs.length} org{orgs.length === 1 ? "" : "s"} already allocated
+        </span>
+      </header>
+
+      <div className="grid grid-cols-3 divide-x divide-border">
+        <CapacityColumn
+          icon={Cpu}
+          label="CPU"
+          unit="cores"
+          total={host.cpu_cores}
+          allocated={allocated.cpu_cores}
+          available={available.cpu_cores}
+        />
+        <CapacityColumn
+          icon={MemoryStick}
+          label="RAM"
+          unit="MB"
+          total={host.ram_mb}
+          allocated={allocated.ram_mb}
+          available={available.ram_mb}
+        />
+        <CapacityColumn
+          icon={HardDrive}
+          label="Disk"
+          unit="GB"
+          total={host.disk_gb}
+          allocated={allocated.disk_gb}
+          available={available.disk_gb}
+        />
+      </div>
+
+      {orgs.length > 0 && (
+        <div className="border-t border-border">
+          <div className="px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Existing organizations
+          </div>
+          <div className="divide-y divide-border">
+            {orgs.map((o) => (
+              <div
+                key={o.slug}
+                className="grid grid-cols-4 items-center gap-3 px-6 py-2.5 text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand/10 text-[10px] font-semibold text-brand">
+                    {o.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="truncate font-medium">{o.name}</span>
+                </div>
+                <div className="text-right text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{o.cpu_cores}</span> cores
+                </div>
+                <div className="text-right text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{o.ram_mb.toLocaleString()}</span> MB
+                </div>
+                <div className="text-right text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{o.disk_gb}</span> GB
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CapacityColumn({
+  icon: Icon,
+  label,
+  unit,
+  total,
+  allocated,
+  available,
+}: {
+  icon: typeof Cpu;
+  label: string;
+  unit: string;
+  total: number;
+  allocated: number;
+  available: number;
+}) {
+  const pct = total > 0 ? Math.round((allocated / total) * 100) : 0;
+  const barColor =
+    pct > 90 ? "bg-destructive" : pct > 75 ? "bg-warning" : "bg-brand";
+
+  return (
+    <div className="p-5">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <Icon className="h-3 w-3" />
+        {label}
+      </div>
+      <div className="mt-2.5 flex items-baseline gap-1.5">
+        <span className="font-heading text-xl font-semibold tracking-tight">
+          {available.toLocaleString()}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          / {total.toLocaleString()} {unit} free
+        </span>
+      </div>
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn("h-full rounded-full transition-all", barColor)}
+          style={{ width: `${Math.min(100, pct)}%` }}
+        />
+      </div>
+      <div className="mt-1.5 text-[10px] text-muted-foreground">
+        {allocated.toLocaleString()} {unit} allocated ({pct}%)
+      </div>
+    </div>
   );
 }
 

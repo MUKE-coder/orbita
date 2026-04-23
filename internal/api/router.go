@@ -16,6 +16,7 @@ import (
 
 	"github.com/orbita-sh/orbita/internal/api/handlers"
 	"github.com/orbita-sh/orbita/internal/config"
+	"github.com/orbita-sh/orbita/internal/docker"
 	mw "github.com/orbita-sh/orbita/internal/middleware"
 	"github.com/orbita-sh/orbita/internal/orchestrator"
 	"github.com/orbita-sh/orbita/internal/repository"
@@ -41,6 +42,7 @@ type RouterDeps struct {
 	NotificationService  *service.NotificationService
 	GitService           *service.GitService
 	NodeManager    *orchestrator.NodeManager
+	DockerClient   *docker.Client
 	UserRepo       *repository.UserRepository
 	OrgRepo        *repository.OrgRepository
 	AppRepo        *repository.AppRepository
@@ -94,7 +96,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	execHandler := handlers.NewExecHandler()
 	nodeHandler := handlers.NewNodeHandler(deps.NodeManager)
 	dashboardHandler := handlers.NewDashboardHandler(deps.AppRepo, deps.DBRepo, deps.CronRepo)
-	adminHandler := handlers.NewAdminHandler(deps.OrgService)
+	adminHandler := handlers.NewAdminHandler(deps.OrgService, deps.DockerClient)
 
 	// WebSocket terminal handler
 	terminalHandler := ws.NewTerminalHandler(deps.Config.JWTSecret)
@@ -294,6 +296,7 @@ func NewRouter(deps *RouterDeps) *Router {
 			adminGroup.GET("/orgs", adminHandler.ListAllOrgs)
 			adminGroup.PUT("/orgs/:orgSlug/plan", adminHandler.AssignPlanToOrg)
 			adminGroup.PUT("/orgs/:orgSlug/resources", orgHandler.UpdateOrgResources)
+			adminGroup.GET("/platform/capacity", adminHandler.GetPlatformCapacity)
 
 			// Nodes (super admin)
 			adminGroup.GET("/nodes", nodeHandler.ListNodes)

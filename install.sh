@@ -68,7 +68,16 @@ confirm() {
   fi
   local prompt="$1"
   local reply
-  read -rp "  $prompt [y/N]: " reply
+  # When piped (curl | sudo bash), stdin is the pipe — read from the controlling
+  # terminal directly so prompts still work.
+  if [ -t 0 ]; then
+    read -rp "  $prompt [y/N]: " reply
+  elif [ -r /dev/tty ]; then
+    read -rp "  $prompt [y/N]: " reply < /dev/tty
+  else
+    echo -e "${RED}  No terminal available to confirm '$prompt'. Re-run with ORBITA_AUTO_CLEAN=yes or --yes.${NC}"
+    return 1
+  fi
   [[ "$reply" =~ ^[Yy]$ ]]
 }
 
@@ -331,12 +340,24 @@ fi
 echo -e "${GREEN}[5/7]${NC} Creating configuration..."
 
 # Prompt for domain (allow non-interactive via env)
+read_with_tty() {
+  local __var="$1"; shift
+  local __prompt="$*"
+  local __val=""
+  if [ -t 0 ]; then
+    read -rp "  $__prompt" __val
+  elif [ -r /dev/tty ]; then
+    read -rp "  $__prompt" __val < /dev/tty
+  fi
+  printf -v "$__var" '%s' "$__val"
+}
+
 if [ -n "${ORBITA_DOMAIN:-}" ]; then
   DOMAIN="$ORBITA_DOMAIN"
 elif [ -n "$DOMAIN_EXISTING" ]; then
   DOMAIN="$DOMAIN_EXISTING"
 else
-  read -rp "  Enter your domain (e.g., orbita.example.com) [localhost]: " DOMAIN
+  read_with_tty DOMAIN "Enter your domain (e.g., orbita.example.com) [localhost]: "
   DOMAIN=${DOMAIN:-localhost}
 fi
 
@@ -345,7 +366,7 @@ if [ -n "${ORBITA_ACME_EMAIL:-}" ]; then
 elif [ -n "$ACME_EMAIL_EXISTING" ]; then
   ACME_EMAIL="$ACME_EMAIL_EXISTING"
 else
-  read -rp "  Enter email for Let's Encrypt SSL (e.g., admin@example.com) [admin@$DOMAIN]: " ACME_EMAIL
+  read_with_tty ACME_EMAIL "Enter email for Let's Encrypt SSL [admin@$DOMAIN]: "
   ACME_EMAIL=${ACME_EMAIL:-admin@$DOMAIN}
 fi
 
