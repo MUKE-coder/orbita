@@ -21,11 +21,13 @@ import CronDetail from "./pages/CronDetail";
 import CreateCron from "./pages/CreateCron";
 import Marketplace from "./pages/Marketplace";
 import AdminNodes from "./pages/AdminNodes";
+import AdminOrgs from "./pages/AdminOrgs";
 import AuditLogs from "./pages/AuditLogs";
 import Projects from "./pages/Projects";
 import NotFound from "./pages/NotFound";
 import Landing from "./pages/Landing";
 import Docs from "./pages/Docs";
+import GitConnections from "./pages/GitConnections";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -167,11 +169,31 @@ function App() {
           }
         />
         <Route
+          path="/orgs/:orgSlug/git"
+          element={
+            <ProtectedRoute>
+              <Dashboard>
+                <GitConnections />
+              </Dashboard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/nodes"
           element={
             <ProtectedRoute>
               <Dashboard>
                 <AdminNodes />
+              </Dashboard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/orgs"
+          element={
+            <ProtectedRoute>
+              <Dashboard>
+                <AdminOrgs />
               </Dashboard>
             </ProtectedRoute>
           }

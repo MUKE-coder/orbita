@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
@@ -7,16 +7,35 @@ import {
   Users,
   Settings,
   Server,
+  Building2,
   ScrollText,
   Rocket,
   Database,
   Clock,
+  GitBranch,
+  PanelLeftClose,
+  PanelLeftOpen,
+  LogOut,
+  KeyRound,
+  User,
+  ChevronsUpDown,
+  FileCog,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import OrgSwitcher from "@/components/layout/OrgSwitcher";
 import Logo from "@/components/layout/Logo";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useOrgStore } from "@/stores/org";
+import { useAuthStore } from "@/stores/auth";
+import { useUIStore } from "@/stores/ui";
 import { projectsApi } from "@/api/projects";
 import { cn } from "@/lib/utils";
 
@@ -26,17 +45,20 @@ interface NavItemProps {
   label: string;
   exact?: boolean;
   badge?: string | number;
+  collapsed?: boolean;
 }
 
-function NavItem({ to, icon: Icon, label, exact, badge }: NavItemProps) {
+function NavItem({ to, icon: Icon, label, exact, badge, collapsed }: NavItemProps) {
   const { pathname } = useLocation();
   const active = exact ? pathname === to : pathname.startsWith(to);
 
   return (
     <Link
       to={to}
+      title={collapsed ? label : undefined}
       className={cn(
         "group flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors",
+        collapsed && "justify-center px-2",
         active
           ? "bg-sidebar-accent text-sidebar-accent-foreground"
           : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
@@ -44,21 +66,34 @@ function NavItem({ to, icon: Icon, label, exact, badge }: NavItemProps) {
     >
       <Icon
         className={cn(
-          "h-4 w-4 flex-shrink-0 transition-colors",
+          "h-4 w-4 shrink-0 transition-colors",
           active ? "text-brand" : "text-muted-foreground group-hover:text-foreground"
         )}
       />
-      <span className="truncate">{label}</span>
-      {badge !== undefined && (
-        <span className="ml-auto rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-          {badge}
-        </span>
+      {!collapsed && (
+        <>
+          <span className="truncate">{label}</span>
+          {badge !== undefined && (
+            <span className="ml-auto rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {badge}
+            </span>
+          )}
+        </>
       )}
     </Link>
   );
 }
 
-function SectionLabel({ children }: { children: string }) {
+function SectionLabel({
+  children,
+  collapsed,
+}: {
+  children: string;
+  collapsed: boolean;
+}) {
+  if (collapsed) {
+    return <div className="my-2 mx-auto h-px w-5 bg-sidebar-border" />;
+  }
   return (
     <div className="px-2.5 pb-1.5 pt-4 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
       {children}
@@ -68,6 +103,8 @@ function SectionLabel({ children }: { children: string }) {
 
 export function Sidebar() {
   const currentOrg = useOrgStore((s) => s.currentOrg);
+  const collapsed = useUIStore((s) => s.sidebarCollapsed);
+  const toggle = useUIStore((s) => s.toggleSidebar);
 
   const { data: projectsData } = useQuery({
     queryKey: ["projects", currentOrg?.slug],
@@ -78,66 +115,112 @@ export function Sidebar() {
   const projects = projectsData?.data?.data || [];
 
   return (
-    <aside className="flex w-64 flex-col border-r border-sidebar-border bg-sidebar">
-      {/* Brand header */}
-      <div className="flex h-14 items-center border-b border-sidebar-border px-4">
-        <Logo size="md" />
-        <span className="ml-auto rounded-md bg-brand/10 px-1.5 py-0.5 text-[10px] font-medium text-brand">
-          v0.1.0
-        </span>
+    <aside
+      className={cn(
+        "flex flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
+        collapsed ? "w-16" : "w-64"
+      )}
+    >
+      {/* Brand header + collapse toggle */}
+      <div
+        className={cn(
+          "flex h-14 items-center border-b border-sidebar-border",
+          collapsed ? "justify-center px-2" : "px-3"
+        )}
+      >
+        {collapsed ? (
+          <button
+            onClick={toggle}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            aria-label="Expand sidebar"
+            title="Expand sidebar"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
+        ) : (
+          <>
+            <Logo size="md" />
+            <div className="ml-auto flex items-center gap-1">
+              <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[10px] font-medium text-brand">
+                v0.1.0
+              </span>
+              <button
+                onClick={toggle}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Org switcher */}
-      <div className="p-3">
-        <OrgSwitcher />
-      </div>
+      {/* Org switcher (hidden when collapsed) */}
+      {!collapsed && (
+        <div className="p-3">
+          <OrgSwitcher />
+        </div>
+      )}
 
       {/* Primary nav */}
-      <nav className="flex-1 overflow-y-auto px-3 pb-4">
+      <nav
+        className={cn(
+          "flex-1 overflow-y-auto pb-4",
+          collapsed ? "px-2 pt-3" : "px-3"
+        )}
+      >
         {currentOrg && (
           <>
             <div className="space-y-0.5">
               <NavItem
-                to={`/orgs/${currentOrg.slug}/projects`}
+                to={`/dashboard`}
                 icon={LayoutDashboard}
                 label="Overview"
                 exact
+                collapsed={collapsed}
               />
               <NavItem
                 to={`/orgs/${currentOrg.slug}/projects`}
                 icon={FolderKanban}
                 label="Projects"
-                badge={projects.length || undefined}
+                badge={collapsed ? undefined : projects.length || undefined}
+                collapsed={collapsed}
               />
               <NavItem
                 to={`/orgs/${currentOrg.slug}/services`}
                 icon={Store}
                 label="Marketplace"
+                collapsed={collapsed}
               />
             </div>
 
-            <SectionLabel>Create</SectionLabel>
+            <SectionLabel collapsed={collapsed}>Create</SectionLabel>
             <div className="space-y-0.5">
               <NavItem
                 to={`/orgs/${currentOrg.slug}/apps/new`}
                 icon={Rocket}
                 label="New App"
+                collapsed={collapsed}
               />
               <NavItem
                 to={`/orgs/${currentOrg.slug}/databases/new`}
                 icon={Database}
                 label="New Database"
+                collapsed={collapsed}
               />
               <NavItem
                 to={`/orgs/${currentOrg.slug}/cron-jobs/new`}
                 icon={Clock}
                 label="New Cron Job"
+                collapsed={collapsed}
               />
             </div>
 
-            {projects.length > 0 && (
+            {!collapsed && projects.length > 0 && (
               <>
-                <SectionLabel>Projects</SectionLabel>
+                <SectionLabel collapsed={collapsed}>Projects</SectionLabel>
                 <div className="space-y-0.5">
                   {projects.slice(0, 8).map((p) => (
                     <Link
@@ -153,33 +236,120 @@ export function Sidebar() {
               </>
             )}
 
-            <SectionLabel>Organization</SectionLabel>
+            <SectionLabel collapsed={collapsed}>Organization</SectionLabel>
             <div className="space-y-0.5">
+              <NavItem
+                to={`/orgs/${currentOrg.slug}/git`}
+                icon={GitBranch}
+                label="Git connections"
+                collapsed={collapsed}
+              />
               <NavItem
                 to={`/orgs/${currentOrg.slug}/settings/members`}
                 icon={Users}
                 label="Members"
+                collapsed={collapsed}
               />
               <NavItem
                 to={`/orgs/${currentOrg.slug}/settings`}
                 icon={Settings}
                 label="Settings"
+                collapsed={collapsed}
               />
               <NavItem
                 to={`/orgs/${currentOrg.slug}/audit-logs`}
                 icon={ScrollText}
                 label="Audit log"
+                collapsed={collapsed}
               />
             </div>
 
-            <SectionLabel>Admin</SectionLabel>
+            <SectionLabel collapsed={collapsed}>Admin</SectionLabel>
             <div className="space-y-0.5">
-              <NavItem to="/admin/nodes" icon={Server} label="Nodes" />
+              <NavItem
+                to="/admin/orgs"
+                icon={Building2}
+                label="Organizations"
+                collapsed={collapsed}
+              />
+              <NavItem
+                to="/admin/nodes"
+                icon={Server}
+                label="Nodes"
+                collapsed={collapsed}
+              />
             </div>
           </>
         )}
       </nav>
+
+      {/* Account menu at bottom */}
+      <div className="border-t border-sidebar-border p-3">
+        <AccountMenu collapsed={collapsed} />
+      </div>
     </aside>
+  );
+}
+
+function AccountMenu({ collapsed }: { collapsed: boolean }) {
+  const navigate = useNavigate();
+  const logout = useAuthStore((s) => s.logout);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className={cn(
+          "group flex w-full items-center gap-2.5 rounded-lg border border-transparent px-2 py-2 text-left text-sm text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/30",
+          collapsed && "justify-center px-0"
+        )}
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-brand/70 to-brand text-xs font-semibold text-brand-foreground">
+          <User className="h-3.5 w-3.5" />
+        </div>
+        {!collapsed && (
+          <>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-[13px] font-medium">Account</span>
+              <span className="truncate text-[11px] text-muted-foreground">
+                Your profile
+              </span>
+            </div>
+            <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          </>
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align={collapsed ? "end" : "start"}
+        side={collapsed ? "right" : "top"}
+        className="w-56"
+      >
+        <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Account
+        </DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => navigate("/profile")}>
+          <User className="mr-2 h-4 w-4" />
+          Profile
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/api-keys")}>
+          <KeyRound className="mr-2 h-4 w-4" />
+          API keys
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/sessions")}>
+          <FileCog className="mr-2 h-4 w-4" />
+          Sessions
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

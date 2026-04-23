@@ -9,6 +9,19 @@ export interface Organization {
   plan: ResourcePlan | null;
   created_by: string;
   created_at: string;
+
+  // Per-org resource overrides (null = inherit from plan)
+  custom_cpu_cores: number | null;
+  custom_ram_mb: number | null;
+  custom_disk_gb: number | null;
+  custom_max_apps: number | null;
+  custom_max_databases: number | null;
+
+  // Billing
+  billing_type: "free" | "paid";
+  price_monthly_cents: number | null;
+  currency: string;
+  billing_cycle: "monthly" | "yearly" | "one_time";
 }
 
 export interface OrgMember {
@@ -44,10 +57,39 @@ export interface ResourcePlan {
   max_databases: number;
 }
 
+export interface CreateOrgInput {
+  name: string;
+  slug: string;
+  description?: string;
+  // Resources (omit to inherit Free plan defaults)
+  custom_cpu_cores?: number;
+  custom_ram_mb?: number;
+  custom_disk_gb?: number;
+  custom_max_apps?: number;
+  custom_max_databases?: number;
+  // Billing
+  billing_type?: "free" | "paid";
+  price_monthly_cents?: number;
+  currency?: string;
+  billing_cycle?: "monthly" | "yearly" | "one_time";
+}
+
+export interface UpdateOrgResourcesInput {
+  custom_cpu_cores?: number;
+  custom_ram_mb?: number;
+  custom_disk_gb?: number;
+  custom_max_apps?: number;
+  custom_max_databases?: number;
+  billing_type?: "free" | "paid";
+  price_monthly_cents?: number;
+  currency?: string;
+  billing_cycle?: "monthly" | "yearly" | "one_time";
+}
+
 export const orgsApi = {
   list: () => apiClient.get<{ data: Organization[] }>("/orgs"),
 
-  create: (data: { name: string; slug: string }) =>
+  create: (data: CreateOrgInput) =>
     apiClient.post<{ data: Organization }>("/orgs", data),
 
   get: (slug: string) =>
@@ -57,6 +99,10 @@ export const orgsApi = {
 
   update: (slug: string, data: { name?: string; description?: string }) =>
     apiClient.put<{ data: Organization }>(`/orgs/${slug}`, data),
+
+  // Super-admin only — resource + billing overrides
+  updateResources: (slug: string, data: UpdateOrgResourcesInput) =>
+    apiClient.put<{ data: Organization }>(`/admin/orgs/${slug}/resources`, data),
 
   delete: (slug: string) => apiClient.delete(`/orgs/${slug}`),
 

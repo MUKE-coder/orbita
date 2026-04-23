@@ -30,15 +30,60 @@ var (
 	ErrInviteExpired    = errors.New("invite expired or already used")
 	ErrSelfRoleChange   = errors.New("cannot change your own role")
 	ErrPlanNotFound     = errors.New("plan not found")
+	ErrInvalidBilling   = errors.New("paid billing requires price_monthly_cents > 0")
 )
 
+// CreateOrgInput carries optional per-org resource overrides and billing config
+// supplied at creation. Any nil resource field falls back to the Free plan default.
+type CreateOrgInput struct {
+	OwnerID     uuid.UUID
+	Name        string
+	Slug        string
+	Description *string
+
+	// Resource overrides (nil = inherit from plan)
+	CustomCPUCores     *int
+	CustomRAMMB        *int
+	CustomDiskGB       *int
+	CustomMaxApps      *int
+	CustomMaxDatabases *int
+
+	// Billing (empty = free/USD/monthly defaults)
+	BillingType       string // "free" | "paid"
+	PriceMonthlyCents *int
+	Currency          string // ISO 4217
+	BillingCycle      string // "monthly" | "yearly" | "one_time"
+}
+
+// UpdateOrgResourcesInput carries fields a super admin can change after creation.
+type UpdateOrgResourcesInput struct {
+	CustomCPUCores     *int
+	CustomRAMMB        *int
+	CustomDiskGB       *int
+	CustomMaxApps      *int
+	CustomMaxDatabases *int
+	BillingType        *string
+	PriceMonthlyCents  *int
+	Currency           *string
+	BillingCycle       *string
+}
+
 var slugRegex = regexp.MustCompile(`[^a-z0-9-]`)
+
+// CgroupEnforcer is the subset of orchestrator.CgroupManager that OrgService
+// needs. Injected as an interface to avoid a service→orchestrator dependency.
+type CgroupEnforcer interface {
+	EnsureOrgSlice(orgSlug string, cpuCores, ramMB int) error
+	UpdateOrgSlice(orgSlug string, cpuCores, ramMB int) error
+	RemoveOrgSlice(orgSlug string) error
+}
 
 type OrgService struct {
 	orgRepo  *repository.OrgRepository
 	userRepo *repository.UserRepository
 	mailer   *mailer.Mailer
 	cfg      *config.Config
+	cgroup   CgroupEnforcer
 }
 
 func NewOrgService(orgRepo *repository.OrgRepository, userRepo *repository.UserRepository, mailer *mailer.Mailer, cfg *config.Config) *OrgService {
@@ -50,16 +95,42 @@ func NewOrgService(orgRepo *repository.OrgRepository, userRepo *repository.UserR
 	}
 }
 
-func (s *OrgService) CreateOrganization(ctx context.Context, ownerID uuid.UUID, name, slug string) (*models.Organization, error) {
-	slug = sanitizeSlug(slug)
+// SetCgroupEnforcer wires a cgroup manager for per-org resource enforcement.
+// Optional — if never called, cgroup operations are skipped silently.
+func (s *OrgService) SetCgroupEnforcer(c CgroupEnforcer) {
+	s.cgroup = c
+}
 
-	// Check slug uniqueness
+func (s *OrgService) CreateOrganization(ctx context.Context, in CreateOrgInput) (*models.Organization, error) {
+	slug := sanitizeSlug(in.Slug)
+
+	// Validate billing config
+	billingType := in.BillingType
+	if billingType == "" {
+		billingType = "free"
+	}
+	if billingType != "free" && billingType != "paid" {
+		return nil, fmt.Errorf("invalid billing_type %q", billingType)
+	}
+	if billingType == "paid" && (in.PriceMonthlyCents == nil || *in.PriceMonthlyCents <= 0) {
+		return nil, ErrInvalidBilling
+	}
+	currency := in.Currency
+	if currency == "" {
+		currency = "USD"
+	}
+	cycle := in.BillingCycle
+	if cycle == "" {
+		cycle = "monthly"
+	}
+
+	// Slug uniqueness
 	existing, err := s.orgRepo.FindOrgBySlug(ctx, slug)
 	if err == nil && existing != nil {
 		return nil, ErrOrgSlugTaken
 	}
 
-	// Assign default plan (Free)
+	// Assign default Free plan as a baseline template (custom_* fields override per-field)
 	plans, _ := s.orgRepo.ListPlans(ctx)
 	var planID *uuid.UUID
 	for _, p := range plans {
@@ -71,21 +142,31 @@ func (s *OrgService) CreateOrganization(ctx context.Context, ownerID uuid.UUID, 
 	}
 
 	org := &models.Organization{
-		ID:        uuid.New(),
-		Name:      name,
-		Slug:      slug,
-		PlanID:    planID,
-		CreatedBy: ownerID,
+		ID:                 uuid.New(),
+		Name:               in.Name,
+		Slug:               slug,
+		Description:        in.Description,
+		PlanID:             planID,
+		CreatedBy:          in.OwnerID,
+		CustomCPUCores:     in.CustomCPUCores,
+		CustomRAMMB:        in.CustomRAMMB,
+		CustomDiskGB:       in.CustomDiskGB,
+		CustomMaxApps:      in.CustomMaxApps,
+		CustomMaxDatabases: in.CustomMaxDatabases,
+		BillingType:        billingType,
+		PriceMonthlyCents:  in.PriceMonthlyCents,
+		Currency:           currency,
+		BillingCycle:       cycle,
 	}
 
 	if err := s.orgRepo.CreateOrg(ctx, org); err != nil {
 		return nil, fmt.Errorf("CreateOrganization: %w", err)
 	}
 
-	// Add owner as member
+	// Owner membership
 	member := &models.OrgMember{
 		OrgID:    org.ID,
-		UserID:   ownerID,
+		UserID:   in.OwnerID,
 		Role:     models.RoleOwner,
 		JoinedAt: time.Now(),
 	}
@@ -93,14 +174,78 @@ func (s *OrgService) CreateOrganization(ctx context.Context, ownerID uuid.UUID, 
 		return nil, fmt.Errorf("CreateOrganization: add owner: %w", err)
 	}
 
-	// Create Docker network
+	// Docker network — non-fatal
 	if err := docker.CreateOrgNetwork(slug); err != nil {
-		// Non-fatal, log and continue
 		fmt.Printf("Warning: failed to create Docker network for org %s: %v\n", slug, err)
+	}
+
+	// cgroup slice — non-fatal (skipped when enforcement disabled)
+	if s.cgroup != nil {
+		if err := s.cgroup.EnsureOrgSlice(slug, org.EffectiveCPUCores(), org.EffectiveRAMMB()); err != nil {
+			fmt.Printf("Warning: cgroup slice setup failed for org %s: %v\n", slug, err)
+		}
 	}
 
 	// Reload with plan
 	org, _ = s.orgRepo.FindOrgBySlug(ctx, slug)
+
+	return org, nil
+}
+
+// UpdateOrgResources lets a super admin edit resource overrides + billing config
+// for an existing organization.
+func (s *OrgService) UpdateOrgResources(ctx context.Context, slug string, in UpdateOrgResourcesInput) (*models.Organization, error) {
+	org, err := s.orgRepo.FindOrgBySlug(ctx, slug)
+	if err != nil {
+		return nil, ErrOrgNotFound
+	}
+
+	if in.CustomCPUCores != nil {
+		org.CustomCPUCores = in.CustomCPUCores
+	}
+	if in.CustomRAMMB != nil {
+		org.CustomRAMMB = in.CustomRAMMB
+	}
+	if in.CustomDiskGB != nil {
+		org.CustomDiskGB = in.CustomDiskGB
+	}
+	if in.CustomMaxApps != nil {
+		org.CustomMaxApps = in.CustomMaxApps
+	}
+	if in.CustomMaxDatabases != nil {
+		org.CustomMaxDatabases = in.CustomMaxDatabases
+	}
+	if in.BillingType != nil {
+		if *in.BillingType != "free" && *in.BillingType != "paid" {
+			return nil, fmt.Errorf("invalid billing_type %q", *in.BillingType)
+		}
+		org.BillingType = *in.BillingType
+	}
+	if in.PriceMonthlyCents != nil {
+		org.PriceMonthlyCents = in.PriceMonthlyCents
+	}
+	if in.Currency != nil {
+		org.Currency = *in.Currency
+	}
+	if in.BillingCycle != nil {
+		org.BillingCycle = *in.BillingCycle
+	}
+
+	// Final cross-check: paid must have price
+	if org.BillingType == "paid" && (org.PriceMonthlyCents == nil || *org.PriceMonthlyCents <= 0) {
+		return nil, ErrInvalidBilling
+	}
+
+	if err := s.orgRepo.UpdateOrg(ctx, org); err != nil {
+		return nil, fmt.Errorf("UpdateOrgResources: %w", err)
+	}
+
+	// Push new limits to the kernel — non-fatal
+	if s.cgroup != nil {
+		if err := s.cgroup.UpdateOrgSlice(slug, org.EffectiveCPUCores(), org.EffectiveRAMMB()); err != nil {
+			fmt.Printf("Warning: cgroup slice update failed for org %s: %v\n", slug, err)
+		}
+	}
 
 	return org, nil
 }
@@ -147,6 +292,11 @@ func (s *OrgService) DeleteOrganization(ctx context.Context, slug string) error 
 
 	// Clean up Docker network
 	_ = docker.DeleteOrgNetwork(slug)
+
+	// Remove cgroup slice
+	if s.cgroup != nil {
+		_ = s.cgroup.RemoveOrgSlice(slug)
+	}
 
 	return nil
 }

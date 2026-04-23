@@ -24,10 +24,26 @@ func NewAppHandler(appService *service.AppService) *AppHandler {
 type CreateAppRequest struct {
 	Name          string `json:"name" binding:"required,min=2"`
 	EnvironmentID string `json:"environment_id" binding:"required"`
-	SourceType    string `json:"source_type" binding:"required,oneof=docker-image"`
-	Image         string `json:"image" binding:"required"`
-	Port          *int   `json:"port"`
-	Replicas      int    `json:"replicas"`
+	SourceType    string `json:"source_type" binding:"required,oneof=docker-image git"`
+
+	// docker-image source
+	Image string `json:"image"`
+
+	// git source
+	GitConnectionID string `json:"git_connection_id"`
+	RepoFullName    string `json:"repo_full_name"` // "owner/repo"
+	RepoURL         string `json:"repo_url"`       // https clone URL (optional; derived from full_name if empty)
+	Branch          string `json:"branch"`
+	DockerfilePath  string `json:"dockerfile_path"` // default "Dockerfile"
+	BuildContext    string `json:"build_context"`   // subdirectory (optional, e.g. "backend")
+
+	// runtime
+	Port     *int `json:"port"`
+	Replicas int  `json:"replicas"`
+
+	// Resource limits per container
+	MemoryMB  int `json:"memory_mb"`  // 0 = unlimited
+	CPUShares int `json:"cpu_shares"` // 0 = unlimited. 1000 = 1 core equivalent
 }
 
 type UpdateAppRequest struct {
@@ -62,16 +78,53 @@ func (h *AppHandler) CreateApp(c *gin.Context) {
 		return
 	}
 
-	app, err := h.appService.CreateApp(c.Request.Context(), orgID, service.CreateAppInput{
+	input := service.CreateAppInput{
 		Name:          req.Name,
 		EnvironmentID: envID,
 		SourceType:    req.SourceType,
 		Image:         req.Image,
 		Port:          req.Port,
 		Replicas:      req.Replicas,
-	})
+		MemoryMB:      req.MemoryMB,
+		CPUShares:     req.CPUShares,
+		RepoFullName:  req.RepoFullName,
+		RepoURL:       req.RepoURL,
+		Branch:        req.Branch,
+		DockerfilePath: req.DockerfilePath,
+		BuildContext:  req.BuildContext,
+	}
+	if req.GitConnectionID != "" {
+		connID, err := uuid.Parse(req.GitConnectionID)
+		if err != nil {
+			response.BadRequest(c, "Invalid git_connection_id")
+			return
+		}
+		input.GitConnectionID = &connID
+	}
+
+	// Cross-field validation
+	if req.SourceType == "docker-image" && req.Image == "" {
+		response.BadRequest(c, "image is required for docker-image source")
+		return
+	}
+	if req.SourceType == "git" {
+		if input.GitConnectionID == nil {
+			response.BadRequest(c, "git_connection_id is required for git source")
+			return
+		}
+		if req.RepoFullName == "" {
+			response.BadRequest(c, "repo_full_name is required for git source")
+			return
+		}
+		if req.Branch == "" {
+			response.BadRequest(c, "branch is required for git source")
+			return
+		}
+	}
+
+	app, err := h.appService.CreateApp(c.Request.Context(), orgID, input)
 	if err != nil {
-		response.InternalError(c, "Failed to create app")
+		response.InternalError(c, "Failed to create app: "+err.Error())
 		return
 	}
 

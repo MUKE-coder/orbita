@@ -16,9 +16,16 @@ services:
       - TRAEFIK_CONFIG_DIR=/etc/orbita/traefik
       - DOCKER_SOCKET=/var/run/docker.sock
       - IS_PRODUCTION=true
+      - CGROUP_ROOT=/sys/fs/cgroup
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - traefik_dynamic:/etc/orbita/traefik
+      # cgroup v2 mount for per-org resource enforcement.
+      # Orbita writes memory.max / cpu.max under /sys/fs/cgroup/orbita.slice/.
+      # Requires cgroup v2 on the host (default on Ubuntu 22.04+). If this mount
+      # isn't writable, Orbita falls back to per-container Docker limits without
+      # failing deploys.
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     depends_on:
       postgres:
         condition: service_healthy

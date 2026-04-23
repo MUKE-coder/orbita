@@ -1,4 +1,5 @@
 import apiClient from "./client";
+import type { Organization } from "./orgs";
 
 export interface Node {
   id: string;
@@ -66,7 +67,7 @@ export const adminApi = {
   deletePlan: (id: string) => apiClient.delete(`/admin/plans/${id}`),
 
   // Orgs
-  listAllOrgs: () => apiClient.get<{ data: unknown[] }>("/admin/orgs"),
+  listAllOrgs: () => apiClient.get<{ data: Organization[] }>("/admin/orgs"),
 
   assignPlan: (orgSlug: string, planId: string) =>
     apiClient.put(`/admin/orgs/${orgSlug}/plan`, { plan_id: planId }),

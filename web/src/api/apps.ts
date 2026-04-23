@@ -37,10 +37,21 @@ export const appsApi = {
     data: {
       name: string;
       environment_id: string;
-      source_type: string;
-      image: string;
+      source_type: "docker-image" | "git";
+      // docker-image source
+      image?: string;
+      // git source
+      git_connection_id?: string;
+      repo_full_name?: string;
+      repo_url?: string;
+      branch?: string;
+      dockerfile_path?: string;
+      build_context?: string;
+      // runtime
       port?: number;
       replicas?: number;
+      memory_mb?: number;
+      cpu_shares?: number;
     }
   ) => apiClient.post<{ data: Application }>(`/orgs/${orgSlug}/apps`, data),
 

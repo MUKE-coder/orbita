@@ -22,13 +22,39 @@ func NewOrgHandler(orgService *service.OrgService) *OrgHandler {
 }
 
 type CreateOrgRequest struct {
-	Name string `json:"name" binding:"required,min=2"`
-	Slug string `json:"slug" binding:"required,min=2"`
+	Name        string  `json:"name" binding:"required,min=2"`
+	Slug        string  `json:"slug" binding:"required,min=2"`
+	Description *string `json:"description"`
+
+	// Optional per-org resource overrides
+	CustomCPUCores     *int `json:"custom_cpu_cores" binding:"omitempty,min=1,max=256"`
+	CustomRAMMB        *int `json:"custom_ram_mb" binding:"omitempty,min=128"`
+	CustomDiskGB       *int `json:"custom_disk_gb" binding:"omitempty,min=1"`
+	CustomMaxApps      *int `json:"custom_max_apps" binding:"omitempty,min=1,max=1000"`
+	CustomMaxDatabases *int `json:"custom_max_databases" binding:"omitempty,min=0,max=500"`
+
+	// Billing
+	BillingType       string `json:"billing_type" binding:"omitempty,oneof=free paid"`
+	PriceMonthlyCents *int   `json:"price_monthly_cents" binding:"omitempty,min=0"`
+	Currency          string `json:"currency" binding:"omitempty,len=3"`
+	BillingCycle      string `json:"billing_cycle" binding:"omitempty,oneof=monthly yearly one_time"`
 }
 
 type UpdateOrgRequest struct {
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
+}
+
+type UpdateOrgResourcesRequest struct {
+	CustomCPUCores     *int    `json:"custom_cpu_cores" binding:"omitempty,min=1,max=256"`
+	CustomRAMMB        *int    `json:"custom_ram_mb" binding:"omitempty,min=128"`
+	CustomDiskGB       *int    `json:"custom_disk_gb" binding:"omitempty,min=1"`
+	CustomMaxApps      *int    `json:"custom_max_apps" binding:"omitempty,min=1,max=1000"`
+	CustomMaxDatabases *int    `json:"custom_max_databases" binding:"omitempty,min=0,max=500"`
+	BillingType        *string `json:"billing_type" binding:"omitempty,oneof=free paid"`
+	PriceMonthlyCents  *int    `json:"price_monthly_cents" binding:"omitempty,min=0"`
+	Currency           *string `json:"currency" binding:"omitempty,len=3"`
+	BillingCycle       *string `json:"billing_cycle" binding:"omitempty,oneof=monthly yearly one_time"`
 }
 
 type InviteMemberRequest struct {
@@ -61,10 +87,28 @@ func (h *OrgHandler) CreateOrg(c *gin.Context) {
 		return
 	}
 
-	org, err := h.orgService.CreateOrganization(c.Request.Context(), userID, req.Name, req.Slug)
+	org, err := h.orgService.CreateOrganization(c.Request.Context(), service.CreateOrgInput{
+		OwnerID:            userID,
+		Name:               req.Name,
+		Slug:               req.Slug,
+		Description:        req.Description,
+		CustomCPUCores:     req.CustomCPUCores,
+		CustomRAMMB:        req.CustomRAMMB,
+		CustomDiskGB:       req.CustomDiskGB,
+		CustomMaxApps:      req.CustomMaxApps,
+		CustomMaxDatabases: req.CustomMaxDatabases,
+		BillingType:        req.BillingType,
+		PriceMonthlyCents:  req.PriceMonthlyCents,
+		Currency:           req.Currency,
+		BillingCycle:       req.BillingCycle,
+	})
 	if err != nil {
 		if errors.Is(err, service.ErrOrgSlugTaken) {
 			response.Conflict(c, "Organization slug already taken")
+			return
+		}
+		if errors.Is(err, service.ErrInvalidBilling) {
+			response.BadRequest(c, "Paid billing requires a positive price_monthly_cents")
 			return
 		}
 		response.InternalError(c, "Failed to create organization")
@@ -72,6 +116,43 @@ func (h *OrgHandler) CreateOrg(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusCreated, org)
+}
+
+// UpdateOrgResources — super-admin only (mounted under /admin router group)
+func (h *OrgHandler) UpdateOrgResources(c *gin.Context) {
+	orgSlug := c.Param("orgSlug")
+
+	var req UpdateOrgResourcesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	org, err := h.orgService.UpdateOrgResources(c.Request.Context(), orgSlug, service.UpdateOrgResourcesInput{
+		CustomCPUCores:     req.CustomCPUCores,
+		CustomRAMMB:        req.CustomRAMMB,
+		CustomDiskGB:       req.CustomDiskGB,
+		CustomMaxApps:      req.CustomMaxApps,
+		CustomMaxDatabases: req.CustomMaxDatabases,
+		BillingType:        req.BillingType,
+		PriceMonthlyCents:  req.PriceMonthlyCents,
+		Currency:           req.Currency,
+		BillingCycle:       req.BillingCycle,
+	})
+	if err != nil {
+		if errors.Is(err, service.ErrOrgNotFound) {
+			response.NotFound(c, "Organization not found")
+			return
+		}
+		if errors.Is(err, service.ErrInvalidBilling) {
+			response.BadRequest(c, "Paid billing requires a positive price_monthly_cents")
+			return
+		}
+		response.InternalError(c, "Failed to update organization resources")
+		return
+	}
+
+	response.Success(c, http.StatusOK, org)
 }
 
 // Get organization details

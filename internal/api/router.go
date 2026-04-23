@@ -293,6 +293,7 @@ func NewRouter(deps *RouterDeps) *Router {
 			adminGroup.DELETE("/plans/:planId", adminHandler.DeletePlan)
 			adminGroup.GET("/orgs", adminHandler.ListAllOrgs)
 			adminGroup.PUT("/orgs/:orgSlug/plan", adminHandler.AssignPlanToOrg)
+			adminGroup.PUT("/orgs/:orgSlug/resources", orgHandler.UpdateOrgResources)
 
 			// Nodes (super admin)
 			adminGroup.GET("/nodes", nodeHandler.ListNodes)

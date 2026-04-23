@@ -1,32 +1,62 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import {
+  Loader2,
+  Cpu,
+  MemoryStick,
+  HardDrive,
+  AppWindow,
+  Database,
+  ArrowLeft,
+  Sparkles,
+  CreditCard,
+  Gift,
+  Info,
+} from "lucide-react";
 import { toast } from "sonner";
 
+import Logo from "@/components/layout/Logo";
+import ThemeToggle from "@/components/layout/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { orgsApi } from "@/api/orgs";
+import { orgsApi, type CreateOrgInput } from "@/api/orgs";
+import { cn } from "@/lib/utils";
 
-const createOrgSchema = z.object({
+// ---------- schema ----------
+
+const schema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   slug: z
     .string()
     .min(2, "Slug must be at least 2 characters")
-    .regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens"),
-});
+    .regex(/^[a-z0-9-]+$/, "Lowercase letters, numbers, and hyphens only"),
+  description: z.string().optional(),
 
-type CreateOrgForm = z.infer<typeof createOrgSchema>;
+  // Resource quotas (registered with valueAsNumber so strings from <input type=number> coerce to number)
+  custom_cpu_cores: z.number().int().min(1).max(256),
+  custom_ram_mb: z.number().int().min(128),
+  custom_disk_gb: z.number().int().min(1),
+  custom_max_apps: z.number().int().min(1).max(1000),
+  custom_max_databases: z.number().int().min(0).max(500),
+
+  // Billing
+  billing_type: z.enum(["free", "paid"]),
+  price_amount: z.number().min(0).optional(),
+  currency: z.enum(["USD", "EUR", "GBP", "UGX", "KES", "ZAR"]),
+  billing_cycle: z.enum(["monthly", "yearly", "one_time"]),
+});
+type FormValues = z.infer<typeof schema>;
+
+const PRESETS = [
+  { name: "Free", cpu: 1, ram: 512, disk: 5, apps: 2, dbs: 1 },
+  { name: "Starter", cpu: 2, ram: 2048, disk: 20, apps: 5, dbs: 3 },
+  { name: "Pro", cpu: 4, ram: 8192, disk: 50, apps: 20, dbs: 10 },
+  { name: "Enterprise", cpu: 16, ram: 32768, disk: 200, apps: 100, dbs: 50 },
+];
 
 function CreateOrg() {
   const navigate = useNavigate();
@@ -36,15 +66,63 @@ function CreateOrg() {
     register,
     handleSubmit,
     setValue,
+    control,
     formState: { errors },
-  } = useForm<CreateOrgForm>({
-    resolver: zodResolver(createOrgSchema),
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      custom_cpu_cores: 2,
+      custom_ram_mb: 2048,
+      custom_disk_gb: 20,
+      custom_max_apps: 5,
+      custom_max_databases: 3,
+      billing_type: "free",
+      price_amount: 0,
+      currency: "USD",
+      billing_cycle: "monthly",
+    },
   });
 
-  const onSubmit = async (data: CreateOrgForm) => {
+  const billingType = useWatch({ control, name: "billing_type" });
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const slug = e.target.value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    setValue("slug", slug);
+  };
+
+  const applyPreset = (preset: (typeof PRESETS)[number]) => {
+    setValue("custom_cpu_cores", preset.cpu);
+    setValue("custom_ram_mb", preset.ram);
+    setValue("custom_disk_gb", preset.disk);
+    setValue("custom_max_apps", preset.apps);
+    setValue("custom_max_databases", preset.dbs);
+    toast.success(`Applied ${preset.name} preset`);
+  };
+
+  const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
     try {
-      await orgsApi.create(data);
+      const payload: CreateOrgInput = {
+        name: data.name,
+        slug: data.slug,
+        description: data.description || undefined,
+        custom_cpu_cores: data.custom_cpu_cores,
+        custom_ram_mb: data.custom_ram_mb,
+        custom_disk_gb: data.custom_disk_gb,
+        custom_max_apps: data.custom_max_apps,
+        custom_max_databases: data.custom_max_databases,
+        billing_type: data.billing_type,
+        currency: data.currency,
+        billing_cycle: data.billing_cycle,
+        price_monthly_cents:
+          data.billing_type === "paid" && data.price_amount
+            ? Math.round(data.price_amount * 100)
+            : undefined,
+      };
+      await orgsApi.create(payload);
       toast.success("Organization created");
       navigate("/dashboard");
     } catch (err: unknown) {
@@ -57,62 +135,350 @@ function CreateOrg() {
     }
   };
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const name = e.target.value;
-    const slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-    setValue("slug", slug);
-  };
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Create Organization</CardTitle>
-          <CardDescription>
-            Set up a new organization for your team
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Organization Name</Label>
+    <div className="relative min-h-screen bg-background text-foreground">
+      <div className="pointer-events-none absolute inset-0 bg-grid opacity-40" aria-hidden />
+      <div className="pointer-events-none absolute inset-0 bg-radial-glow" aria-hidden />
+
+      {/* Top bar */}
+      <header className="relative z-10 flex h-14 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur">
+        <Logo size="md" to="/dashboard" />
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to dashboard
+          </button>
+          <ThemeToggle />
+        </div>
+      </header>
+
+      <main className="relative z-10 mx-auto w-full max-w-3xl px-6 py-12">
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-card shadow-sm">
+            <Sparkles className="h-5 w-5 text-brand" />
+          </div>
+          <h1 className="font-heading text-3xl font-semibold tracking-tight">
+            Create an organization
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Set the resource quota and billing for this tenant. You can adjust
+            these anytime from the admin area.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* --- Basic info --- */}
+          <Section title="Basics" description="Identify this organization.">
+            <div className="space-y-1.5">
+              <Label htmlFor="name">Organization name</Label>
               <Input
                 id="name"
-                placeholder="My Company"
+                placeholder="Limibooks"
+                autoFocus
                 {...register("name", { onChange: handleNameChange })}
               />
               {errors.name && (
-                <p className="text-sm text-destructive">{errors.name.message}</p>
+                <p className="text-xs text-destructive">{errors.name.message}</p>
               )}
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="slug">Slug</Label>
               <Input
                 id="slug"
-                placeholder="my-company"
+                placeholder="limibooks"
+                className="font-mono"
                 {...register("slug")}
               />
               {errors.slug && (
-                <p className="text-sm text-destructive">{errors.slug.message}</p>
+                <p className="text-xs text-destructive">{errors.slug.message}</p>
               )}
               <p className="text-xs text-muted-foreground">
-                Used in URLs and Docker network names
+                Used in URLs and Docker network names.
               </p>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Organization
+            <div className="space-y-1.5">
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                placeholder="Optional — a one-liner about this tenant"
+                {...register("description")}
+              />
+            </div>
+          </Section>
+
+          {/* --- Resource quota --- */}
+          <Section
+            title="Resource quota"
+            description="Set the hard limits this organization can consume on the host. Start with a preset or enter exact values."
+          >
+            {/* Presets */}
+            <div className="flex flex-wrap gap-2">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.name}
+                  type="button"
+                  onClick={() => applyPreset(p)}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:border-brand/40 hover:bg-accent"
+                >
+                  <Sparkles className="h-3 w-3 text-brand" />
+                  {p.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <NumField
+                icon={Cpu}
+                label="CPU cores"
+                unit="cores"
+                {...register("custom_cpu_cores", { valueAsNumber: true })}
+                error={errors.custom_cpu_cores?.message}
+              />
+              <NumField
+                icon={MemoryStick}
+                label="RAM"
+                unit="MB"
+                {...register("custom_ram_mb", { valueAsNumber: true })}
+                error={errors.custom_ram_mb?.message}
+              />
+              <NumField
+                icon={HardDrive}
+                label="Disk"
+                unit="GB"
+                {...register("custom_disk_gb", { valueAsNumber: true })}
+                error={errors.custom_disk_gb?.message}
+              />
+              <NumField
+                icon={AppWindow}
+                label="Max apps"
+                unit="apps"
+                {...register("custom_max_apps", { valueAsNumber: true })}
+                error={errors.custom_max_apps?.message}
+              />
+              <NumField
+                icon={Database}
+                label="Max databases"
+                unit="dbs"
+                {...register("custom_max_databases", { valueAsNumber: true })}
+                error={errors.custom_max_databases?.message}
+              />
+            </div>
+
+            <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
+              <span>
+                Today these limits are stored and displayed, but cgroup enforcement
+                on the host is still being rolled out. Apps deploy without hard
+                caps until cgroup v2 slicing lands.
+              </span>
+            </div>
+          </Section>
+
+          {/* --- Billing --- */}
+          <Section
+            title="Billing"
+            description="Mark this tenant as free or set a monthly/yearly price."
+          >
+            <div className="grid grid-cols-2 gap-3">
+              <BillingOption
+                active={billingType === "free"}
+                icon={Gift}
+                label="Free"
+                desc="Internal or complimentary tenant"
+                onClick={() => setValue("billing_type", "free")}
+              />
+              <BillingOption
+                active={billingType === "paid"}
+                icon={CreditCard}
+                label="Paid"
+                desc="Charge this client a recurring amount"
+                onClick={() => setValue("billing_type", "paid")}
+              />
+            </div>
+            <input type="hidden" {...register("billing_type")} />
+
+            {billingType === "paid" && (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="price_amount">Price</Label>
+                  <Input
+                    id="price_amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="29.99"
+                    {...register("price_amount", { valueAsNumber: true })}
+                  />
+                  {errors.price_amount && (
+                    <p className="text-xs text-destructive">
+                      {errors.price_amount.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="currency">Currency</Label>
+                  <select
+                    id="currency"
+                    {...register("currency")}
+                    className="flex h-10 w-full rounded-lg border border-input bg-background/50 px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/40"
+                  >
+                    <option value="USD">USD — US Dollar</option>
+                    <option value="EUR">EUR — Euro</option>
+                    <option value="GBP">GBP — British Pound</option>
+                    <option value="UGX">UGX — Uganda Shilling</option>
+                    <option value="KES">KES — Kenya Shilling</option>
+                    <option value="ZAR">ZAR — S. African Rand</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="billing_cycle">Cycle</Label>
+                  <select
+                    id="billing_cycle"
+                    {...register("billing_cycle")}
+                    className="flex h-10 w-full rounded-lg border border-input bg-background/50 px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/40"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                    <option value="one_time">One-time</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {billingType === "paid" && (
+              <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
+                <span>
+                  Orbita stores the price — you run the invoicing yourself. A
+                  Stripe integration for automated charging is on the roadmap.
+                </span>
+              </div>
+            )}
+          </Section>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => navigate("/dashboard")}
+              disabled={isLoading}
+            >
+              Cancel
             </Button>
-          </form>
-        </CardContent>
-      </Card>
+            <Button
+              type="submit"
+              variant="brand"
+              size="lg"
+              disabled={isLoading}
+            >
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create organization
+            </Button>
+          </div>
+        </form>
+      </main>
     </div>
   );
 }
+
+// ---------- subcomponents ----------
+
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+      <header className="border-b border-border bg-muted/30 px-6 py-4">
+        <h2 className="font-heading text-[15px] font-semibold tracking-tight">
+          {title}
+        </h2>
+        {description && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        )}
+      </header>
+      <div className="space-y-4 px-6 py-5">{children}</div>
+    </section>
+  );
+}
+
+function BillingOption({
+  active,
+  icon: Icon,
+  label,
+  desc,
+  onClick,
+}: {
+  active: boolean;
+  icon: typeof Gift;
+  label: string;
+  desc: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-start gap-3 rounded-lg border p-4 text-left transition-colors",
+        active
+          ? "border-brand bg-brand/5 ring-1 ring-brand/20"
+          : "border-border bg-background hover:border-foreground/20 hover:bg-accent/50"
+      )}
+    >
+      <div
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
+          active ? "bg-brand/15 text-brand" : "bg-muted text-muted-foreground"
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-sm font-semibold">{label}</div>
+        <div className="mt-0.5 text-xs text-muted-foreground">{desc}</div>
+      </div>
+    </button>
+  );
+}
+
+const NumField = ({
+  icon: Icon,
+  label,
+  unit,
+  error,
+  ...rest
+}: {
+  icon: typeof Cpu;
+  label: string;
+  unit: string;
+  error?: string;
+} & React.InputHTMLAttributes<HTMLInputElement>) => (
+  <div className="space-y-1.5">
+    <Label>
+      <div className="flex items-center gap-1.5">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+        {label}
+      </div>
+    </Label>
+    <div className="relative">
+      <Input type="number" className="pr-14" {...rest} />
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+        {unit}
+      </span>
+    </div>
+    {error && <p className="text-xs text-destructive">{error}</p>}
+  </div>
+);
 
 export default CreateOrg;

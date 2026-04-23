@@ -35,16 +35,56 @@ func NewAppService(appRepo *repository.AppRepository, orch *orchestrator.Orchest
 }
 
 type CreateAppInput struct {
-	Name          string `json:"name"`
+	Name          string    `json:"name"`
 	EnvironmentID uuid.UUID `json:"environment_id"`
-	SourceType    string `json:"source_type"`
-	Image         string `json:"image"`
-	Port          *int   `json:"port"`
-	Replicas      int    `json:"replicas"`
+	SourceType    string    `json:"source_type"` // "docker-image" | "git"
+	Port          *int      `json:"port"`
+	Replicas      int       `json:"replicas"`
+
+	// Per-container resource limits (0 = unlimited)
+	MemoryMB  int `json:"memory_mb"`
+	CPUShares int `json:"cpu_shares"` // 1000 = 1 core
+
+	// source_type = docker-image
+	Image string `json:"image"`
+
+	// source_type = git
+	GitConnectionID *uuid.UUID `json:"git_connection_id"`
+	RepoFullName    string     `json:"repo_full_name"` // "owner/repo"
+	RepoURL         string     `json:"repo_url"`       // public clone URL; token is added at build time
+	Branch          string     `json:"branch"`
+	DockerfilePath  string     `json:"dockerfile_path"`
+	BuildContext    string     `json:"build_context"`
 }
 
 func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input CreateAppInput) (*models.Application, error) {
-	sourceConfig, _ := json.Marshal(map[string]string{"image": input.Image})
+	// Build source_config JSON depending on source type
+	src := map[string]interface{}{
+		"image": input.Image, // kept for docker-image and as a build target tag for git
+	}
+	if input.SourceType == "git" {
+		dockerfile := input.DockerfilePath
+		if dockerfile == "" {
+			dockerfile = "Dockerfile"
+		}
+		src["git_connection_id"] = input.GitConnectionID
+		src["repo_full_name"] = input.RepoFullName
+		src["repo_url"] = input.RepoURL
+		src["branch"] = input.Branch
+		src["dockerfile_path"] = dockerfile
+		src["build_context"] = input.BuildContext
+	}
+	sourceConfig, _ := json.Marshal(src)
+
+	// Persist per-container resource + port config into deploy_config
+	deploy := map[string]interface{}{}
+	if input.MemoryMB > 0 {
+		deploy["memory_mb"] = input.MemoryMB
+	}
+	if input.CPUShares > 0 {
+		deploy["cpu_shares"] = input.CPUShares
+	}
+	deployConfig, _ := json.Marshal(deploy)
 
 	replicas := input.Replicas
 	if replicas < 1 {
@@ -59,7 +99,7 @@ func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input Creat
 		SourceType:     input.SourceType,
 		SourceConfig:   sourceConfig,
 		BuildConfig:    json.RawMessage("{}"),
-		DeployConfig:   json.RawMessage("{}"),
+		DeployConfig:   deployConfig,
 		Status:         models.AppStatusCreated,
 		Replicas:       replicas,
 		Port:           input.Port,

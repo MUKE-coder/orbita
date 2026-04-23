@@ -80,14 +80,21 @@ func main() {
 	// Encryption key for secrets
 	encryptionKey := []byte(cfg.EncryptionMasterKey)
 
+	// cgroup enforcement manager (gracefully no-ops when /sys/fs/cgroup isn't writable)
+	cgroupMgr := orchestrator.NewCgroupManager()
+
 	// Initialize services
 	mail := mailer.New(cfg.ResendAPIKey, cfg.ResendFromEmail)
 	authService := service.NewAuthService(userRepo, mail, cfg)
 	orgService := service.NewOrgService(orgRepo, userRepo, mail, cfg)
+	orgService.SetCgroupEnforcer(cgroupMgr)
 	projectService := service.NewProjectService(projectRepo)
 	appService := service.NewAppService(appRepo, orch)
 	dbService := service.NewDBService(dbRepo, orch, encryptionKey)
 	gitService := service.NewGitService(gitRepo, encryptionKey)
+
+	// Wire the orchestrator's git-token resolver so git-source deploys can build from private repos
+	orch.SetTokenFetcher(service.NewGitTokenAdapter(gitService))
 
 	// Initialize Traefik manager and domain service
 	domainRepo := repository.NewDomainRepository(db)

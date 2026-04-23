@@ -414,9 +414,13 @@ services:
       - TRAEFIK_CONFIG_DIR=/etc/orbita/traefik
       - DOCKER_SOCKET=/var/run/docker.sock
       - IS_PRODUCTION=true
+      - CGROUP_ROOT=/sys/fs/cgroup
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - traefik_dynamic:/etc/orbita/traefik
+      # cgroup v2 for per-org resource enforcement (memory.max / cpu.max).
+      # Falls back to per-container Docker limits if this isn't writable.
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     depends_on:
       postgres:
         condition: service_healthy
