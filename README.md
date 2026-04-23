@@ -212,6 +212,111 @@ docker build -t orbita:local .
 
 ---
 
+### Installer Options
+
+The installer supports flags and environment variables for automation, recovery, and customization. Each example below is a complete copy-pasteable command — just swap in your own domain/email/image.
+
+**Default install (interactive):**
+
+```bash
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh | sudo bash
+```
+
+---
+
+#### `--force-reset` — Wipe everything and reinstall
+
+Destroys all Orbita containers, volumes, and config, then runs a fresh install. Destructive — deletes Postgres metadata, encryption secrets, and TLS certs.
+
+```bash
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | sudo bash -s -- --force-reset
+```
+
+#### `--yes` / `-y` — Skip all confirmation prompts
+
+Auto-approves cleanup of port conflicts (Apache/nginx), stale containers, and reset prompts. Use for automation.
+
+```bash
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | sudo bash -s -- --yes
+```
+
+#### `--help` / `-h` — Show installer help and exit
+
+```bash
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | bash -s -- --help
+```
+
+#### `ORBITA_DOMAIN` — Skip the domain prompt
+
+```bash
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | sudo ORBITA_DOMAIN=orbita.example.com bash
+```
+
+#### `ORBITA_ACME_EMAIL` — Skip the Let's Encrypt email prompt
+
+```bash
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | sudo ORBITA_ACME_EMAIL=admin@example.com bash
+```
+
+#### `ORBITA_IMAGE` — Override the Docker image
+
+Useful for forks, private registries, or pinning to a specific version tag. Default: `ghcr.io/muke-coder/orbita:latest`.
+
+```bash
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | sudo ORBITA_IMAGE=ghcr.io/your-fork/orbita:v0.1.0 bash
+```
+
+#### `ORBITA_AUTO_CLEAN` — Auto-approve conflict cleanup
+
+Same as `--yes` but only for the port-conflict / stale-container prompts.
+
+```bash
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | sudo ORBITA_AUTO_CLEAN=yes bash
+```
+
+---
+
+#### Fully non-interactive install (combine everything)
+
+One shot, no prompts — ideal for CI, provisioning scripts, or fresh cloud images:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh | sudo \
+  ORBITA_DOMAIN=orbita.example.com \
+  ORBITA_ACME_EMAIL=admin@example.com \
+  bash -s -- --yes
+```
+
+#### Reset + reinstall in one command
+
+```bash
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh | sudo \
+  ORBITA_DOMAIN=orbita.example.com \
+  ORBITA_ACME_EMAIL=admin@example.com \
+  bash -s -- --force-reset --yes
+```
+
+---
+
+#### Automatic conflict detection
+
+The installer detects anything blocking ports 80, 443, or 8080 and offers to clean it up:
+
+- **System web servers** (Apache, nginx, Caddy, lighttpd, httpd) — offers to stop, disable, and purge via `apt` / `dnf` / `yum`
+- **Other Docker containers** — offers to remove the container
+- **Stale Orbita containers** from a previous failed install — offers to run `docker compose down` and force-remove by name (volumes preserved)
+
+Pass `--yes` or `ORBITA_AUTO_CLEAN=yes` to skip the prompts and auto-approve all cleanup.
+
+---
+
 ### Post-Installation
 
 After Orbita is running:
@@ -224,7 +329,219 @@ After Orbita is running:
 
 4. **Configure Email** _(optional)_ — Sign up at [resend.com](https://resend.com) and set your `RESEND_API_KEY` for invite emails, password resets, and deploy notifications.
 
-5. **Deploy Your First App** — Create a project, select an environment, and deploy from a Docker image or connect your Git repository.
+5. **Deploy Your First App** — See the [Getting Started](#-getting-started) section below for a full walkthrough.
+
+---
+
+## 🚀 Getting Started
+
+Step-by-step guide for using Orbita after the super admin is registered and the first organization exists.
+
+### Core Concepts
+
+Before deploying anything, it helps to understand the hierarchy:
+
+```
+Organization           ← tenant (isolated network, encryption keys, resource quota)
+  └── Project          ← logical grouping (e.g., "my-saas")
+        └── Environment  ← Production, Staging, or custom (e.g., "preview")
+              ├── Apps      ← your running services
+              ├── Databases ← managed Postgres/MySQL/Mongo/Redis
+              └── Cron Jobs ← scheduled containers
+```
+
+Every resource you create belongs to **exactly one organization**. Members of other orgs can never see or access it.
+
+### 1. Deploy Your First App
+
+**From a Docker image (fastest):**
+
+1. Go to **Apps** → **Create App**
+2. Select a **Project** and **Environment** (create them if needed)
+3. Source: **Docker Image**
+4. Image: e.g. `nginx:alpine`, `ghcr.io/you/your-app:v1.2.3`
+5. Port: the port your container listens on (e.g., `80` for nginx, `3000` for Node.js)
+6. Click **Deploy**
+
+Orbita pulls the image, starts it on a rolling update, attaches Traefik routing, and streams logs back to you. Deploys take ~10-30 seconds.
+
+**From a Git repository (CI-style):**
+
+1. Go to **Settings → Git Connections → Add Connection**
+2. Choose GitHub / GitLab / Gitea and paste a **personal access token** with `repo` + `admin:repo_hook` scope
+3. Back in **Apps → Create App**, pick **Git Repository** as the source
+4. Choose your repo and branch
+5. Build method: **Dockerfile** (if you have one) or **Nixpacks** (auto-detect)
+6. Click **Deploy** — every push to the selected branch triggers an auto-deploy via webhook
+
+### 2. Manage App Environment Variables
+
+1. Open any app → **Env Variables** tab
+2. Add key/value pairs — secrets are **encrypted at rest** with your org's derived AES-256 key
+3. Or click **Import .env** and paste a full file
+4. Changes take effect on next deploy (or click **Restart**)
+
+### 3. Add a Custom Domain & SSL
+
+1. App → **Domains** tab → **Add Domain**
+2. Enter the domain (e.g., `api.yoursite.com`)
+3. Point an **A record** at your server's IP
+4. Orbita + Traefik automatically request a **Let's Encrypt certificate** on the first request. HTTP is redirected to HTTPS by default.
+
+If the cert doesn't issue, check `docker compose logs orbita-traefik` — the most common cause is DNS not yet resolving to your server.
+
+### 4. Provision a Managed Database
+
+1. **Databases → Create Database**
+2. Choose engine: **PostgreSQL 15/16**, **MySQL 8**, **MariaDB 10/11**, **MongoDB 6/7**, or **Redis 7**
+3. Set size, name, and backup schedule (hourly / daily / weekly)
+4. Click **Create**
+
+Orbita generates strong credentials, encrypts them, exposes them as `${DB_NAME}_URL` variables, and spins up the container with a persistent volume. Click **Connection Info** to copy the connection string into your app.
+
+**Backups**
+
+- Manual: click **Create Backup** anytime
+- Automatic: set a schedule with retention (e.g., keep 7 daily)
+- Restore: pick a backup and click **Restore** (downtime of a few seconds)
+
+### 5. Schedule a Cron Job
+
+1. **Cron Jobs → Create Cron Job**
+2. Image + command (e.g., `ghcr.io/you/billing-worker:latest` with arg `node run-billing.js`)
+3. Schedule: standard cron syntax (`0 */6 * * *` = every 6 hours)
+4. Concurrency policy:
+   - **Allow** — run parallel instances
+   - **Forbid** — skip if the previous run hasn't finished
+   - **Replace** — kill previous and start new
+5. Optional timeout (max runtime)
+
+History shows the last 50 runs with exit code, duration, and log output. Use **Run Now** to trigger a job on demand for testing.
+
+### 6. Deploy from the Service Marketplace
+
+Pre-configured one-click services ready to deploy:
+
+| Template | Purpose |
+|----------|---------|
+| WordPress | Blog / CMS |
+| Plausible | Privacy-friendly analytics |
+| Uptime Kuma | Status page & monitoring |
+| n8n | Workflow automation |
+| Metabase | BI dashboards |
+| Grafana | Metrics visualization |
+| MinIO | S3-compatible object storage |
+| Gitea | Self-hosted Git |
+| Ghost | Publishing / newsletters |
+| Vaultwarden | Password manager (Bitwarden-compatible) |
+
+**Marketplace → Pick a template → Fill parameters → Deploy.** Services launch inside your org's isolated network.
+
+### 7. Invite Team Members
+
+1. Organization → **Members → Invite Member**
+2. Enter email + role:
+   - **Owner** — full control including deleting the org
+   - **Admin** — manage members, projects, git connections
+   - **Developer** — create/deploy/manage apps, databases, cron jobs
+   - **Viewer** — read-only access
+3. Invitee receives a **cryptographically signed link** (72-hour expiry) via email
+4. They click it, create an account, and are added to the org
+
+### 8. Monitor & Debug Running Apps
+
+- **Logs tab** — live-tailing stdout/stderr via WebSocket
+- **Metrics tab** — CPU%, memory, network I/O charts (last 1h / 24h / 7d)
+- **Terminal tab** — full xterm.js shell into the running container (no SSH needed)
+- **Exec (API)** — run one-off commands programmatically:
+  ```bash
+  curl -X POST https://orbita.example.com/api/v1/orgs/$ORG/apps/$APP_ID/exec \
+    -H "Authorization: Bearer $ORB_KEY" \
+    -d '{"command":["rails","db:migrate"]}'
+  ```
+- **Deploy history** — every deployment is versioned. **Rollback** to any previous version in one click.
+
+### 9. Scale Across Multiple Nodes
+
+Super admin only:
+
+1. **Admin → Nodes → Add Worker**
+2. Provision a second VPS
+3. Follow the on-screen SSH setup (Orbita installs Docker and joins Swarm)
+4. Apps can now be scaled with `replicas: 3+` and scheduled across nodes
+
+### 10. Use API Keys for CI/CD
+
+1. Profile (top right) → **API Keys → Create Key**
+2. Give it a name (e.g., `github-actions`) and scope
+3. Copy the `orb_…` key — **it's shown only once**
+4. Use it in automation:
+   ```bash
+   curl -H "Authorization: Bearer orb_…" \
+     https://orbita.example.com/api/v1/orgs/my-org/apps/$APP_ID/deploy
+   ```
+
+---
+
+## 🔧 Managing Your Install
+
+### Updating Orbita
+
+```bash
+cd /opt/orbita
+docker compose pull orbita
+docker compose up -d orbita
+```
+
+Migrations run automatically on startup. Check `docker compose logs orbita --tail 50` to confirm.
+
+### Backing Up Orbita Itself
+
+The most important thing to back up is the Postgres database (it contains all your orgs, apps metadata, and encrypted secrets).
+
+```bash
+docker exec orbita-postgres pg_dump -U orbita orbita | gzip > orbita-backup-$(date +%F).sql.gz
+```
+
+Schedule this with cron — see the [Cloud Deployment Guide](#-cloud-deployment-guide) → Step 9 for a ready-made backup script.
+
+### Resetting or Uninstalling
+
+**Stop services** (keep all data — can restart later):
+
+```bash
+cd /opt/orbita
+docker compose down
+```
+
+**Full reset** (destructive — wipes Postgres metadata, secrets, and certs):
+
+```bash
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | sudo bash -s -- --force-reset
+```
+
+Or manually:
+
+```bash
+cd /opt/orbita
+docker compose down -v            # -v drops all named volumes
+cd /opt && sudo rm -rf orbita
+```
+
+**Complete removal** (also removes Docker and any apps Orbita deployed):
+
+```bash
+# WARNING: this deletes ALL Docker data on the host, not just Orbita's
+docker system prune -a --volumes -f
+apt purge -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+apt autoremove -y
+rm -rf /opt/orbita /var/lib/docker /etc/docker
+```
+
+> After a full reset, deployed apps keep running as Docker containers but
+> are orphaned — the new Orbita install will not know about them. Remove
+> them manually with `docker ps` + `docker rm -f`.
 
 ---
 
