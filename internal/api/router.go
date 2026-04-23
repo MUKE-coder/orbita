@@ -2,7 +2,10 @@ package api
 
 import (
 	"io/fs"
+	"mime"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -313,25 +316,38 @@ func NewRouter(deps *RouterDeps) *Router {
 	// Serve React SPA for all non-API routes
 	if deps.StaticFS != nil {
 		engine.NoRoute(func(c *gin.Context) {
-			path := c.Request.URL.Path
-			if path == "/" {
-				path = "index.html"
-			} else {
-				path = path[1:]
-			}
-
-			file, err := deps.StaticFS.Open(path)
-			if err != nil {
-				c.FileFromFS("index.html", http.FS(deps.StaticFS))
-				return
-			}
-			file.Close()
-
-			c.FileFromFS(path, http.FS(deps.StaticFS))
+			serveSPAFile(c, deps.StaticFS, c.Request.URL.Path)
 		})
 	}
 
 	return &Router{Engine: engine}
+}
+
+// serveSPAFile reads the requested file from the embedded SPA FS and writes
+// it directly. Falls back to index.html so client-side React Router owns
+// unknown paths. Avoids http.FileServer's /index.html -> ./ redirect, which
+// caused an infinite redirect loop when serving "/".
+func serveSPAFile(c *gin.Context, staticFS fs.FS, urlPath string) {
+	name := strings.TrimPrefix(urlPath, "/")
+	if name == "" {
+		name = "index.html"
+	}
+
+	data, err := fs.ReadFile(staticFS, name)
+	if err != nil {
+		data, err = fs.ReadFile(staticFS, "index.html")
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		name = "index.html"
+	}
+
+	ct := mime.TypeByExtension(filepath.Ext(name))
+	if ct == "" {
+		ct = http.DetectContentType(data)
+	}
+	c.Data(http.StatusOK, ct, data)
 }
 
 func zerologMiddleware() gin.HandlerFunc {

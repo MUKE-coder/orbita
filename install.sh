@@ -454,7 +454,7 @@ ${ORBITA_LABELS}
     restart: unless-stopped
 
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.6.14
     container_name: orbita-traefik
     ports:
       - "80:80"
@@ -494,6 +494,11 @@ if ! docker compose pull; then
 fi
 
 docker compose up -d
+
+# Pre-create Traefik's dynamic config directory inside the shared volume so
+# Traefik's file provider doesn't error on startup. Orbita writes per-app
+# routing config here later.
+docker exec orbita-traefik mkdir -p /etc/orbita/traefik/dynamic 2>/dev/null || true
 
 echo -e "${GREEN}[7/7]${NC} Waiting for services to become healthy..."
 # Retry health check for up to 2 minutes
