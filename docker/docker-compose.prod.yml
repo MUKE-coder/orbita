@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   orbita:
     image: ghcr.io/muke-coder/orbita:latest
@@ -26,6 +24,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.orbita.rule=Host(`${ORBITA_HOST}`)"
+      - "traefik.http.routers.orbita.entrypoints=websecure"
+      - "traefik.http.routers.orbita.tls.certresolver=letsencrypt"
+      - "traefik.http.services.orbita.loadbalancer.server.port=8080"
+      - "traefik.http.routers.orbita-http.rule=Host(`${ORBITA_HOST}`)"
+      - "traefik.http.routers.orbita-http.entrypoints=web"
+      - "traefik.http.routers.orbita-http.middlewares=orbita-redirect"
+      - "traefik.http.middlewares.orbita-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.orbita-redirect.redirectscheme.permanent=true"
     restart: unless-stopped
 
   postgres:
@@ -69,10 +78,13 @@ services:
     command:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
       - "--providers.file.directory=/etc/orbita/traefik/dynamic"
       - "--providers.file.watch=true"
       - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@localhost}"
       - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--log.level=INFO"
     restart: unless-stopped
