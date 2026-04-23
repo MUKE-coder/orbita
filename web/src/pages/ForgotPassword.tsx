@@ -3,19 +3,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "react-router-dom";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Mail } from "lucide-react";
 import { toast } from "sonner";
 
+import AuthShell from "@/components/layout/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { authApi } from "@/api/auth";
 
 const forgotSchema = z.object({
@@ -27,6 +21,7 @@ type ForgotForm = z.infer<typeof forgotSchema>;
 function ForgotPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [sentEmail, setSentEmail] = useState("");
 
   const {
     register,
@@ -40,6 +35,7 @@ function ForgotPassword() {
     setIsLoading(true);
     try {
       await authApi.forgotPassword(data.email);
+      setSentEmail(data.email);
       setSent(true);
       toast.success("Reset code sent to your email");
     } catch {
@@ -50,69 +46,77 @@ function ForgotPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Forgot password</CardTitle>
-          <CardDescription>
-            {sent
-              ? "Check your email for the reset code"
-              : "Enter your email to receive a reset code"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {sent ? (
-            <div className="space-y-4">
-              <p className="text-center text-sm text-muted-foreground">
-                We sent a 6-digit code to your email. Use it on the{" "}
-                <Link
-                  to="/reset-password"
-                  className="text-primary hover:underline"
-                >
-                  reset page
-                </Link>
-                .
-              </p>
-              <Link to="/reset-password">
-                <Button className="w-full">Enter Reset Code</Button>
-              </Link>
+    <AuthShell
+      title={sent ? "Check your email" : "Reset your password"}
+      description={
+        sent
+          ? `We sent a 6-digit code to ${sentEmail}`
+          : "We'll email you a code to reset your password"
+      }
+      footer={
+        <Link
+          to="/login"
+          className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to sign in
+        </Link>
+      }
+    >
+      {sent ? (
+        <div className="space-y-5">
+          <div className="flex items-center justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand/10">
+              <Mail className="h-5 w-5 text-brand" />
             </div>
-          ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  {...register("email")}
-                />
-                {errors.email && (
-                  <p className="text-sm text-destructive">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
-
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Send Reset Code
-              </Button>
-            </form>
-          )}
-
-          <Link
-            to="/login"
-            className="mt-4 flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-primary"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to login
+          </div>
+          <p className="text-center text-sm leading-relaxed text-muted-foreground">
+            The code expires in 15 minutes. Didn't get it? Check your spam folder
+            or try again.
+          </p>
+          <Link to="/reset-password" className="block">
+            <Button variant="brand" size="xl" className="w-full">
+              Enter reset code
+            </Button>
           </Link>
-        </CardContent>
-      </Card>
-    </div>
+          <button
+            type="button"
+            onClick={() => setSent(false)}
+            className="w-full text-center text-xs text-muted-foreground hover:text-foreground"
+          >
+            Use a different email
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="email">Email address</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              autoComplete="email"
+              autoFocus
+              {...register("email")}
+            />
+            {errors.email && (
+              <p className="text-xs text-destructive">{errors.email.message}</p>
+            )}
+          </div>
+
+          <Button
+            type="submit"
+            variant="brand"
+            size="xl"
+            className="w-full"
+            disabled={isLoading}
+          >
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Send reset code
+          </Button>
+        </form>
+      )}
+    </AuthShell>
   );
 }
 

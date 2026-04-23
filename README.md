@@ -77,7 +77,21 @@ Before installing Orbita, ensure your server meets these requirements:
 | **Architecture** | 64-bit (AMD64 or ARM64) | — |
 | **Ports** | 80, 443, 8080 open | — |
 
-> **Important:** It's recommended to use a fresh server. If you already have Docker or other services running on ports 80/443, you'll need to configure them to avoid conflicts.
+> **Important:** Use a fresh server whenever possible. If Apache, nginx, or another container is already bound to ports 80 or 443, the installer will detect it and offer to remove it — but the cleanest experience is a server with nothing else on it.
+
+### Before You Install — Quick Checklist
+
+If you want a smooth first install, run through this quickly:
+
+| Check | Command | Expected |
+|-------|---------|----------|
+| OS is supported | `cat /etc/os-release` | Ubuntu 22.04+ / Debian 12+ / Fedora 38+ |
+| Ports 80, 443, 8080 are free | `ss -ltnp \| grep -E ':80\|:443\|:8080'` | No output (or only your existing Orbita) |
+| DNS points at the server | `getent hosts orbita.yourdomain.com` | Your server's IP |
+| Cloudflare (if used) on DNS-only | DNS tab → record shows ☁️ **gray** not orange | Gray cloud = direct, needed for Let's Encrypt |
+| Docker is version 24+ | `docker --version` | `Docker version 24.x` or higher |
+
+If any of these fail, the installer handles most cases automatically — but knowing up-front saves a round-trip.
 
 ---
 
@@ -743,15 +757,126 @@ docker compose logs orbita --tail 20
 
 ### Troubleshooting
 
+The installer handles the most common issues automatically (stale containers, ports 80/443 held by Apache/nginx, missing DNS record detection). The table below is for cases where something unusual happens — read top to bottom, most specific issues first.
+
+#### Install fails with `error from registry: denied` pulling `ghcr.io/muke-coder/orbita`
+
+The container image is private or hasn't been published. For self-hosters, either:
+
+- Build the image locally and tell the installer to use it:
+  ```bash
+  cd /opt && git clone https://github.com/MUKE-coder/orbita.git orbita-src
+  cd orbita-src && docker build -t orbita:local .
+  ORBITA_IMAGE=orbita:local bash <(curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh)
+  ```
+- Or `docker login ghcr.io` with a token that has `read:packages` if the image is private.
+
+#### `address already in use` on port 80 or 443 during `docker compose up`
+
+Something else is binding the port — usually Apache2 on Contabo/DigitalOcean images, sometimes nginx. The installer now detects this and offers to purge it. If you hit it manually:
+
+```bash
+ss -ltnp 'sport = :80'      # shows what's listening
+ss -ltnp 'sport = :443'
+# Common culprit: Apache — stop and remove it
+systemctl stop apache2 && systemctl disable apache2
+apt purge -y apache2 apache2-utils apache2-bin apache2-data
+apt autoremove -y
+```
+
+Then `cd /opt/orbita && docker compose up -d`.
+
+#### Traefik stuck with `client version 1.24 is too old`
+
+Appears if your Docker Engine is version 28+ and Traefik's Docker SDK is older than v3.5. Fixed in the current compose template (uses `traefik:v3.6.14`). If you have an old install, upgrade Traefik:
+
+```bash
+cd /opt/orbita
+sed -i 's|image: traefik:v3.0|image: traefik:v3.6.14|' docker-compose.yml
+docker compose up -d --force-recreate traefik
+```
+
+#### Browser shows `ERR_TOO_MANY_REDIRECTS` on the dashboard
+
+Either:
+- **Browser cache** — try Incognito / Private window; if it works, clear cookies for the domain.
+- **An old Orbita image before the SPA-serving fix** — upgrade:
+  ```bash
+  cd /opt/orbita
+  docker compose pull orbita && docker compose up -d orbita
+  ```
+
+#### SSL certificate never issues (padlock stays broken / "Not secure")
+
+Check Traefik's ACME logs:
+
+```bash
+cd /opt/orbita
+docker compose logs traefik --tail 50 | grep -iE "acme|certificate|error"
+```
+
+Common causes:
+
+| Symptom in log | Fix |
+|----------------|-----|
+| `unable to generate a certificate... DNS problem` | DNS not propagated. Run `getent hosts orbita.yourdomain.com` — should return your server IP. Wait and retry. |
+| `HTTP 404 from challenge endpoint` | Cloudflare is proxying your DNS record (orange cloud). Switch the `orbita` A-record to **DNS only** (gray cloud). |
+| `connection refused` on :80 | Firewall blocking port 80. `ufw allow 80/tcp && ufw allow 443/tcp && ufw reload`. |
+| `rate limit exceeded` | Let's Encrypt 5-certs/week/domain limit. Wait an hour. |
+| Nothing ACME-related in logs | Traefik isn't reading your labels. Confirm `--providers.docker=true` is in the `traefik` command section of `docker-compose.yml`. |
+
+#### `Failed to retrieve information of the docker client and server host` in Traefik logs
+
+Same as "client version 1.24 is too old" above — bump Traefik to `v3.6.14`.
+
+#### Frontend loads but dashboard shows `404 page not found` from Traefik
+
+Traefik is routing to the wrong place or not matching the Host rule. Verify:
+
+```bash
+# Check the label has the right hostname
+docker inspect orbita --format '{{index .Config.Labels "traefik.http.routers.orbita.rule"}}'
+# Should be: Host(`your-domain.com`) — not Host(`localhost`)
+```
+
+If it says `localhost`, your `ORBITA_HOST` isn't set. Fix in `/opt/orbita/.env`:
+```
+ORBITA_HOST=orbita.yourdomain.com
+APP_BASE_URL=https://orbita.yourdomain.com
+```
+Then: `docker compose up -d --force-recreate orbita`.
+
+#### Containers restart in a loop
+
+```bash
+docker compose ps            # see which service
+docker compose logs <service> --tail 100
+```
+
+Most often:
+- **orbita** → DB connection failed (check `DATABASE_URL` in `.env`) or migration error.
+- **postgres** → old volume with mismatched credentials. `docker compose down -v` wipes data then re-install.
+- **traefik** → config error. Re-generate compose via installer.
+
+#### General diagnostics
+
+```bash
+cd /opt/orbita
+docker compose ps                                    # all 4 healthy?
+docker compose logs orbita --tail 50                 # backend
+docker compose logs traefik --tail 50                # routing + SSL
+ss -ltnp 'sport = :443'                              # is Traefik bound?
+curl -I http://localhost:8080/health                 # does the backend respond?
+curl -I https://orbita.yourdomain.com                # does the outside world?
+```
+
+#### Base table (legacy short-form)
+
 | Problem | Solution |
 |---------|----------|
-| Can't connect to port 8080 | Check firewall: `sudo ufw status` |
-| Database connection failed | Check PostgreSQL: `docker compose logs postgres` |
-| Redis connection failed | Check Redis: `docker compose logs redis` |
-| SSL certificate not working | Verify DNS: `dig yourdomain.com +short`, check Traefik logs |
-| "permission denied" on Docker socket | Add user to docker group: `sudo usermod -aG docker $USER` |
-| High memory usage | Check container stats: `docker stats --no-stream` |
-| Migrations failed | Check Orbita logs: `docker compose logs orbita` |
+| Can't connect to port 8080 | Firewall: `ufw allow 8080/tcp`. Then `ss -ltnp 'sport = :8080'`. |
+| "permission denied" on Docker socket | `sudo usermod -aG docker $USER && newgrp docker` |
+| High memory | `docker stats --no-stream` |
 
 ---
 

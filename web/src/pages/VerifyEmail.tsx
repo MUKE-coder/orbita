@@ -1,14 +1,9 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
+import AuthShell from "@/components/layout/AuthShell";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { authApi } from "@/api/auth";
 
 function VerifyEmail() {
@@ -30,44 +25,70 @@ function VerifyEmail() {
       .catch(() => setStatus("error"));
   }, [token]);
 
+  const config = {
+    loading: {
+      title: "Verifying your email",
+      description: "Just a moment...",
+    },
+    success: {
+      title: "Email verified",
+      description: "Your email address has been confirmed",
+    },
+    error: {
+      title: "Verification failed",
+      description: "This link is invalid or has expired",
+    },
+  }[status];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Email Verification</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center gap-4">
-          {status === "loading" && (
-            <>
-              <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
-              <p className="text-muted-foreground">Verifying your email...</p>
-            </>
-          )}
-          {status === "success" && (
-            <>
-              <CheckCircle className="h-12 w-12 text-green-500" />
-              <p className="text-center">
-                Your email has been verified successfully!
-              </p>
-              <Link to="/login">
-                <Button>Continue to Login</Button>
-              </Link>
-            </>
-          )}
-          {status === "error" && (
-            <>
-              <XCircle className="h-12 w-12 text-destructive" />
-              <p className="text-center text-muted-foreground">
-                Invalid or expired verification link.
-              </p>
-              <Link to="/login">
-                <Button variant="outline">Go to Login</Button>
-              </Link>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    <AuthShell
+      title={config.title}
+      description={config.description}
+      footer={
+        <Link to="/login" className="text-muted-foreground hover:text-foreground">
+          Back to sign in
+        </Link>
+      }
+    >
+      <div className="flex flex-col items-center gap-5 py-4">
+        {status === "loading" && (
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+            <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {status === "success" && (
+          <>
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/10 ring-8 ring-success/5">
+              <CheckCircle2 className="h-8 w-8 text-success" />
+            </div>
+            <p className="text-center text-sm leading-relaxed text-muted-foreground">
+              You can now sign in to your account and start deploying.
+            </p>
+            <Link to="/login" className="w-full">
+              <Button variant="brand" size="xl" className="w-full">
+                Continue to sign in
+              </Button>
+            </Link>
+          </>
+        )}
+        {status === "error" && (
+          <>
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 ring-8 ring-destructive/5">
+              <XCircle className="h-8 w-8 text-destructive" />
+            </div>
+            <p className="text-center text-sm leading-relaxed text-muted-foreground">
+              Request a new verification email from your account settings after
+              signing in.
+            </p>
+            <Link to="/login" className="w-full">
+              <Button variant="outline" size="xl" className="w-full">
+                Back to sign in
+              </Button>
+            </Link>
+          </>
+        )}
+      </div>
+    </AuthShell>
   );
 }
 

@@ -6,16 +6,10 @@ import { useNavigate, Link } from "react-router-dom";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
+import AuthShell from "@/components/layout/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { authApi } from "@/api/auth";
 
 const resetSchema = z.object({
@@ -55,78 +49,79 @@ function ResetPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Reset password</CardTitle>
-          <CardDescription>
-            Enter the code from your email and your new password
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                {...register("email")}
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
+    <AuthShell
+      title="Set a new password"
+      description="Enter the 6-digit code we sent you"
+      footer={
+        <Link
+          to="/login"
+          className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to sign in
+        </Link>
+      }
+    >
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email address</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            {...register("email")}
+          />
+          {errors.email && (
+            <p className="text-xs text-destructive">{errors.email.message}</p>
+          )}
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="otp">Reset Code</Label>
-              <Input
-                id="otp"
-                placeholder="000000"
-                maxLength={6}
-                className="text-center text-2xl tracking-widest"
-                {...register("otp")}
-              />
-              {errors.otp && (
-                <p className="text-sm text-destructive">
-                  {errors.otp.message}
-                </p>
-              )}
-            </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="otp">Reset code</Label>
+          <Input
+            id="otp"
+            placeholder="000000"
+            maxLength={6}
+            inputMode="numeric"
+            pattern="[0-9]{6}"
+            autoComplete="one-time-code"
+            className="text-center font-mono text-xl tracking-[0.5em] h-12"
+            {...register("otp")}
+          />
+          {errors.otp && (
+            <p className="text-xs text-destructive">{errors.otp.message}</p>
+          )}
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="new_password">New Password</Label>
-              <Input
-                id="new_password"
-                type="password"
-                placeholder="Min. 8 characters"
-                {...register("new_password")}
-              />
-              {errors.new_password && (
-                <p className="text-sm text-destructive">
-                  {errors.new_password.message}
-                </p>
-              )}
-            </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="new_password">New password</Label>
+          <Input
+            id="new_password"
+            type="password"
+            placeholder="Min. 8 characters"
+            autoComplete="new-password"
+            {...register("new_password")}
+          />
+          {errors.new_password && (
+            <p className="text-xs text-destructive">
+              {errors.new_password.message}
+            </p>
+          )}
+        </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Reset Password
-            </Button>
-          </form>
-
-          <Link
-            to="/login"
-            className="mt-4 flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-primary"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to login
-          </Link>
-        </CardContent>
-      </Card>
-    </div>
+        <Button
+          type="submit"
+          variant="brand"
+          size="xl"
+          className="w-full"
+          disabled={isLoading}
+        >
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Reset password
+        </Button>
+      </form>
+    </AuthShell>
   );
 }
 

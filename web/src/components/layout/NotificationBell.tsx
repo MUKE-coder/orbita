@@ -35,10 +35,10 @@ function NotificationBell() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="relative inline-flex items-center justify-center rounded-md p-2 hover:bg-accent">
-        <Bell className="h-5 w-5" />
+      <DropdownMenuTrigger className="relative inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30">
+        <Bell className="h-4 w-4" />
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+          <span className="absolute -top-0.5 -right-0.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-semibold text-brand-foreground ring-2 ring-background">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
