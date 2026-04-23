@@ -29,6 +29,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { PageHelp } from "@/components/layout/PageHelp";
 import { gitApi, type GitConnection } from "@/api/git";
 import { useOrgStore } from "@/stores/org";
 import { cn } from "@/lib/utils";
@@ -112,9 +113,40 @@ export default function GitConnections() {
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Git connections
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">
+              Git connections
+            </h1>
+            <PageHelp
+              title="Git connections"
+              summary="Link a GitHub, GitLab, or Gitea account so apps can deploy directly from a repository."
+              steps={[
+                {
+                  title: "Create a Personal Access Token",
+                  body: "Click Connect provider, then the 'Create token' link — it opens the provider with the correct scopes pre-filled (repo + admin:repo_hook for GitHub).",
+                },
+                {
+                  title: "Paste the token",
+                  body: "Orbita encrypts it at rest with your org's AES-256 key. It's never logged or shown in plaintext again.",
+                },
+                {
+                  title: "Browse your repos",
+                  body: "Each connection card has a Browse repos button to verify the token works and preview what's available.",
+                },
+                {
+                  title: "Deploy from a repo",
+                  body: "Go to New App → Git Repository tab. Connections + repos + branches all come from here.",
+                },
+              ]}
+              nextLinks={[
+                {
+                  label: "New App",
+                  to: `/orgs/${slug}/apps/new`,
+                  description: "Deploy a connected repo",
+                },
+              ]}
+            />
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Connect your code provider so you can deploy apps straight from a
             repository. Pushes auto-deploy via webhooks.

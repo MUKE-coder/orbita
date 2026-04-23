@@ -16,10 +16,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   LogOut,
-  KeyRound,
   User,
   ChevronsUpDown,
-  FileCog,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -37,6 +35,7 @@ import { useOrgStore } from "@/stores/org";
 import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui";
 import { projectsApi } from "@/api/projects";
+import { authApi } from "@/api/auth";
 import { cn } from "@/lib/utils";
 
 interface NavItemProps {
@@ -295,10 +294,28 @@ function AccountMenu({ collapsed }: { collapsed: boolean }) {
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
 
+  // Fetch the authenticated user's profile for display.
+  const { data } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => authApi.getProfile(),
+    staleTime: 60_000,
+  });
+  const user = data?.data?.data;
+
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
+
+  const displayName = user?.name || "Account";
+  const displayEmail = user?.email || "";
+  const initials = user?.name
+    ? user.name
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase() || "")
+        .join("") || user.name.slice(0, 2).toUpperCase()
+    : "";
 
   return (
     <DropdownMenu>
@@ -308,16 +325,20 @@ function AccountMenu({ collapsed }: { collapsed: boolean }) {
           collapsed && "justify-center px-0"
         )}
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-brand/70 to-brand text-xs font-semibold text-brand-foreground">
-          <User className="h-3.5 w-3.5" />
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-brand/70 to-brand text-[11px] font-semibold text-brand-foreground">
+          {initials || <User className="h-3.5 w-3.5" />}
         </div>
         {!collapsed && (
           <>
             <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-[13px] font-medium">Account</span>
-              <span className="truncate text-[11px] text-muted-foreground">
-                Your profile
+              <span className="truncate text-[13px] font-medium">
+                {displayName}
               </span>
+              {displayEmail && (
+                <span className="truncate text-[11px] text-muted-foreground">
+                  {displayEmail}
+                </span>
+              )}
             </div>
             <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </>
@@ -326,24 +347,40 @@ function AccountMenu({ collapsed }: { collapsed: boolean }) {
       <DropdownMenuContent
         align={collapsed ? "end" : "start"}
         side={collapsed ? "right" : "top"}
-        className="w-56"
+        className="w-64"
       >
+        {user && (
+          <>
+            <div className="px-2 py-2">
+              <div className="truncate text-sm font-medium text-foreground">
+                {user.name}
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
+                {user.email}
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {user.is_super_admin && (
+                  <span className="rounded-sm bg-brand/10 px-1.5 py-0.5 text-[10px] font-medium text-brand">
+                    Super admin
+                  </span>
+                )}
+                {user.is_email_verified ? (
+                  <span className="rounded-sm bg-success/10 px-1.5 py-0.5 text-[10px] font-medium text-success">
+                    Verified
+                  </span>
+                ) : (
+                  <span className="rounded-sm bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground">
+                    Email unverified
+                  </span>
+                )}
+              </div>
+            </div>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           Account
         </DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => navigate("/profile")}>
-          <User className="mr-2 h-4 w-4" />
-          Profile
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate("/api-keys")}>
-          <KeyRound className="mr-2 h-4 w-4" />
-          API keys
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate("/sessions")}>
-          <FileCog className="mr-2 h-4 w-4" />
-          Sessions
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="text-destructive">
           <LogOut className="mr-2 h-4 w-4" />
           Sign out

@@ -26,6 +26,7 @@ import ThemeToggle from "@/components/layout/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHelp } from "@/components/layout/PageHelp";
 import { orgsApi, type CreateOrgInput } from "@/api/orgs";
 import { adminApi } from "@/api/admin";
 import { cn } from "@/lib/utils";
@@ -183,9 +184,40 @@ function CreateOrg() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-card shadow-sm">
             <Sparkles className="h-5 w-5 text-brand" />
           </div>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Create an organization
-          </h1>
+          <div className="flex items-center justify-center gap-2">
+            <h1 className="font-heading text-3xl font-semibold tracking-tight">
+              Create an organization
+            </h1>
+            <PageHelp
+              title="Create organization"
+              summary="A new tenant on your Orbita instance. Each org is fully isolated — own Docker network, cgroup slice, encryption key."
+              steps={[
+                {
+                  title: "Review host capacity",
+                  body: "The top panel shows your VPS total + what's already allocated to other orgs. Don't over-commit.",
+                },
+                {
+                  title: "Pick a preset or set exact values",
+                  body: "Free/Starter/Pro/Enterprise presets fill the fields. Override any number if you want custom.",
+                },
+                {
+                  title: "Decide billing",
+                  body: "Free for internal/complimentary tenants. Paid stores the price — you run invoicing yourself (Stripe integration coming later).",
+                },
+                {
+                  title: "Create",
+                  body: "The org gets a Docker network and (if cgroup v2 is live) a kernel-enforced resource slice.",
+                },
+              ]}
+              nextLinks={[
+                {
+                  label: "Admin → Organizations",
+                  to: `/admin/orgs`,
+                  description: "Manage all orgs + edit quotas after creation",
+                },
+              ]}
+            />
+          </div>
           <p className="mt-2 text-sm text-muted-foreground">
             Set the resource quota and billing for this tenant. You can adjust
             these anytime from the admin area.

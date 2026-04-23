@@ -95,7 +95,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService)
 	execHandler := handlers.NewExecHandler()
 	nodeHandler := handlers.NewNodeHandler(deps.NodeManager)
-	dashboardHandler := handlers.NewDashboardHandler(deps.AppRepo, deps.DBRepo, deps.CronRepo)
+	dashboardHandler := handlers.NewDashboardHandler(deps.AppRepo, deps.DBRepo, deps.CronRepo, deps.DockerClient)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService, deps.DockerClient)
 
 	// WebSocket terminal handler

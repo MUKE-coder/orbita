@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { PageHelp } from "@/components/layout/PageHelp";
 import { adminApi } from "@/api/admin";
 
 const nodeStatusColor: Record<string, string> = {
@@ -91,11 +92,48 @@ function AdminNodes() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold">Node Management</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-heading text-2xl font-semibold tracking-tight">
+              Node Management
+            </h2>
+            <PageHelp
+              title="Node management"
+              summary="Add more servers to your Orbita cluster so apps can be spread across multiple machines."
+              steps={[
+                {
+                  title: "Why add a node?",
+                  body: "Your VPS is a single machine. When it runs out of RAM or CPU, you add another server as a 'worker node'. Orbita's Docker Swarm spreads apps across all healthy nodes.",
+                },
+                {
+                  title: "Prepare the target server",
+                  body: "Fresh Ubuntu/Debian VPS with Docker installed. SSH access via key-based auth (not password).",
+                },
+                {
+                  title: "Click Add Node",
+                  body: "Give it a name, paste its public IP, SSH port (default 22), and the SSH private key contents. Orbita SSHes in and runs `docker swarm join` with the cluster token.",
+                },
+                {
+                  title: "Drain vs Remove",
+                  body: "Drain: stops scheduling new tasks, gracefully moves existing containers to other nodes (do this before maintenance). Remove: hard removes the node from the cluster.",
+                },
+                {
+                  title: "Single-server is fine too",
+                  body: "If you only have one VPS, you don't need to add any nodes. Orbita runs everything on the manager (your current server).",
+                },
+              ]}
+              nextLinks={[
+                {
+                  label: "Admin → Organizations",
+                  to: `/admin/orgs`,
+                  description: "Manage per-org resource quotas",
+                },
+              ]}
+            />
+          </div>
           {platform && (
-            <p className="text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground">
               {platform.online_nodes}/{platform.total_nodes} nodes online
             </p>
           )}

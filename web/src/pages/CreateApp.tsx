@@ -25,13 +25,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
+import { PageHelp } from "@/components/layout/PageHelp";
 import { appsApi } from "@/api/apps";
 import { projectsApi } from "@/api/projects";
 import { gitApi } from "@/api/git";
@@ -120,8 +115,8 @@ export default function CreateApp() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
           <button
             onClick={() => navigate(-1)}
             className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -129,9 +124,49 @@ export default function CreateApp() {
             <ArrowLeft className="h-3 w-3" />
             Back
           </button>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            New application
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">
+              New application
+            </h1>
+            <PageHelp
+              title="New application"
+              summary="Deploy a container — either pull a prebuilt image or build from a git repo."
+              steps={[
+                {
+                  title: "Pick a source",
+                  body: "Docker image for anything on Docker Hub / GHCR. Git Repository builds from your code via Docker BuildKit + remote git context.",
+                },
+                {
+                  title: "Select a target",
+                  body: "Pick a project. Apps live inside a project's environments (Production / Staging).",
+                },
+                {
+                  title: "Paste env vars (optional)",
+                  body: "Use the Environment variables section — one KEY=value per line, # for comments. Encrypted at rest.",
+                },
+                {
+                  title: "Set runtime limits",
+                  body: "Port + replicas + memory + CPU. Memory is in MB, CPU shares are /1000 of a core (1000 = 1 core).",
+                },
+                {
+                  title: "Click Create",
+                  body: "Creates the record. Then open the app detail and click Deploy to actually launch it.",
+                },
+              ]}
+              nextLinks={[
+                {
+                  label: "Git connections",
+                  to: `/orgs/${slug}/git`,
+                  description: "Add GitHub/GitLab/Gitea tokens first",
+                },
+                {
+                  label: "Service Marketplace",
+                  to: `/orgs/${slug}/services`,
+                  description: "One-click templates for WordPress, n8n, Plausible, etc.",
+                },
+              ]}
+            />
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Deploy a container from a Docker image or build directly from a git
             repository.
@@ -162,37 +197,17 @@ export default function CreateApp() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Project</Label>
-            <Select onValueChange={(v) => setSelectedProject(String(v ?? ""))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.emoji || "📦"} {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Environment</Label>
-            <Select disabled={!selectedProject}>
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    selectedProject ? "Select an environment" : "Pick a project first"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {environments.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.name} ({e.type})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedProject}
+              onChange={setSelectedProject}
+              placeholder="Select a project"
+              searchPlaceholder="Search projects..."
+              options={projects.map<SearchableOption>((p) => ({
+                value: p.id,
+                label: `${p.emoji || "📦"}  ${p.name}`,
+                hint: p.description || undefined,
+              }))}
+            />
           </div>
         </div>
       </Section>
@@ -246,6 +261,7 @@ function DockerForm({
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<DockerForm>({
     resolver: zodResolver(dockerSchema),
@@ -275,6 +291,7 @@ function DockerForm({
         <input type="hidden" {...register("environment_id")} />
         <EnvSelect
           environments={environments}
+          value={watch("environment_id")}
           onChange={(v) => setValue("environment_id", v)}
         />
         {errors.environment_id && <Err msg={errors.environment_id.message} />}
@@ -382,78 +399,64 @@ function GitSourceForm({
       >
         <div className="space-y-1.5">
           <Label>Git connection</Label>
-          <Select onValueChange={(v) => setValue("git_connection_id", String(v))}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select a connection" />
-            </SelectTrigger>
-            <SelectContent>
-              {conns.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  <span className="capitalize">{c.provider}</span>
-                  {" · "}
-                  {new Date(c.created_at).toLocaleDateString()}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={connId}
+            onChange={(v) => setValue("git_connection_id", v)}
+            placeholder="Select a connection"
+            searchPlaceholder="Search connections..."
+            options={conns.map<SearchableOption>((c) => ({
+              value: c.id,
+              label: c.provider.charAt(0).toUpperCase() + c.provider.slice(1),
+              hint: new Date(c.created_at).toLocaleDateString(),
+            }))}
+          />
           {errors.git_connection_id && <Err msg={errors.git_connection_id.message} />}
         </div>
 
         <div className="space-y-1.5">
           <Label>Repository</Label>
-          <Select
+          <SearchableSelect
+            value={repoFullName}
+            onChange={(v) => setValue("repo_full_name", v)}
             disabled={!connId}
-            onValueChange={(v) => setValue("repo_full_name", String(v))}
-          >
-            <SelectTrigger>
-              <SelectValue
-                placeholder={
-                  loadingRepos
-                    ? "Loading repositories..."
-                    : !connId
-                    ? "Pick a connection first"
-                    : repos.length === 0
-                    ? "No repos visible with this token"
-                    : "Select a repository"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {repos.slice(0, 200).map((r) => (
-                <SelectItem key={r.full_name} value={r.full_name}>
-                  {r.full_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder={
+              loadingRepos
+                ? "Loading repositories..."
+                : !connId
+                ? "Pick a connection first"
+                : repos.length === 0
+                ? "No repos visible with this token"
+                : "Select a repository"
+            }
+            searchPlaceholder="Search repositories..."
+            options={repos.map<SearchableOption>((r) => ({
+              value: r.full_name,
+              label: r.full_name,
+              hint: r.default_branch,
+            }))}
+          />
           {errors.repo_full_name && <Err msg={errors.repo_full_name.message} />}
         </div>
 
         <div className="space-y-1.5">
           <Label>Branch</Label>
-          <Select
+          <SearchableSelect
+            value={watch("branch")}
+            onChange={(v) => setValue("branch", v)}
             disabled={!repoFullName}
-            onValueChange={(v) => setValue("branch", String(v))}
-          >
-            <SelectTrigger>
-              <SelectValue
-                placeholder={
-                  loadingBranches
-                    ? "Loading branches..."
-                    : !repoFullName
-                    ? "Pick a repo first"
-                    : "Select a branch"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {branches.map((b) => (
-                <SelectItem key={b} value={b}>
-                  {b}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder={
+              loadingBranches
+                ? "Loading branches..."
+                : !repoFullName
+                ? "Pick a repo first"
+                : "Select a branch"
+            }
+            searchPlaceholder="Search branches..."
+            options={branches.map<SearchableOption>((b) => ({
+              value: b,
+              label: b,
+            }))}
+          />
           {errors.branch && <Err msg={errors.branch.message} />}
         </div>
 
@@ -503,6 +506,7 @@ function GitSourceForm({
         <input type="hidden" {...register("environment_id")} />
         <EnvSelect
           environments={environments}
+          value={watch("environment_id")}
           onChange={(v) => setValue("environment_id", v)}
         />
         {errors.environment_id && <Err msg={errors.environment_id.message} />}
@@ -581,33 +585,30 @@ function SourceCard({
 
 function EnvSelect({
   environments,
+  value,
   onChange,
 }: {
   environments: { id: string; name: string; type: string }[];
+  value?: string;
   onChange: (v: string) => void;
 }) {
   return (
     <div className="space-y-1.5">
       <Label>Environment</Label>
-      <Select
+      <SearchableSelect
+        value={value}
+        onChange={onChange}
         disabled={environments.length === 0}
-        onValueChange={(v) => onChange(String(v))}
-      >
-        <SelectTrigger>
-          <SelectValue
-            placeholder={
-              environments.length === 0 ? "Pick a project above first" : "Select an environment"
-            }
-          />
-        </SelectTrigger>
-        <SelectContent>
-          {environments.map((e) => (
-            <SelectItem key={e.id} value={e.id}>
-              {e.name} ({e.type})
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        placeholder={
+          environments.length === 0 ? "Pick a project above first" : "Select an environment"
+        }
+        searchPlaceholder="Search environments..."
+        options={environments.map<SearchableOption>((e) => ({
+          value: e.id,
+          label: e.name,
+          hint: e.type,
+        }))}
+      />
     </div>
   );
 }

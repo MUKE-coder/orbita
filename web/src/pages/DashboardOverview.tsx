@@ -18,6 +18,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHelp } from "@/components/layout/PageHelp";
 import { dashboardApi } from "@/api/dashboard";
 import { useOrgStore } from "@/stores/org";
 import { cn } from "@/lib/utils";
@@ -100,9 +101,46 @@ function DashboardOverview() {
       {/* Page header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Overview
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">
+              Overview
+            </h1>
+            <PageHelp
+              title="Dashboard overview"
+              summary="Live snapshot of this organization's apps, databases, cron jobs, and resource usage."
+              steps={[
+                {
+                  title: "Check the stat cards",
+                  body: "Running apps, databases, active cron jobs, and CPU load. Numbers refresh every 30s.",
+                },
+                {
+                  title: "Watch memory + disk gauges",
+                  body: "Totals come from this org's quota. Used values are summed across this org's running containers.",
+                },
+                {
+                  title: "Scan recent deployments",
+                  body: "Every deploy and rollback shows up here. Click View All to jump into Projects.",
+                },
+              ]}
+              nextLinks={[
+                {
+                  label: "Projects",
+                  to: `/orgs/${slug}/projects`,
+                  description: "Create projects + environments for your apps",
+                },
+                {
+                  label: "Deploy a new app",
+                  to: `/orgs/${slug}/apps/new`,
+                  description: "From a Docker image or a git repository",
+                },
+                {
+                  label: "Git connections",
+                  to: `/orgs/${slug}/git`,
+                  description: "Connect GitHub, GitLab, or Gitea for build-from-push",
+                },
+              ]}
+            />
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Platform health and recent activity for{" "}
             <span className="font-medium text-foreground">{currentOrg.name}</span>.

@@ -24,6 +24,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { PageHelp } from "@/components/layout/PageHelp";
 import { projectsApi } from "@/api/projects";
 import { useOrgStore } from "@/stores/org";
 
@@ -90,9 +91,41 @@ function Projects() {
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Projects
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">
+              Projects
+            </h1>
+            <PageHelp
+              title="Projects"
+              summary="Group apps, databases, and cron jobs by logical unit (e.g., one per website or client)."
+              steps={[
+                {
+                  title: "Create a project",
+                  body: "Give it a name and an emoji for quick scanning.",
+                },
+                {
+                  title: "Environments auto-create",
+                  body: "Every new project gets Production + Staging by default. You can rename or add more.",
+                },
+                {
+                  title: "Deploy apps into it",
+                  body: "From Projects, add apps + databases + cron jobs. They stay scoped to the project's environments.",
+                },
+              ]}
+              nextLinks={[
+                {
+                  label: "Deploy a new app",
+                  to: `/orgs/${currentOrg.slug}/apps/new`,
+                  description: "From a Docker image or git repo",
+                },
+                {
+                  label: "Provision a database",
+                  to: `/orgs/${currentOrg.slug}/databases/new`,
+                  description: "PostgreSQL, MySQL, MongoDB, Redis, etc.",
+                },
+              ]}
+            />
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Group apps, databases, and cron jobs by project.
           </p>
