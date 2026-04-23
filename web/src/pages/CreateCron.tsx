@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,9 +39,15 @@ const schema = z.object({
 
 function CreateCron() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const currentOrg = useOrgStore((s) => s.currentOrg);
   const slug = currentOrg?.slug || "";
-  const [selectedProject, setSelectedProject] = useState("");
+
+  const lockedProjectId = searchParams.get("project") || "";
+  const lockedEnvId = searchParams.get("env") || "";
+  const isQuickCreate = !!lockedProjectId;
+
+  const [selectedProject, setSelectedProject] = useState(lockedProjectId);
   const [concurrency, setConcurrency] = useState("forbid");
 
   const { data: projectsData } = useQuery({
@@ -51,12 +57,17 @@ function CreateCron() {
   });
 
   const projects = projectsData?.data?.data || [];
-  const environments = projects.find((p) => p.id === selectedProject)?.environments || [];
+  const selectedProjectData = projects.find((p) => p.id === selectedProject);
+  const environments = selectedProjectData?.environments || [];
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", schedule: "", image: "", command: "", environment_id: "" },
+    defaultValues: { name: "", schedule: "", image: "", command: "", environment_id: lockedEnvId || "" },
   });
+
+  useEffect(() => {
+    if (lockedEnvId) setValue("environment_id", lockedEnvId);
+  }, [lockedEnvId, setValue]);
 
   const createMut = useMutation({
     mutationFn: (data: { name: string; schedule: string; image: string; command?: string; environment_id: string }) =>
@@ -101,19 +112,29 @@ function CreateCron() {
           {errors.schedule && <p className="text-sm text-destructive">{errors.schedule.message}</p>}
         </div>
 
-        <div className="space-y-2">
-          <Label>Project</Label>
-          <Select onValueChange={(v) => v && setSelectedProject(String(v))}>
-            <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
-            <SelectContent>
-              {projects.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.emoji} {p.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {isQuickCreate && selectedProjectData ? (
+          <div className="flex items-center gap-3 rounded-lg border border-brand/20 bg-brand/5 px-3 py-2 text-sm">
+            <span className="text-base">{selectedProjectData.emoji || "📦"}</span>
+            <div className="min-w-0 flex-1 truncate">
+              <span className="text-muted-foreground">In</span>{" "}
+              <span className="font-medium text-foreground">{selectedProjectData.name}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label>Project</Label>
+            <Select onValueChange={(v) => v && setSelectedProject(String(v))}>
+              <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
+              <SelectContent>
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.emoji} {p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
-        {selectedProject && (
+        {!isQuickCreate && selectedProject && (
           <div className="space-y-2">
             <Label>Environment</Label>
             <Select onValueChange={(v) => v && setValue("environment_id", String(v))}>

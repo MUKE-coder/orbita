@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -64,11 +64,19 @@ type GitForm = z.infer<typeof gitSchema>;
 
 export default function CreateApp() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const currentOrg = useOrgStore((s) => s.currentOrg);
   const slug = currentOrg?.slug || "";
 
-  const [source, setSource] = useState<"docker-image" | "git">("docker-image");
-  const [selectedProject, setSelectedProject] = useState<string>("");
+  // Pre-fill from URL query params: ?project=<id>&env=<id>
+  // Used when launching from a Project detail page.
+  const lockedProjectId = searchParams.get("project") || "";
+  const lockedEnvId = searchParams.get("env") || "";
+  const isQuickCreate = !!lockedProjectId;
+
+  // Default source = git (most common for end-users via cPanel-style flow)
+  const [source, setSource] = useState<"docker-image" | "git">("git");
+  const [selectedProject, setSelectedProject] = useState<string>(lockedProjectId);
   const [envText, setEnvText] = useState<string>("");
 
   const { data: projectsData } = useQuery({
@@ -80,6 +88,13 @@ export default function CreateApp() {
   const projects = projectsData?.data?.data || [];
   const selectedProjectData = projects.find((p) => p.id === selectedProject);
   const environments = selectedProjectData?.environments || [];
+
+  // When the project loads after URL pre-fill, lock onto the env if provided
+  useEffect(() => {
+    if (lockedProjectId && projects.length > 0 && !selectedProject) {
+      setSelectedProject(lockedProjectId);
+    }
+  }, [lockedProjectId, projects.length, selectedProject]);
 
   const createMutation = useMutation({
     mutationFn: async (data: Parameters<typeof appsApi.create>[1]) => {
@@ -174,27 +189,12 @@ export default function CreateApp() {
         </div>
       </div>
 
-      {/* Source type tabs */}
-      <div className="grid grid-cols-2 gap-3">
-        <SourceCard
-          active={source === "docker-image"}
-          icon={Container}
-          title="Docker image"
-          desc="Deploy from Docker Hub, GHCR, or any registry"
-          onClick={() => setSource("docker-image")}
-        />
-        <SourceCard
-          active={source === "git"}
-          icon={GitBranch}
-          title="Git repository"
-          desc="Build on push from GitHub, GitLab, or Gitea"
-          onClick={() => setSource("git")}
-        />
-      </div>
-
-      {/* Project + Environment (shared) */}
-      <Section title="Target" description="Where this app will live.">
-        <div className="grid gap-4 sm:grid-cols-2">
+      {/* 1. Project (hidden in quick-create mode where project is already locked) */}
+      {!isQuickCreate && (
+        <Section
+          title="Target project"
+          description="Where this app will live. Apps are scoped to a project's environments."
+        >
           <div className="space-y-1.5">
             <Label>Project</Label>
             <SearchableSelect
@@ -209,17 +209,52 @@ export default function CreateApp() {
               }))}
             />
           </div>
+        </Section>
+      )}
+
+      {/* In quick-create mode show a compact context badge */}
+      {isQuickCreate && selectedProjectData && (
+        <div className="flex items-center gap-3 rounded-lg border border-brand/20 bg-brand/5 px-4 py-2.5 text-sm">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand/15 text-base">
+            {selectedProjectData.emoji || "📦"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13px] font-medium">
+              Inside <span className="text-brand">{selectedProjectData.name}</span>
+            </div>
+            <div className="truncate text-[11px] text-muted-foreground">
+              Project pre-selected
+            </div>
+          </div>
         </div>
-      </Section>
+      )}
 
-      {/* Environment variables (shared between docker + git) */}
-      <EnvVarsSection value={envText} onChange={setEnvText} />
+      {/* 2. Source type tabs (Git first + default) */}
+      <div className="grid grid-cols-2 gap-3">
+        <SourceCard
+          active={source === "git"}
+          icon={GitBranch}
+          title="Git repository"
+          desc="Build on push from GitHub, GitLab, or Gitea"
+          onClick={() => setSource("git")}
+        />
+        <SourceCard
+          active={source === "docker-image"}
+          icon={Container}
+          title="Docker image"
+          desc="Deploy from Docker Hub, GHCR, or any registry"
+          onClick={() => setSource("docker-image")}
+        />
+      </div>
 
-      {/* Source-specific forms */}
+      {/* 3. Source-specific form (repo selection lives in here) */}
       {source === "docker-image" ? (
         <DockerForm
           slug={slug}
           environments={environments}
+          lockedEnvId={lockedEnvId}
+          envText={envText}
+          onEnvTextChange={setEnvText}
           onSubmit={(d) =>
             createMutation.mutate({
               ...d,
@@ -232,6 +267,9 @@ export default function CreateApp() {
         <GitSourceForm
           slug={slug}
           environments={environments}
+          lockedEnvId={lockedEnvId}
+          envText={envText}
+          onEnvTextChange={setEnvText}
           onSubmit={(d) =>
             createMutation.mutate({
               ...d,
@@ -249,11 +287,17 @@ export default function CreateApp() {
 
 function DockerForm({
   environments,
+  lockedEnvId,
+  envText,
+  onEnvTextChange,
   onSubmit,
   isSubmitting,
 }: {
   slug: string;
   environments: { id: string; name: string; type: string }[];
+  lockedEnvId?: string;
+  envText: string;
+  onEnvTextChange: (v: string) => void;
   onSubmit: (data: DockerForm) => void;
   isSubmitting: boolean;
 }) {
@@ -265,8 +309,18 @@ function DockerForm({
     formState: { errors },
   } = useForm<DockerForm>({
     resolver: zodResolver(dockerSchema),
-    defaultValues: { replicas: 1, memory_mb: 0, cpu_shares: 0 },
+    defaultValues: {
+      replicas: 1,
+      memory_mb: 0,
+      cpu_shares: 0,
+      environment_id: lockedEnvId || "",
+    },
   });
+
+  // If lockedEnvId arrives after mount (URL pre-fill), set it.
+  useEffect(() => {
+    if (lockedEnvId) setValue("environment_id", lockedEnvId);
+  }, [lockedEnvId, setValue]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -299,6 +353,8 @@ function DockerForm({
 
       <RuntimeSection register={register} errors={errors} />
 
+      <EnvVarsSection value={envText} onChange={onEnvTextChange} />
+
       <Submit isSubmitting={isSubmitting} />
     </form>
   );
@@ -309,11 +365,17 @@ function DockerForm({
 function GitSourceForm({
   slug,
   environments,
+  lockedEnvId,
+  envText,
+  onEnvTextChange,
   onSubmit,
   isSubmitting,
 }: {
   slug: string;
   environments: { id: string; name: string; type: string }[];
+  lockedEnvId?: string;
+  envText: string;
+  onEnvTextChange: (v: string) => void;
   onSubmit: (data: GitForm & { repo_url?: string }) => void;
   isSubmitting: boolean;
 }) {
@@ -331,8 +393,13 @@ function GitSourceForm({
       cpu_shares: 0,
       dockerfile_path: "Dockerfile",
       build_context: "",
+      environment_id: lockedEnvId || "",
     },
   });
+
+  useEffect(() => {
+    if (lockedEnvId) setValue("environment_id", lockedEnvId);
+  }, [lockedEnvId, setValue]);
 
   const connId = watch("git_connection_id");
   const repoFullName = watch("repo_full_name");
@@ -513,6 +580,8 @@ function GitSourceForm({
       </Section>
 
       <RuntimeSection register={register} errors={errors} />
+
+      <EnvVarsSection value={envText} onChange={onEnvTextChange} />
 
       <Submit isSubmitting={isSubmitting} />
     </form>

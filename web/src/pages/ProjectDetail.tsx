@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Loader2, ArrowLeft, Trash2 } from "lucide-react";
+import { Plus, Loader2, ArrowLeft, Trash2, Rocket, Database, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -197,9 +197,36 @@ function ProjectDetail() {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="py-2 text-xs text-muted-foreground">
-              Resources will appear here once apps and databases are deployed
-              (Phase 4+).
+            <CardContent className="space-y-3 py-2">
+              <p className="text-xs text-muted-foreground">
+                Quick-add a resource to <span className="font-medium text-foreground">{env.name}</span>:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  to={`/orgs/${slug}/apps/new?project=${projectId}&env=${env.id}`}
+                >
+                  <Button variant="brand" size="sm">
+                    <Rocket className="h-3.5 w-3.5" />
+                    New app
+                  </Button>
+                </Link>
+                <Link
+                  to={`/orgs/${slug}/databases/new?project=${projectId}&env=${env.id}`}
+                >
+                  <Button variant="outline" size="sm">
+                    <Database className="h-3.5 w-3.5" />
+                    New database
+                  </Button>
+                </Link>
+                <Link
+                  to={`/orgs/${slug}/cron-jobs/new?project=${projectId}&env=${env.id}`}
+                >
+                  <Button variant="outline" size="sm">
+                    <Clock className="h-3.5 w-3.5" />
+                    New cron job
+                  </Button>
+                </Link>
+              </div>
             </CardContent>
           </Card>
         ))}
