@@ -59,7 +59,10 @@ func (o *Orchestrator) RunGritMigrations(ctx context.Context, spec GritMigrateSp
 	env["DATABASE_URL"] = spec.DatabaseURL
 
 	oneOff := docker.OneOffSpec{
-		Image:       "golang:1.24-alpine",
+		// 1.25 covers Grit apps whose deps require a newer toolchain than the
+		// 1.24 the shipped Dockerfiles pin; go's GOTOOLCHAIN would otherwise
+		// try (and fail offline) to upgrade.
+		Image:       "golang:1.25-alpine",
 		Command:     []string{"sh", "-c", script},
 		EnvVars:     env,
 		NetworkName: docker.GetOrgNetworkName(spec.OrgSlug),

@@ -66,7 +66,7 @@ _Phase 1 complete: 2026-07-15, commit
 - [x] **Migrations on deploy:** add a deploy hook that runs the Grit migration tool after build, before cutover, holding a Postgres advisory lock (so concurrent app instances don't race). Fail the deploy if migrations fail; do not cut over.
 - [x] **Pulse + Sentinel by default:** mount Pulse (observability) and Sentinel (security) for Grit apps automatically, exposing their dashboards behind the org's auth. Make it toggleable in `grit.yaml`.
 - [x] Add API endpoints (or extend existing app endpoints) the CLI needs: create-or-update Grit app from `grit.yaml`, trigger deploy, fetch deploy status/logs, rollback. Document them.
-- [ ] End-to-end test: POST a `grit.yaml` + repo reference to the API and confirm a full build→migrate→route→live cycle on a test server.
+- [x] End-to-end test: POST a `grit.yaml` + repo reference to the API and confirm a full build→migrate→route→live cycle on a test server.
 
 _Phase 2 complete: _____________________
 

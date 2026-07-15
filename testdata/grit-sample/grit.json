@@ -1,0 +1,6 @@
+{
+  "architecture": "api",
+  "frontend": "",
+  "version": "3.59.0",
+  "apps": { "expo": false, "desktop": false, "docs": false }
+}
