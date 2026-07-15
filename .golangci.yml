@@ -1,0 +1,33 @@
+# golangci-lint configuration for Orbita.
+# Run: golangci-lint run   (or: make lint)
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - unconvert
+    - bodyclose
+
+issues:
+  exclude-rules:
+    # Cron/deploy fire-and-forget goroutines intentionally ignore some errors
+    # that are already logged inside the callee.
+    - path: internal/(cron|service)/
+      linters:
+        - errcheck
+      text: "Update|UpdateRun|CreateRun"
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  formats:
+    - format: colored-line-number

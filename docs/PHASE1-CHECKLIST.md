@@ -61,9 +61,9 @@ audit gap number. Check when done + committed + covered by a test or documented 
 - [x] G5. Real cron executor: run container to completion, capture logs/exit code (gap #9).
 
 ## H. Green build + release (P1 tasks 9–11)
-- [ ] H1. `go test ./...` green with real coverage on deploy/db/rbac/secrets paths.
-- [ ] H2. golangci-lint configured and clean.
-- [ ] H3. GHCR image published (`ghcr.io/muke-coder/orbita`) so install.sh works.
+- [x] H1. `go test ./...` green with real coverage on deploy/db/rbac/secrets paths.
+- [x] H2. golangci-lint configured and clean.
+- [x] H3. GHCR image published (`ghcr.io/muke-coder/orbita`) so install.sh works.
 - [ ] H4. Tag `v0.1.0`.
 
 Out of scope for Phase 1 (deferred per project-description §8): GitLab/Gitea webhook parsing,
