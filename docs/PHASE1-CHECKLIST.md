@@ -64,7 +64,7 @@ audit gap number. Check when done + committed + covered by a test or documented 
 - [x] H1. `go test ./...` green with real coverage on deploy/db/rbac/secrets paths.
 - [x] H2. golangci-lint configured and clean.
 - [x] H3. GHCR image published (`ghcr.io/muke-coder/orbita`) so install.sh works.
-- [ ] H4. Tag `v0.1.0`.
+- [x] H4. Tag `v0.1.0`.
 
 Out of scope for Phase 1 (deferred per project-description §8): GitLab/Gitea webhook parsing,
 multi-node node manager, blue-green, PR previews, deploy queue activation.

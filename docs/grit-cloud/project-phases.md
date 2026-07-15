@@ -41,7 +41,7 @@ _Phase 0 complete: 2026-07-15, commit 354d6b4_
 - [x] **API keys:** confirm `orb_` key creation, scoping, and bearer auth on all `/api/v1` routes used by the CLI (deploy, env, domains, logs, rollback).
 - [x] Add missing tests until `make test` is green and covers the core deploy/db/rbac/secrets paths.
 - [x] Publish a working container image to GHCR (`ghcr.io/muke-coder/orbita`) so `install.sh` works for self-hosters (the README notes this may currently be private/unpublished).
-- [ ] Tag a `v0.1.0` release.
+- [x] Tag a `v0.1.0` release.
 
 _Phase 1 complete: _____________________
 
