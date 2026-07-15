@@ -30,12 +30,13 @@ type CreateAppRequest struct {
 	Image string `json:"image"`
 
 	// git source
-	GitConnectionID string `json:"git_connection_id"`
-	RepoFullName    string `json:"repo_full_name"` // "owner/repo"
-	RepoURL         string `json:"repo_url"`       // https clone URL (optional; derived from full_name if empty)
+	GitConnectionID string `json:"git_connection_id"` // optional — public repos need no connection
+	RepoFullName    string `json:"repo_full_name"`    // "owner/repo"
+	RepoURL         string `json:"repo_url"`          // https clone URL (optional; derived from full_name if empty)
 	Branch          string `json:"branch"`
 	DockerfilePath  string `json:"dockerfile_path"` // default "Dockerfile"
 	BuildContext    string `json:"build_context"`   // subdirectory (optional, e.g. "backend")
+	AutoDeploy      *bool  `json:"auto_deploy"`     // default true for git apps
 
 	// runtime
 	Port     *int `json:"port"`
@@ -92,6 +93,7 @@ func (h *AppHandler) CreateApp(c *gin.Context) {
 		Branch:        req.Branch,
 		DockerfilePath: req.DockerfilePath,
 		BuildContext:  req.BuildContext,
+		AutoDeploy:    req.AutoDeploy,
 	}
 	if req.GitConnectionID != "" {
 		connID, err := uuid.Parse(req.GitConnectionID)
@@ -108,12 +110,9 @@ func (h *AppHandler) CreateApp(c *gin.Context) {
 		return
 	}
 	if req.SourceType == "git" {
-		if input.GitConnectionID == nil {
-			response.BadRequest(c, "git_connection_id is required for git source")
-			return
-		}
-		if req.RepoFullName == "" {
-			response.BadRequest(c, "repo_full_name is required for git source")
+		// git_connection_id is optional: public repos clone without a token.
+		if req.RepoFullName == "" && req.RepoURL == "" {
+			response.BadRequest(c, "repo_full_name (or repo_url) is required for git source")
 			return
 		}
 		if req.Branch == "" {
@@ -128,7 +127,43 @@ func (h *AppHandler) CreateApp(c *gin.Context) {
 		return
 	}
 
+	// For git apps, return the webhook secret once so the caller can configure
+	// the repository webhook. It is never exposed again (only regenerated).
+	if app.SourceType == models.SourceTypeGit && app.WebhookSecret != nil {
+		response.Success(c, http.StatusCreated, gin.H{
+			"app":            app,
+			"webhook_secret": *app.WebhookSecret,
+			"webhook_url":    "/api/v1/webhooks/github",
+		})
+		return
+	}
+
 	response.Success(c, http.StatusCreated, app)
+}
+
+// RegenerateWebhookSecret rotates and returns the app's webhook secret.
+func (h *AppHandler) RegenerateWebhookSecret(c *gin.Context) {
+	orgID := middleware.GetOrgIDFromContext(c)
+	appID, err := uuid.Parse(c.Param("appId"))
+	if err != nil {
+		response.BadRequest(c, "Invalid app ID")
+		return
+	}
+
+	secret, err := h.appService.RegenerateWebhookSecret(c.Request.Context(), appID, orgID)
+	if err != nil {
+		if errors.Is(err, service.ErrAppNotFound) {
+			response.NotFound(c, "App not found")
+			return
+		}
+		response.InternalError(c, "Failed to regenerate webhook secret")
+		return
+	}
+
+	response.Success(c, http.StatusOK, gin.H{
+		"webhook_secret": secret,
+		"webhook_url":    "/api/v1/webhooks/github",
+	})
 }
 
 func (h *AppHandler) GetApp(c *gin.Context) {

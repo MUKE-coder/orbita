@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
+	"github.com/orbita-sh/orbita/internal/models"
 	"github.com/orbita-sh/orbita/internal/response"
 	"github.com/orbita-sh/orbita/internal/service"
 )
@@ -18,12 +19,14 @@ import (
 type WebhookHandler struct {
 	appService *service.AppService
 	gitService *service.GitService
+	orgService *service.OrgService
 }
 
-func NewWebhookHandler(appService *service.AppService, gitService *service.GitService) *WebhookHandler {
+func NewWebhookHandler(appService *service.AppService, gitService *service.GitService, orgService *service.OrgService) *WebhookHandler {
 	return &WebhookHandler{
 		appService: appService,
 		gitService: gitService,
+		orgService: orgService,
 	}
 }
 
@@ -72,24 +75,37 @@ func (h *WebhookHandler) HandleGitHub(c *gin.Context) {
 		Msg("Received GitHub push webhook")
 
 	// Find app configured for auto-deploy on this repo+branch
-	app, err := h.gitService.FindAppByRepoAndBranch(c.Request.Context(), event.Repository.CloneURL, branch)
+	app, err := h.gitService.FindAppByRepoAndBranch(c.Request.Context(), event.Repository.CloneURL, event.Repository.FullName, branch)
 	if err != nil {
 		// No app found for this repo+branch, ignore
 		response.Success(c, http.StatusOK, gin.H{"message": "no matching app"})
 		return
 	}
 
-	// Verify webhook signature if app has webhook_secret
-	if app.WebhookSecret != nil && *app.WebhookSecret != "" {
-		signature := c.GetHeader("X-Hub-Signature-256")
-		if !verifyGitHubSignature(body, signature, *app.WebhookSecret) {
-			response.Unauthorized(c, "Invalid webhook signature")
-			return
-		}
+	// Signature is mandatory: unsigned deliveries never trigger a deploy. Apps
+	// created before webhook secrets became automatic must regenerate one via
+	// POST /apps/:appId/webhook-secret.
+	if app.WebhookSecret == nil || *app.WebhookSecret == "" {
+		log.Warn().Str("app_id", app.ID.String()).Msg("Webhook rejected: app has no webhook secret configured")
+		response.Unauthorized(c, "App has no webhook secret; regenerate one and configure it on the repository webhook")
+		return
+	}
+	signature := c.GetHeader("X-Hub-Signature-256")
+	if !verifyGitHubSignature(body, signature, *app.WebhookSecret) {
+		response.Unauthorized(c, "Invalid webhook signature")
+		return
+	}
+
+	// Resolve the org slug — it names the image tag, network, and cgroup.
+	org, err := h.orgService.GetOrganizationByID(c.Request.Context(), app.OrganizationID)
+	if err != nil {
+		log.Error().Err(err).Str("app_id", app.ID.String()).Msg("Webhook deploy: org lookup failed")
+		response.InternalError(c, "Deploy failed")
+		return
 	}
 
 	// Trigger deploy
-	deployment, err := h.appService.Deploy(c.Request.Context(), app.ID, app.OrganizationID, "", nil)
+	deployment, err := h.appService.DeployWithTrigger(c.Request.Context(), app.ID, app.OrganizationID, org.Slug, nil, models.TriggerWebhook)
 	if err != nil {
 		log.Error().Err(err).Str("app_id", app.ID.String()).Msg("Webhook deploy failed")
 		response.InternalError(c, "Deploy failed")

@@ -51,11 +51,11 @@ func (r *GitRepository) DeleteConnection(ctx context.Context, id, orgID uuid.UUI
 	return nil
 }
 
-func (r *GitRepository) FindAppByRepoAndBranch(ctx context.Context, repoURL, branch string) (*models.Application, error) {
+func (r *GitRepository) FindAppByRepoAndBranch(ctx context.Context, repoURL, repoFullName, branch string) (*models.Application, error) {
 	var app models.Application
 	if err := r.db.WithContext(ctx).
-		Where("source_config->>'repo_url' = ? AND source_config->>'branch' = ? AND auto_deploy = true",
-			repoURL, branch).First(&app).Error; err != nil {
+		Where("(source_config->>'repo_url' = ? OR source_config->>'repo_full_name' = ?) AND source_config->>'branch' = ? AND auto_deploy = true",
+			repoURL, repoFullName, branch).First(&app).Error; err != nil {
 		return nil, fmt.Errorf("GitRepo.FindAppByRepoAndBranch: %w", err)
 	}
 	return &app, nil

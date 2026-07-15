@@ -261,6 +261,17 @@ func (s *OrgService) GetOrganization(ctx context.Context, slug string) (*models.
 	return org, nil
 }
 
+func (s *OrgService) GetOrganizationByID(ctx context.Context, id uuid.UUID) (*models.Organization, error) {
+	org, err := s.orgRepo.FindOrgByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrOrgNotFound
+		}
+		return nil, fmt.Errorf("GetOrganizationByID: %w", err)
+	}
+	return org, nil
+}
+
 func (s *OrgService) UpdateOrganization(ctx context.Context, slug string, name, description *string) (*models.Organization, error) {
 	org, err := s.orgRepo.FindOrgBySlug(ctx, slug)
 	if err != nil {

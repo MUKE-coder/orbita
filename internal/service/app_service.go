@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -103,12 +105,13 @@ type CreateAppInput struct {
 	Image string `json:"image"`
 
 	// source_type = git
-	GitConnectionID *uuid.UUID `json:"git_connection_id"`
-	RepoFullName    string     `json:"repo_full_name"` // "owner/repo"
-	RepoURL         string     `json:"repo_url"`       // public clone URL; token is added at build time
+	GitConnectionID *uuid.UUID `json:"git_connection_id"` // optional — public repos build without one
+	RepoFullName    string     `json:"repo_full_name"`    // "owner/repo"
+	RepoURL         string     `json:"repo_url"`          // public clone URL; token is added at build time
 	Branch          string     `json:"branch"`
 	DockerfilePath  string     `json:"dockerfile_path"`
 	BuildContext    string     `json:"build_context"`
+	AutoDeploy      *bool      `json:"auto_deploy"` // git apps default to true
 }
 
 func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input CreateAppInput) (*models.Application, error) {
@@ -121,9 +124,15 @@ func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input Creat
 		if dockerfile == "" {
 			dockerfile = "Dockerfile"
 		}
+		// Persist a canonical clone URL: webhook payloads match on it, and the
+		// build path uses it. Derived from repo_full_name when not supplied.
+		repoURL := input.RepoURL
+		if repoURL == "" && input.RepoFullName != "" {
+			repoURL = fmt.Sprintf("https://github.com/%s.git", input.RepoFullName)
+		}
 		src["git_connection_id"] = input.GitConnectionID
 		src["repo_full_name"] = input.RepoFullName
-		src["repo_url"] = input.RepoURL
+		src["repo_url"] = repoURL
 		src["branch"] = input.Branch
 		src["dockerfile_path"] = dockerfile
 		src["build_context"] = input.BuildContext
@@ -159,10 +168,54 @@ func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input Creat
 		Port:           input.Port,
 	}
 
+	if input.SourceType == "git" {
+		// Auto-deploy on push is the default for git apps; a webhook secret is
+		// always generated so unsigned webhook deliveries are never accepted.
+		autoDeploy := true
+		if input.AutoDeploy != nil {
+			autoDeploy = *input.AutoDeploy
+		}
+		app.AutoDeploy = autoDeploy
+
+		secret, err := generateWebhookSecret()
+		if err != nil {
+			return nil, fmt.Errorf("CreateApp: webhook secret: %w", err)
+		}
+		app.WebhookSecret = &secret
+	}
+
 	if err := s.appRepo.Create(ctx, app); err != nil {
 		return nil, fmt.Errorf("CreateApp: %w", err)
 	}
 	return app, nil
+}
+
+// generateWebhookSecret returns a 32-byte hex secret for HMAC-SHA256 webhook
+// signature verification.
+func generateWebhookSecret() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+// RegenerateWebhookSecret rotates the app's webhook secret and returns the new
+// value (the only time it is exposed).
+func (s *AppService) RegenerateWebhookSecret(ctx context.Context, appID, orgID uuid.UUID) (string, error) {
+	app, err := s.appRepo.FindByID(ctx, appID, orgID)
+	if err != nil {
+		return "", ErrAppNotFound
+	}
+	secret, err := generateWebhookSecret()
+	if err != nil {
+		return "", fmt.Errorf("RegenerateWebhookSecret: %w", err)
+	}
+	app.WebhookSecret = &secret
+	if err := s.appRepo.Update(ctx, app); err != nil {
+		return "", fmt.Errorf("RegenerateWebhookSecret: %w", err)
+	}
+	return secret, nil
 }
 
 func (s *AppService) GetApp(ctx context.Context, id, orgID uuid.UUID) (*models.Application, error) {
@@ -196,6 +249,18 @@ func (s *AppService) UpdateApp(ctx context.Context, id, orgID uuid.UUID, updates
 	if replicas, ok := updates["replicas"].(float64); ok {
 		app.Replicas = int(replicas)
 	}
+	if autoDeploy, ok := updates["auto_deploy"].(bool); ok {
+		app.AutoDeploy = autoDeploy
+		// Enabling auto-deploy on an app that predates always-on webhook
+		// secrets must not open an unsigned-webhook hole.
+		if autoDeploy && (app.WebhookSecret == nil || *app.WebhookSecret == "") {
+			secret, err := generateWebhookSecret()
+			if err != nil {
+				return nil, fmt.Errorf("UpdateApp: webhook secret: %w", err)
+			}
+			app.WebhookSecret = &secret
+		}
+	}
 
 	if err := s.appRepo.Update(ctx, app); err != nil {
 		return nil, fmt.Errorf("UpdateApp: %w", err)
@@ -223,6 +288,12 @@ func (s *AppService) DeleteApp(ctx context.Context, id, orgID uuid.UUID, orgSlug
 }
 
 func (s *AppService) Deploy(ctx context.Context, appID, orgID uuid.UUID, orgSlug string, userID *uuid.UUID) (*models.Deployment, error) {
+	return s.DeployWithTrigger(ctx, appID, orgID, orgSlug, userID, models.TriggerManual)
+}
+
+// DeployWithTrigger deploys an app recording how the deploy was initiated
+// (manual, webhook, ...).
+func (s *AppService) DeployWithTrigger(ctx context.Context, appID, orgID uuid.UUID, orgSlug string, userID *uuid.UUID, triggerType string) (*models.Deployment, error) {
 	app, err := s.appRepo.FindByID(ctx, appID, orgID)
 	if err != nil {
 		return nil, ErrAppNotFound
@@ -251,7 +322,7 @@ func (s *AppService) Deploy(ctx context.Context, appID, orgID uuid.UUID, orgSlug
 		Status:       models.DeployStatusRunning,
 		StartedAt:    &now,
 		TriggeredBy:  userID,
-		TriggerType:  models.TriggerManual,
+		TriggerType:  triggerType,
 	}
 
 	if err := s.appRepo.CreateDeployment(ctx, deployment); err != nil {

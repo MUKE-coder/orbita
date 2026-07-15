@@ -33,7 +33,7 @@ _Phase 0 complete: 2026-07-15, commit 354d6b4_
 
 - [x] From `docs/ORBITA-AUDIT.md`, create a checklist of incomplete/broken paths. Prioritize: deploy engine, Git+webhook auto-deploy, backup/restore, RBAC enforcement, TLS issuance.
 - [x] **Deploy engine:** confirm zero-downtime rolling update + rollback works for image and Git sources; fix edge cases (failed build, health-check timeout, port mismatch).
-- [ ] **Git auto-deploy:** verify GitHub webhook signature (HMAC-SHA256) verification and that push→deploy fires reliably. Fix if broken.
+- [x] **Git auto-deploy:** verify GitHub webhook signature (HMAC-SHA256) verification and that push→deploy fires reliably. Fix if broken.
 - [ ] **Databases:** verify Postgres provisioning, `${DB}_URL` injection, scheduled backup, and restore actually round-trip data. Add a test.
 - [ ] **RBAC:** write tests proving Viewer can't deploy, Developer can't manage members, cross-org access is denied. Fix any leak.
 - [ ] **Secrets:** verify AES-256-GCM encryption at rest and per-org key derivation; add a test that secrets are never returned in plaintext over the API.

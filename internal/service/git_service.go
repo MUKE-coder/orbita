@@ -384,6 +384,6 @@ func urlPathEscape(s string) string {
 }
 
 // FindAppByRepoAndBranch finds an app configured for auto-deploy on a given repo+branch.
-func (s *GitService) FindAppByRepoAndBranch(ctx context.Context, repoURL, branch string) (*models.Application, error) {
-	return s.gitRepo.FindAppByRepoAndBranch(ctx, repoURL, branch)
+func (s *GitService) FindAppByRepoAndBranch(ctx context.Context, repoURL, repoFullName, branch string) (*models.Application, error) {
+	return s.gitRepo.FindAppByRepoAndBranch(ctx, repoURL, repoFullName, branch)
 }

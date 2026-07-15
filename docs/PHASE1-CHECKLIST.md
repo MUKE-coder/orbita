@@ -17,13 +17,13 @@ audit gap number. Check when done + committed + covered by a test or documented 
       of silent stub client (gap #17).
 
 ## B. Git + webhook auto-deploy (P1 task 3)
-- [ ] B1. Derive and persist `repo_url` from `repo_full_name` at app create/update (gap #22).
-- [ ] B2. Add `auto_deploy` (and webhook secret regeneration) to app create/update API (gap #23).
-- [ ] B3. Generate `webhook_secret` at git-app creation; require signature whenever secret
+- [x] B1. Derive and persist `repo_url` from `repo_full_name` at app create/update (gap #22).
+- [x] B2. Add `auto_deploy` (and webhook secret regeneration) to app create/update API (gap #23).
+- [x] B3. Generate `webhook_secret` at git-app creation; require signature whenever secret
       exists — and it now always exists (gaps #3, #25).
-- [ ] B4. Fix webhook deploy: pass real org slug; record `trigger_type=webhook` (gap #24).
-- [ ] B5. Allow public-repo git apps without a git connection (gap #21).
-- [ ] B6. Webhook handler tests: valid signature → deploy; bad/missing signature → 401;
+- [x] B4. Fix webhook deploy: pass real org slug; record `trigger_type=webhook` (gap #24).
+- [x] B5. Allow public-repo git apps without a git connection (gap #21).
+- [x] B6. Webhook handler tests: valid signature → deploy; bad/missing signature → 401;
       unknown repo → ignored.
 
 ## C. Databases (P1 task 4)
