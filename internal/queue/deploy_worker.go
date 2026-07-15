@@ -12,10 +12,10 @@ import (
 )
 
 type DeployJob struct {
-	AppID        uuid.UUID `json:"app_id"`
-	DeploymentID uuid.UUID `json:"deployment_id"`
-	OrgID        uuid.UUID `json:"org_id"`
-	OrgSlug      string    `json:"org_slug"`
+	AppID        uuid.UUID  `json:"app_id"`
+	DeploymentID uuid.UUID  `json:"deployment_id"`
+	OrgID        uuid.UUID  `json:"org_id"`
+	OrgSlug      string     `json:"org_slug"`
 	UserID       *uuid.UUID `json:"user_id,omitempty"`
 }
 

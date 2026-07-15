@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	ErrDomainNotFound   = errors.New("domain not found")
-	ErrDomainTaken      = errors.New("domain already in use")
+	ErrDomainNotFound    = errors.New("domain not found")
+	ErrDomainTaken       = errors.New("domain already in use")
 	ErrDomainNotVerified = errors.New("domain DNS not verified")
 )
 
@@ -142,11 +142,11 @@ func (s *DomainService) ListDomainsByOrg(ctx context.Context, orgID uuid.UUID) (
 // DomainDiagnosis is the result of a DNS/TLS pre-flight check on a domain,
 // with an actionable message for the most common Let's Encrypt failure modes.
 type DomainDiagnosis struct {
-	Domain             string   `json:"domain"`
-	Resolves           bool     `json:"resolves"`
-	ResolvedIPs        []string `json:"resolved_ips"`
-	CloudflareProxied  bool     `json:"cloudflare_proxied"`
-	Guidance           string   `json:"guidance"`
+	Domain            string   `json:"domain"`
+	Resolves          bool     `json:"resolves"`
+	ResolvedIPs       []string `json:"resolved_ips"`
+	CloudflareProxied bool     `json:"cloudflare_proxied"`
+	Guidance          string   `json:"guidance"`
 }
 
 // Cloudflare's published proxy IPv4 ranges (heuristic detection of the

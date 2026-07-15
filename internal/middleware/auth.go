@@ -8,9 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/orbita-sh/orbita/internal/response"
 	"github.com/orbita-sh/orbita/internal/auth"
 	"github.com/orbita-sh/orbita/internal/repository"
+	"github.com/orbita-sh/orbita/internal/response"
 )
 
 func RequireAuth(jwtSecret string) gin.HandlerFunc {

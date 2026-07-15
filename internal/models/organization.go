@@ -28,9 +28,9 @@ type Organization struct {
 	CustomMaxDatabases *int `json:"custom_max_databases"`
 
 	// Billing
-	BillingType       string `json:"billing_type" gorm:"not null;default:free"`  // "free" | "paid"
-	PriceMonthlyCents *int   `json:"price_monthly_cents"`                        // e.g. 2999 = $29.99
-	Currency          string `json:"currency" gorm:"not null;default:USD"`       // ISO 4217
+	BillingType       string `json:"billing_type" gorm:"not null;default:free"`     // "free" | "paid"
+	PriceMonthlyCents *int   `json:"price_monthly_cents"`                           // e.g. 2999 = $29.99
+	Currency          string `json:"currency" gorm:"not null;default:USD"`          // ISO 4217
 	BillingCycle      string `json:"billing_cycle" gorm:"not null;default:monthly"` // "monthly" | "yearly" | "one_time"
 }
 

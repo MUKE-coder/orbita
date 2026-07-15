@@ -42,11 +42,11 @@ type CronRun struct {
 }
 
 const (
-	CronRunStatusRunning  = "running"
-	CronRunStatusSuccess  = "success"
-	CronRunStatusFailed   = "failed"
-	CronRunStatusTimeout  = "timeout"
-	CronRunStatusSkipped  = "skipped"
+	CronRunStatusRunning = "running"
+	CronRunStatusSuccess = "success"
+	CronRunStatusFailed  = "failed"
+	CronRunStatusTimeout = "timeout"
+	CronRunStatusSkipped = "skipped"
 
 	ConcurrencyAllow   = "allow"
 	ConcurrencyForbid  = "forbid"

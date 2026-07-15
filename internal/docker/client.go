@@ -110,7 +110,9 @@ type ServiceInfo struct {
 
 // PullImage pulls an image from a registry. For public images pass empty
 // registryAuth. For private images pass a base64-encoded JSON:
-//   {"username":"x","password":"y","serveraddress":"https://index.docker.io/v1/"}
+//
+//	{"username":"x","password":"y","serveraddress":"https://index.docker.io/v1/"}
+//
 // Returns a reader of the daemon's JSON progress stream — caller must
 // Close() it even if ignoring content.
 func (c *Client) PullImage(ctx context.Context, imageRef, registryAuth string) (io.ReadCloser, error) {
@@ -130,7 +132,9 @@ func (c *Client) PullImage(ctx context.Context, imageRef, registryAuth string) (
 
 // BuildImage builds an image from a remote git URL. Docker clones the repo
 // internally. For private repos embed a PAT in the URL:
-//   https://<token>@github.com/user/repo.git#branch
+//
+//	https://<token>@github.com/user/repo.git#branch
+//
 // dockerfile is relative to the repo root (e.g., "Dockerfile" or "backend/Dockerfile").
 // Returns a reader of the daemon's JSON build stream — caller must Close() it.
 func (c *Client) BuildImage(ctx context.Context, remoteURL, tag, dockerfile string, buildArgs map[string]string, registryAuth map[string]registrytypes.AuthConfig) (io.ReadCloser, error) {
@@ -908,6 +912,31 @@ func (c *Client) connectContainerToNetwork(ctx context.Context, containerName, n
 
 	log.Info().Str("container", containerName).Str("network", networkName).Msg("Container attached to network")
 	return nil
+}
+
+// RemoveVolume deletes a named volume. Retries briefly because a volume is only
+// removable once the service using it has fully stopped. No-op if absent.
+func (c *Client) RemoveVolume(ctx context.Context, name string) error {
+	if c.cli == nil || name == "" {
+		return nil
+	}
+	var lastErr error
+	for i := 0; i < 10; i++ {
+		err := c.cli.VolumeRemove(ctx, name, false)
+		if err == nil {
+			return nil
+		}
+		if strings.Contains(err.Error(), "no such volume") || strings.Contains(err.Error(), "not found") {
+			return nil
+		}
+		lastErr = err
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
+	return fmt.Errorf("RemoveVolume %q: %w", name, lastErr)
 }
 
 // resolveNetworkID finds a Docker network by name and returns its ID.

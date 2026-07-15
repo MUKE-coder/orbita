@@ -38,11 +38,11 @@ const (
 )
 
 type NodeMetrics struct {
-	CPUPercent    float64 `json:"cpu_percent"`
-	MemoryUsed    int64   `json:"memory_used"`
-	MemoryTotal   int64   `json:"memory_total"`
-	DiskUsed      int64   `json:"disk_used"`
-	DiskTotal     int64   `json:"disk_total"`
-	ContainerCount int    `json:"container_count"`
-	Uptime        int64   `json:"uptime_seconds"`
+	CPUPercent     float64 `json:"cpu_percent"`
+	MemoryUsed     int64   `json:"memory_used"`
+	MemoryTotal    int64   `json:"memory_total"`
+	DiskUsed       int64   `json:"disk_used"`
+	DiskTotal      int64   `json:"disk_total"`
+	ContainerCount int     `json:"container_count"`
+	Uptime         int64   `json:"uptime_seconds"`
 }

@@ -94,18 +94,18 @@ _Phase 3 complete: 2026-07-15, commit 778bab0_
 
 > Goal: the magic command. Local Grit code → live, migrated, HTTPS app in one line.
 
-- [ ] `grit cloud github-auth` — store the user's GitHub token securely (OS keychain) for repo creation/push.
-- [ ] `grit deploy` reads `grit.yaml`; if absent, run a **first-run wizard** that detects the project shape and generates `grit.yaml` interactively, then continues.
-- [ ] **Repo step:** ensure the GitHub repo in `grit.yaml` exists (create via GitHub API/`gh` if missing), commit the generated Dockerfile/build recipe, and push the branch.
-- [ ] **Transport:** call Orbita's HTTPS API with the `orb_` token from `~/.grit/hosts.yaml`. (Primary transport; SSH is only for the dashboard helper.)
-- [ ] **Reconcile:** create-or-update org/project/environment → create-or-update the Grit app pointed at the repo+branch → inject env/secrets from the `env.from` file (encrypted) → set domains → provision missing addons. All idempotent.
-- [ ] **Deploy + migrate + cutover:** trigger the deploy; surface build logs live; run migrations under advisory lock; health-check; cut over; keep previous image.
-- [ ] **`grit deploy --plan`:** dry-run that prints every create/change (repo, app, addons, domains, migrations) without executing.
-- [ ] **`grit logs -f --host prod`:** stream app logs from Orbita's WebSocket log endpoint.
-- [ ] **`grit rollback --host prod`:** call Orbita's rollback endpoint to revert to the previous deploy.
-- [ ] On success, print the live URL + Pulse + Sentinel dashboard links.
-- [ ] Confirm the GitHub webhook is registered so future `git push` auto-deploys.
-- [ ] Full end-to-end test on the sample Grit repo against the Phase 3 host.
+- [x] `grit cloud github-auth` — store the user's GitHub token securely (OS keychain) for repo creation/push.
+- [x] `grit deploy` reads `grit.yaml`; if absent, run a **first-run wizard** that detects the project shape and generates `grit.yaml` interactively, then continues.
+- [x] **Repo step:** ensure the GitHub repo in `grit.yaml` exists (create via GitHub API/`gh` if missing), commit the generated Dockerfile/build recipe, and push the branch.
+- [x] **Transport:** call Orbita's HTTPS API with the `orb_` token from `~/.grit/hosts.yaml`. (Primary transport; SSH is only for the dashboard helper.)
+- [x] **Reconcile:** create-or-update org/project/environment → create-or-update the Grit app pointed at the repo+branch → inject env/secrets from the `env.from` file (encrypted) → set domains → provision missing addons. All idempotent.
+- [x] **Deploy + migrate + cutover:** trigger the deploy; surface build logs live; run migrations under advisory lock; health-check; cut over; keep previous image.
+- [x] **`grit deploy --plan`:** dry-run that prints every create/change (repo, app, addons, domains, migrations) without executing.
+- [x] **`grit logs -f --host prod`:** stream app logs from Orbita's WebSocket log endpoint.
+- [x] **`grit rollback --host prod`:** call Orbita's rollback endpoint to revert to the previous deploy.
+- [x] On success, print the live URL + Pulse + Sentinel dashboard links.
+- [x] Confirm the GitHub webhook is registered so future `git push` auto-deploys.
+- [x] Full end-to-end test on the sample Grit repo against the Phase 3 host.
 
 _Phase 4 complete: _____________________
 

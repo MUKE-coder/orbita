@@ -37,7 +37,7 @@ type CreateCronInput struct {
 	Command           *string   `json:"command"`
 	EnvironmentID     uuid.UUID `json:"environment_id"`
 	Timeout           int       `json:"timeout"`
-	ConcurrencyPolicy string   `json:"concurrency_policy"`
+	ConcurrencyPolicy string    `json:"concurrency_policy"`
 	MaxRetries        int       `json:"max_retries"`
 	CPULimit          int       `json:"cpu_limit"`
 	MemoryLimit       int       `json:"memory_limit"`

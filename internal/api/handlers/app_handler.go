@@ -48,9 +48,9 @@ type CreateAppRequest struct {
 }
 
 type UpdateAppRequest struct {
-	Name     string  `json:"name"`
-	Port     *int    `json:"port"`
-	Replicas *int    `json:"replicas"`
+	Name     string `json:"name"`
+	Port     *int   `json:"port"`
+	Replicas *int   `json:"replicas"`
 }
 
 func (h *AppHandler) ListApps(c *gin.Context) {
@@ -80,20 +80,20 @@ func (h *AppHandler) CreateApp(c *gin.Context) {
 	}
 
 	input := service.CreateAppInput{
-		Name:          req.Name,
-		EnvironmentID: envID,
-		SourceType:    req.SourceType,
-		Image:         req.Image,
-		Port:          req.Port,
-		Replicas:      req.Replicas,
-		MemoryMB:      req.MemoryMB,
-		CPUShares:     req.CPUShares,
-		RepoFullName:  req.RepoFullName,
-		RepoURL:       req.RepoURL,
-		Branch:        req.Branch,
+		Name:           req.Name,
+		EnvironmentID:  envID,
+		SourceType:     req.SourceType,
+		Image:          req.Image,
+		Port:           req.Port,
+		Replicas:       req.Replicas,
+		MemoryMB:       req.MemoryMB,
+		CPUShares:      req.CPUShares,
+		RepoFullName:   req.RepoFullName,
+		RepoURL:        req.RepoURL,
+		Branch:         req.Branch,
 		DockerfilePath: req.DockerfilePath,
-		BuildContext:  req.BuildContext,
-		AutoDeploy:    req.AutoDeploy,
+		BuildContext:   req.BuildContext,
+		AutoDeploy:     req.AutoDeploy,
 	}
 	if req.GitConnectionID != "" {
 		connID, err := uuid.Parse(req.GitConnectionID)

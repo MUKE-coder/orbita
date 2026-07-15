@@ -15,6 +15,8 @@ func Root() *cobra.Command {
 		SilenceErrors: false,
 	}
 	root.AddCommand(cloudCmd())
-	// deploy / logs / rollback are added in Phase 4.
+	root.AddCommand(deployCmd())
+	root.AddCommand(logsCmd())
+	root.AddCommand(rollbackCmd())
 	return root
 }

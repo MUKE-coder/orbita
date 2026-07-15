@@ -29,28 +29,28 @@ type Router struct {
 }
 
 type RouterDeps struct {
-	Config         *config.Config
-	AuthService    *service.AuthService
-	OrgService     *service.OrgService
-	ProjectService *service.ProjectService
-	AppService     *service.AppService
-	DBService      *service.DBService
-	CronService    *service.CronService
-	DomainService   *service.DomainService
-	TemplateService *service.TemplateService
-	EnvService           *service.EnvService
-	NotificationService  *service.NotificationService
-	GitService           *service.GitService
-	GritService          *service.GritService
-	NodeManager    *orchestrator.NodeManager
-	DockerClient   *docker.Client
-	UserRepo       *repository.UserRepository
-	OrgRepo        *repository.OrgRepository
-	AppRepo        *repository.AppRepository
-	DBRepo         *repository.DBRepository
-	CronRepo       *repository.CronRepository
-	Redis          *redis.Client
-	StaticFS       fs.FS
+	Config              *config.Config
+	AuthService         *service.AuthService
+	OrgService          *service.OrgService
+	ProjectService      *service.ProjectService
+	AppService          *service.AppService
+	DBService           *service.DBService
+	CronService         *service.CronService
+	DomainService       *service.DomainService
+	TemplateService     *service.TemplateService
+	EnvService          *service.EnvService
+	NotificationService *service.NotificationService
+	GitService          *service.GitService
+	GritService         *service.GritService
+	NodeManager         *orchestrator.NodeManager
+	DockerClient        *docker.Client
+	UserRepo            *repository.UserRepository
+	OrgRepo             *repository.OrgRepository
+	AppRepo             *repository.AppRepository
+	DBRepo              *repository.DBRepository
+	CronRepo            *repository.CronRepository
+	Redis               *redis.Client
+	StaticFS            fs.FS
 }
 
 func NewRouter(deps *RouterDeps) *Router {

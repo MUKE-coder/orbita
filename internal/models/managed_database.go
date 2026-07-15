@@ -66,10 +66,10 @@ const (
 	DBStatusStopped  = "stopped"
 	DBStatusFailed   = "failed"
 
-	BackupStatusPending    = "pending"
-	BackupStatusRunning    = "running"
-	BackupStatusCompleted  = "completed"
-	BackupStatusFailed     = "failed"
+	BackupStatusPending   = "pending"
+	BackupStatusRunning   = "running"
+	BackupStatusCompleted = "completed"
+	BackupStatusFailed    = "failed"
 )
 
 var EngineImages = map[string]map[string]string{

@@ -39,6 +39,14 @@ func (o *Orchestrator) ProvisionDatabase(ctx context.Context, mdb *models.Manage
 	// The Swarm service name doubles as the DNS hostname apps connect to.
 	serviceName := fmt.Sprintf("orbita-db-%s", mdb.ID.String()[:8])
 
+	// Defensive: clear any orphaned volume of this deterministic name (left by a
+	// crashed prior DB) so Postgres initializes fresh with the password we're
+	// about to set — otherwise it keeps the old volume's password and rejects
+	// our connection string over TCP (SCRAM).
+	if err := o.dockerClient.RemoveVolume(ctx, volumeName); err != nil {
+		log.Warn().Err(err).Str("volume", volumeName).Msg("ProvisionDatabase: could not clear pre-existing volume")
+	}
+
 	spec := docker.ServiceSpec{
 		Name:     serviceName,
 		Image:    image,
@@ -93,6 +101,15 @@ func (o *Orchestrator) RemoveDatabase(ctx context.Context, mdb *models.ManagedDa
 	if mdb.DockerServiceID != nil {
 		if err := o.dockerClient.RemoveService(ctx, *mdb.DockerServiceID); err != nil {
 			return fmt.Errorf("RemoveDatabase: %w", err)
+		}
+	}
+	// Remove the data volume too. Leaving it behind means a later DB of the same
+	// name reuses stale data — and, worse, a stale password (Postgres ignores
+	// POSTGRES_PASSWORD on a non-empty data dir), so the new connection string
+	// fails SCRAM auth over TCP.
+	if mdb.VolumeName != nil && *mdb.VolumeName != "" {
+		if err := o.dockerClient.RemoveVolume(ctx, *mdb.VolumeName); err != nil {
+			log.Warn().Err(err).Str("volume", *mdb.VolumeName).Msg("RemoveDatabase: could not remove data volume")
 		}
 	}
 	return nil

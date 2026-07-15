@@ -64,7 +64,7 @@ type server struct {
 
 type middleware struct {
 	RedirectScheme *redirectScheme `json:"redirectScheme,omitempty"`
-	Headers        *headers       `json:"headers,omitempty"`
+	Headers        *headers        `json:"headers,omitempty"`
 }
 
 type redirectScheme struct {
@@ -73,11 +73,11 @@ type redirectScheme struct {
 }
 
 type headers struct {
-	SSLRedirect         bool   `json:"sslRedirect,omitempty"`
-	STSSeconds          int    `json:"stsSeconds,omitempty"`
-	STSIncludeSubdomains bool  `json:"stsIncludeSubdomains,omitempty"`
-	ContentTypeNosniff  bool   `json:"contentTypeNosniff,omitempty"`
-	FrameDeny           bool   `json:"frameDeny,omitempty"`
+	SSLRedirect          bool `json:"sslRedirect,omitempty"`
+	STSSeconds           int  `json:"stsSeconds,omitempty"`
+	STSIncludeSubdomains bool `json:"stsIncludeSubdomains,omitempty"`
+	ContentTypeNosniff   bool `json:"contentTypeNosniff,omitempty"`
+	FrameDeny            bool `json:"frameDeny,omitempty"`
 }
 
 func (m *Manager) UpsertRoute(resource TraefikResource) error {

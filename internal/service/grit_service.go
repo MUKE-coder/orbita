@@ -199,6 +199,7 @@ func (s *GritService) upsertServiceApp(ctx context.Context, in ReconcileInput, e
 		Replicas:        1,
 		GitConnectionID: in.GitConnID,
 		RepoFullName:    m.Repo,
+		RepoURL:         m.RepoURL, // optional override; else derived from Repo
 		Branch:          m.BranchOrDefault(),
 		DockerfilePath:  sp.DockerfilePath,
 		BuildContext:    sp.BuildContext,
@@ -216,9 +217,11 @@ func (s *GritService) upsertServiceApp(ctx context.Context, in ReconcileInput, e
 // gritSourceConfig rebuilds an app's source_config JSON from the plan (used on
 // re-reconcile to pick up recipe changes).
 func (s *GritService) gritSourceConfig(m *grit.Manifest, sp gritbuild.ServicePlan) []byte {
-	repoURL := ""
-	if owner, name, ok := m.RepoOwnerName(); ok {
-		repoURL = fmt.Sprintf("https://github.com/%s/%s.git", owner, name)
+	repoURL := m.RepoURL
+	if repoURL == "" {
+		if owner, name, ok := m.RepoOwnerName(); ok {
+			repoURL = fmt.Sprintf("https://github.com/%s/%s.git", owner, name)
+		}
 	}
 	cfg := map[string]interface{}{
 		"repo_full_name":  m.Repo,

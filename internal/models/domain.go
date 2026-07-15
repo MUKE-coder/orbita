@@ -24,9 +24,9 @@ type Domain struct {
 }
 
 const (
-	DomainStatusPending  = "pending"
-	DomainStatusActive   = "active"
-	DomainStatusError    = "error"
+	DomainStatusPending = "pending"
+	DomainStatusActive  = "active"
+	DomainStatusError   = "error"
 
 	ResourceTypeApp      = "application"
 	ResourceTypeDatabase = "database"

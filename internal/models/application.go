@@ -26,26 +26,26 @@ type Application struct {
 	// Grit-awareness: set when this application is one service of a Grit app.
 	// GritApp groups the services (api/web/admin/docs) of one logical Grit app;
 	// GritRole is this service's role.
-	GritApp         *string         `json:"grit_app,omitempty"`
-	GritRole        *string         `json:"grit_role,omitempty"`
-	CreatedAt       time.Time       `json:"created_at"`
-	UpdatedAt       time.Time       `json:"updated_at"`
-	DeletedAt       gorm.DeletedAt  `json:"-" gorm:"index"`
+	GritApp   *string        `json:"grit_app,omitempty"`
+	GritRole  *string        `json:"grit_role,omitempty"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 type Deployment struct {
-	ID           uuid.UUID  `json:"id" gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	AppID        uuid.UUID  `json:"app_id" gorm:"type:uuid;not null;index"`
-	Version      int        `json:"version" gorm:"not null;default:1"`
-	ImageRef     string     `json:"image_ref" gorm:"not null"`
+	ID           uuid.UUID       `json:"id" gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	AppID        uuid.UUID       `json:"app_id" gorm:"type:uuid;not null;index"`
+	Version      int             `json:"version" gorm:"not null;default:1"`
+	ImageRef     string          `json:"image_ref" gorm:"not null"`
 	DeployConfig json.RawMessage `json:"deploy_config" gorm:"type:jsonb;default:'{}'"`
-	Status       string     `json:"status" gorm:"not null;default:pending"`
-	StartedAt    *time.Time `json:"started_at"`
-	FinishedAt   *time.Time `json:"finished_at"`
-	TriggeredBy  *uuid.UUID `json:"triggered_by" gorm:"type:uuid"`
-	TriggerType  string     `json:"trigger_type" gorm:"not null;default:manual"`
-	ErrorMessage *string    `json:"error_message"`
-	CreatedAt    time.Time  `json:"created_at"`
+	Status       string          `json:"status" gorm:"not null;default:pending"`
+	StartedAt    *time.Time      `json:"started_at"`
+	FinishedAt   *time.Time      `json:"finished_at"`
+	TriggeredBy  *uuid.UUID      `json:"triggered_by" gorm:"type:uuid"`
+	TriggerType  string          `json:"trigger_type" gorm:"not null;default:manual"`
+	ErrorMessage *string         `json:"error_message"`
+	CreatedAt    time.Time       `json:"created_at"`
 }
 
 const (
@@ -56,11 +56,11 @@ const (
 	AppStatusFailed    = "failed"
 	AppStatusRemoving  = "removing"
 
-	DeployStatusPending  = "pending"
-	DeployStatusBuilding = "building"
-	DeployStatusRunning  = "running"
-	DeployStatusSuccess  = "success"
-	DeployStatusFailed   = "failed"
+	DeployStatusPending    = "pending"
+	DeployStatusBuilding   = "building"
+	DeployStatusRunning    = "running"
+	DeployStatusSuccess    = "success"
+	DeployStatusFailed     = "failed"
 	DeployStatusRolledBack = "rolled_back"
 
 	SourceTypeDockerImage = "docker-image"

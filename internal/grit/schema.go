@@ -24,6 +24,11 @@ type Manifest struct {
 	Repo   string `yaml:"repo"`   // GitHub "owner/name"
 	Branch string `yaml:"branch"` // default "main"
 
+	// RepoURL optionally overrides the clone URL Orbita builds from. Normally
+	// derived from Repo as https://github.com/<owner>/<name>.git; set this for a
+	// self-hosted git host or a non-GitHub remote.
+	RepoURL string `yaml:"repo_url,omitempty"`
+
 	// Optional explicit service overrides. Usually omitted — derived from
 	// grit.json instead. When present, paths are validated against the repo.
 	Services map[string]ServiceOverride `yaml:"services,omitempty"`
