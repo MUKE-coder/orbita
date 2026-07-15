@@ -115,11 +115,11 @@ _Phase 4 complete: 2026-07-15, commit f081c7f_
 
 > Goal: shippable, demoable, documented.
 
-- [ ] Write a sample Grit app repo (Go API + Next.js + Postgres) used across tests and the demo.
-- [ ] Error UX pass: every failure (bad token, DNS not propagated, migration failure, build failure) prints a clear cause + fix, matching the tone of the existing VPS-harden blog.
-- [ ] Docs: `grit cloud` + `grit deploy` reference, the `grit.yaml` spec, and a "fresh VPS → live app in 2 commands" quickstart.
-- [ ] Record the end-to-end demo (the YouTube-ready walkthrough).
-- [ ] Update Orbita's `README.md` with the Grit Cloud section and cross-link from `jb.desishub.com`.
+- [x] Write a sample Grit app repo (Go API + Next.js + Postgres) used across tests and the demo.
+- [x] Error UX pass: every failure (bad token, DNS not propagated, migration failure, build failure) prints a clear cause + fix, matching the tone of the existing VPS-harden blog.
+- [x] Docs: `grit cloud` + `grit deploy` reference, the `grit.yaml` spec, and a "fresh VPS → live app in 2 commands" quickstart.
+- [x] Record the end-to-end demo (the YouTube-ready walkthrough).
+- [x] Update Orbita's `README.md` with the Grit Cloud section and cross-link from `jb.desishub.com`.
 - [ ] Tag `grit-cloud v1.0.0`.
 
 _Phase 5 complete: _____________________

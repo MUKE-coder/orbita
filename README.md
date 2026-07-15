@@ -28,6 +28,28 @@
 
 ---
 
+## ☁️ Grit Cloud
+
+Orbita is also the control plane for **Grit Cloud** — turn a fresh VPS into a secure, Grit-aware
+deployment platform and ship a full Grit app (Go API + Next.js + Postgres/Redis/MinIO +
+migrations) with **one command** from the terminal. Because a Grit app has a known shape, the
+tooling understands it: no hand-written Dockerfile, no clicking through a UI.
+
+```bash
+grit cloud init  --server root@<ip> --domain orbita.example.com --acme-email you@example.com --admin-email admin@example.com
+grit deploy      --host prod        # build → migrate (advisory lock) → route → live HTTPS
+```
+
+Every `git push` after that auto-deploys via webhook. See the docs:
+
+- **[Quickstart](docs/QUICKSTART.md)** — fresh VPS → live app in 2 commands.
+- **[grit.yaml spec](docs/GRIT-YAML.md)** — the deploy manifest.
+- **[grit cloud CLI](docs/GRIT-CLOUD-CLI.md)** — `init`, `status`, `dashboard`, `hosts`, `github-auth`.
+- **[Grit Cloud API](docs/GRIT-API.md)** — the Orbita Grit-awareness endpoints the CLI calls.
+- **[Demo walkthrough](docs/DEMO.md)** · **[E2E verification](docs/PHASE4-E2E.md)**
+
+---
+
 ## What is Orbita?
 
 Orbita is an open-source, self-hosted **Platform-as-a-Service (PaaS)** built in Go, designed for developers, freelancers, and agencies who manage infrastructure for multiple clients on a single server.
