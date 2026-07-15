@@ -43,7 +43,7 @@ _Phase 0 complete: 2026-07-15, commit 354d6b4_
 - [x] Publish a working container image to GHCR (`ghcr.io/muke-coder/orbita`) so `install.sh` works for self-hosters (the README notes this may currently be private/unpublished).
 - [x] Tag a `v0.1.0` release.
 
-_Phase 1 complete: _____________________
+_Phase 1 complete: 2026-07-15, commit 
 
 ---
 
