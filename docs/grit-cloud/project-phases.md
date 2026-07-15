@@ -31,7 +31,7 @@ _Phase 0 complete: 2026-07-15, commit 354d6b4_
 
 > Goal: a fully working, tested Orbita. Every core flow green before we add Grit-awareness.
 
-- [ ] From `docs/ORBITA-AUDIT.md`, create a checklist of incomplete/broken paths. Prioritize: deploy engine, Git+webhook auto-deploy, backup/restore, RBAC enforcement, TLS issuance.
+- [x] From `docs/ORBITA-AUDIT.md`, create a checklist of incomplete/broken paths. Prioritize: deploy engine, Git+webhook auto-deploy, backup/restore, RBAC enforcement, TLS issuance.
 - [ ] **Deploy engine:** confirm zero-downtime rolling update + rollback works for image and Git sources; fix edge cases (failed build, health-check timeout, port mismatch).
 - [ ] **Git auto-deploy:** verify GitHub webhook signature (HMAC-SHA256) verification and that push→deploy fires reliably. Fix if broken.
 - [ ] **Databases:** verify Postgres provisioning, `${DB}_URL` injection, scheduled backup, and restore actually round-trip data. Add a test.
