@@ -125,9 +125,15 @@ func (h *DashboardHandler) GetMetricsOverview(c *gin.Context) {
 		}
 		appsSeen++
 		// Best-effort: fetch stats with a short timeout so a slow daemon
-		// doesn't stall the whole dashboard.
-		statsCtx, cancel := context.WithTimeout(ctx, 750*time.Millisecond)
-		stats, err := h.dockerClient.GetContainerStats(statsCtx, *app.DockerServiceID)
+		// doesn't stall the whole dashboard. Stats need the container ID —
+		// passing the Swarm service ID silently returned zeros.
+		statsCtx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
+		containerID, err := h.dockerClient.FindContainerIDForService(statsCtx, *app.DockerServiceID)
+		if err != nil {
+			cancel()
+			continue
+		}
+		stats, err := h.dockerClient.GetContainerStats(statsCtx, containerID)
 		cancel()
 		if err != nil {
 			continue

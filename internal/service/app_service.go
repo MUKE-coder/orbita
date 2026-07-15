@@ -519,13 +519,35 @@ func (s *AppService) GetMetrics(ctx context.Context, appID, orgID uuid.UUID) (ma
 		}, nil
 	}
 
-	// TODO: real metrics from Docker stats API
-	return map[string]interface{}{
-		"cpu_percent":  2.5,
-		"memory_usage": 67108864,
-		"memory_limit": 134217728,
-		"network_rx":   1024000,
-		"network_tx":   512000,
-		"status":       app.Status,
-	}, nil
+	stats, err := s.orchestrator.GetApplicationMetrics(ctx, app)
+	if err != nil {
+		// Container may be mid-restart — report zeros rather than failing the page
+		return map[string]interface{}{
+			"cpu_percent":  0,
+			"memory_usage": 0,
+			"memory_limit": 0,
+			"status":       app.Status,
+		}, nil
+	}
+	stats["status"] = app.Status
+	return stats, nil
+}
+
+// ExecCommand runs a one-off shell command inside the app's container.
+func (s *AppService) ExecCommand(ctx context.Context, appID, orgID uuid.UUID, command string) (string, int, error) {
+	app, err := s.appRepo.FindByID(ctx, appID, orgID)
+	if err != nil {
+		return "", -1, ErrAppNotFound
+	}
+
+	res, err := s.orchestrator.ExecInApplication(ctx, app, []string{"/bin/sh", "-c", command})
+	if err != nil {
+		return "", -1, fmt.Errorf("ExecCommand: %w", err)
+	}
+
+	output := string(res.Stdout)
+	if len(res.Stderr) > 0 {
+		output += string(res.Stderr)
+	}
+	return output, res.ExitCode, nil
 }

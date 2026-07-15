@@ -695,6 +695,163 @@ func (c *Client) ExecInContainer(ctx context.Context, containerID string, cmd []
 	}, nil
 }
 
+// ExecInteractiveShell starts an interactive TTY shell inside a container and
+// returns the hijacked bidirectional stream plus the exec ID (for resizes).
+// Prefers bash, falls back to sh.
+func (c *Client) ExecInteractiveShell(ctx context.Context, containerID string) (*dockertypes.HijackedResponse, string, error) {
+	if c.cli == nil {
+		return nil, "", fmt.Errorf("ExecInteractiveShell: client not initialized")
+	}
+
+	execCfg := containertypes.ExecOptions{
+		Cmd:          []string{"/bin/sh", "-c", "command -v bash >/dev/null 2>&1 && exec bash || exec sh"},
+		Tty:          true,
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+	created, err := c.cli.ContainerExecCreate(ctx, containerID, execCfg)
+	if err != nil {
+		return nil, "", fmt.Errorf("ExecInteractiveShell: create: %w", err)
+	}
+
+	attach, err := c.cli.ContainerExecAttach(ctx, created.ID, containertypes.ExecStartOptions{Tty: true})
+	if err != nil {
+		return nil, "", fmt.Errorf("ExecInteractiveShell: attach: %w", err)
+	}
+	return &attach, created.ID, nil
+}
+
+// ResizeExec resizes the TTY of a running exec session.
+func (c *Client) ResizeExec(ctx context.Context, execID string, height, width uint) error {
+	if c.cli == nil {
+		return fmt.Errorf("ResizeExec: client not initialized")
+	}
+	return c.cli.ContainerExecResize(ctx, execID, containertypes.ResizeOptions{Height: height, Width: width})
+}
+
+// FollowServiceLogs streams a service's logs (multiplexed stdout/stderr; use
+// stdcopy to demux). Caller must Close the reader to stop following.
+func (c *Client) FollowServiceLogs(ctx context.Context, serviceID string, tail int) (io.ReadCloser, error) {
+	if c.cli == nil {
+		return nil, fmt.Errorf("FollowServiceLogs: client not initialized")
+	}
+	return c.cli.ServiceLogs(ctx, serviceID, containertypes.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     true,
+		Timestamps: true,
+		Tail:       fmt.Sprintf("%d", tail),
+	})
+}
+
+// OneOffSpec describes a run-to-completion container (cron jobs).
+type OneOffSpec struct {
+	Image        string
+	Command      []string
+	EnvVars      map[string]string
+	NetworkName  string
+	Labels       map[string]string
+	MemoryLimit  int64 // bytes, 0 = unlimited
+	CPULimit     int64 // nanoCPUs, 0 = unlimited
+	MaxLogBytes  int   // cap captured logs (default 100KB)
+}
+
+// RunOneOffContainer creates a container, runs it to completion (or ctx
+// cancellation), captures its logs, and removes it. Returns exit code + logs.
+func (c *Client) RunOneOffContainer(ctx context.Context, spec OneOffSpec) (int, string, error) {
+	if c.cli == nil {
+		return -1, "", fmt.Errorf("RunOneOffContainer: client not initialized")
+	}
+
+	// Pull image (idempotent; tolerate already-present images offline)
+	if reader, err := c.PullImage(ctx, spec.Image, ""); err == nil {
+		_, _ = io.Copy(io.Discard, reader)
+		reader.Close()
+	}
+
+	env := make([]string, 0, len(spec.EnvVars))
+	for k, v := range spec.EnvVars {
+		env = append(env, k+"="+v)
+	}
+
+	hostCfg := &containertypes.HostConfig{}
+	if spec.MemoryLimit > 0 {
+		hostCfg.Memory = spec.MemoryLimit
+	}
+	if spec.CPULimit > 0 {
+		hostCfg.NanoCPUs = spec.CPULimit
+	}
+
+	created, err := c.cli.ContainerCreate(ctx, &containertypes.Config{
+		Image:  spec.Image,
+		Cmd:    spec.Command,
+		Env:    env,
+		Labels: spec.Labels,
+	}, hostCfg, nil, nil, "")
+	if err != nil {
+		return -1, "", fmt.Errorf("RunOneOffContainer: create: %w", err)
+	}
+	containerID := created.ID
+	defer func() {
+		_ = c.cli.ContainerRemove(context.Background(), containerID, containertypes.RemoveOptions{Force: true})
+	}()
+
+	if spec.NetworkName != "" {
+		if netID, err := c.resolveNetworkID(ctx, spec.NetworkName); err == nil {
+			_ = c.cli.NetworkConnect(ctx, netID, containerID, nil)
+		}
+	}
+
+	if err := c.cli.ContainerStart(ctx, containerID, containertypes.StartOptions{}); err != nil {
+		return -1, "", fmt.Errorf("RunOneOffContainer: start: %w", err)
+	}
+
+	statusCh, errCh := c.cli.ContainerWait(ctx, containerID, containertypes.WaitConditionNotRunning)
+	exitCode := -1
+	select {
+	case err := <-errCh:
+		if err != nil {
+			// ctx cancelled (timeout): kill the container, report the error
+			_ = c.cli.ContainerKill(context.Background(), containerID, "KILL")
+			return -1, c.collectContainerLogs(containerID, spec.MaxLogBytes), fmt.Errorf("RunOneOffContainer: wait: %w", err)
+		}
+	case status := <-statusCh:
+		exitCode = int(status.StatusCode)
+	}
+
+	logs := c.collectContainerLogs(containerID, spec.MaxLogBytes)
+	return exitCode, logs, nil
+}
+
+func (c *Client) collectContainerLogs(containerID string, maxBytes int) string {
+	if maxBytes <= 0 {
+		maxBytes = 100 * 1024
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	reader, err := c.cli.ContainerLogs(ctx, containerID, containertypes.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+	})
+	if err != nil {
+		return ""
+	}
+	defer reader.Close()
+
+	var stdout, stderr bytes.Buffer
+	_, _ = stdcopy.StdCopy(&stdout, &stderr, io.LimitReader(reader, int64(maxBytes)))
+	combined := stdout.String()
+	if stderr.Len() > 0 {
+		combined += stderr.String()
+	}
+	if len(combined) > maxBytes {
+		combined = combined[:maxBytes]
+	}
+	return combined
+}
+
 // connectContainerToNetwork attaches a container (by name) to a network (by
 // name). Idempotent: already-attached is treated as success.
 func (c *Client) connectContainerToNetwork(ctx context.Context, containerName, networkName string) error {

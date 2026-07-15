@@ -54,11 +54,11 @@ audit gap number. Check when done + committed + covered by a test or documented 
       in the domains API (DNS lookup vs server IP already exists — extend with guidance text).
 
 ## G. Observability stubs that block real use (from audit §3 P1)
-- [ ] G1. Real WebSocket log streaming (docker service logs follow → WS fan-out).
-- [ ] G2. Real terminal (docker exec attach) — needed by existing UI.
-- [ ] G3. Real exec endpoint (gap #12).
-- [ ] G4. Real metrics for app endpoint + fix dashboard service-vs-container ID bug (gap #11).
-- [ ] G5. Real cron executor: run container to completion, capture logs/exit code (gap #9).
+- [x] G1. Real WebSocket log streaming (docker service logs follow → WS fan-out).
+- [x] G2. Real terminal (docker exec attach) — needed by existing UI.
+- [x] G3. Real exec endpoint (gap #12).
+- [x] G4. Real metrics for app endpoint + fix dashboard service-vs-container ID bug (gap #11).
+- [x] G5. Real cron executor: run container to completion, capture logs/exit code (gap #9).
 
 ## H. Green build + release (P1 tasks 9–11)
 - [ ] H1. `go test ./...` green with real coverage on deploy/db/rbac/secrets paths.

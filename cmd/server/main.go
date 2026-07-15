@@ -140,7 +140,7 @@ func main() {
 
 	// Initialize cron system
 	cronRepo := repository.NewCronRepository(db)
-	cronExecutor := orbitaCron.NewExecutor(cronRepo)
+	cronExecutor := orbitaCron.NewExecutor(cronRepo, orgRepo, dockerClient, encryptionKey)
 	cronScheduler := orbitaCron.NewScheduler(cronRepo, cronExecutor)
 	cronService := service.NewCronService(cronRepo, cronScheduler)
 
@@ -182,10 +182,12 @@ func main() {
 
 	// Create HTTP server
 	srv := &http.Server{
-		Addr:         ":" + cfg.ServerPort,
-		Handler:      router.Engine,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		Addr:        ":" + cfg.ServerPort,
+		Handler:     router.Engine,
+		ReadTimeout: 15 * time.Second,
+		// Deploys are synchronous today (git build + convergence wait can take
+		// minutes) — a short write timeout silently truncated their responses.
+		WriteTimeout: 10 * time.Minute,
 		IdleTimeout:  60 * time.Second,
 	}
 

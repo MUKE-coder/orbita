@@ -93,13 +93,13 @@ func NewRouter(deps *RouterDeps) *Router {
 	notifHandler := handlers.NewNotificationHandler(deps.NotificationService)
 	gitHandler := handlers.NewGitHandler(deps.GitService)
 	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService, deps.OrgService)
-	execHandler := handlers.NewExecHandler()
+	execHandler := handlers.NewExecHandler(deps.AppService)
 	nodeHandler := handlers.NewNodeHandler(deps.NodeManager)
 	dashboardHandler := handlers.NewDashboardHandler(deps.AppRepo, deps.DBRepo, deps.CronRepo, deps.DockerClient)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService, deps.DockerClient)
 
 	// WebSocket terminal handler
-	terminalHandler := ws.NewTerminalHandler(deps.Config.JWTSecret)
+	terminalHandler := ws.NewTerminalHandler(deps.Config.JWTSecret, deps.AppRepo, deps.OrgRepo, deps.DockerClient, strings.Split(deps.Config.CORSOrigins, ","))
 
 	// Middleware
 	authRateLimit := mw.RateLimit(deps.Redis, 5, 15*time.Minute)
@@ -144,6 +144,11 @@ func NewRouter(deps *RouterDeps) *Router {
 		v1.POST("/join", requireAuth, orgHandler.AcceptInvite)
 
 		// Org routes (authenticated)
+		// WebSocket endpoints authenticate via ?token= inside the handler —
+		// browsers cannot set Authorization headers on WS handshakes.
+		v1.GET("/orgs/:orgSlug/apps/:appId/terminal", terminalHandler.HandleTerminal)
+		v1.GET("/orgs/:orgSlug/apps/:appId/logs/stream", terminalHandler.HandleLogStream)
+
 		orgsGroup := v1.Group("/orgs", authOrKey)
 		{
 			orgsGroup.GET("", orgHandler.ListOrgs)
@@ -227,8 +232,6 @@ func NewRouter(deps *RouterDeps) *Router {
 					devAccess.POST("/apps/:appId/start", appHandler.Start)
 					devAccess.DELETE("/apps/:appId", appHandler.DeleteApp)
 					devAccess.POST("/apps/:appId/exec", execHandler.ExecInApp)
-					devAccess.GET("/apps/:appId/terminal", terminalHandler.HandleTerminal)
-					devAccess.GET("/apps/:appId/logs/stream", terminalHandler.HandleLogStream)
 
 					// Env vars (developer+ can manage)
 					devAccess.POST("/apps/:appId/env", envHandler.SetAppEnvVar)

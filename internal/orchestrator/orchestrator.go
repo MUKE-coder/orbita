@@ -319,6 +319,39 @@ func (o *Orchestrator) GetApplicationStatus(ctx context.Context, app *models.App
 	return info.Status, nil
 }
 
+// ExecInApplication runs a one-off command in the app's running container and
+// returns combined output + exit code.
+func (o *Orchestrator) ExecInApplication(ctx context.Context, app *models.Application, cmd []string) (*docker.ExecResult, error) {
+	if app.DockerServiceID == nil || *app.DockerServiceID == "" {
+		return nil, fmt.Errorf("ExecInApplication: app has no running service")
+	}
+	containerID, err := o.dockerClient.FindContainerIDForService(ctx, *app.DockerServiceID)
+	if err != nil {
+		return nil, fmt.Errorf("ExecInApplication: %w", err)
+	}
+	res, err := o.dockerClient.ExecInContainer(ctx, containerID, cmd, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("ExecInApplication: %w", err)
+	}
+	return res, nil
+}
+
+// GetApplicationMetrics returns live container stats for the app.
+func (o *Orchestrator) GetApplicationMetrics(ctx context.Context, app *models.Application) (map[string]interface{}, error) {
+	if app.DockerServiceID == nil || *app.DockerServiceID == "" {
+		return nil, fmt.Errorf("GetApplicationMetrics: app has no running service")
+	}
+	containerID, err := o.dockerClient.FindContainerIDForService(ctx, *app.DockerServiceID)
+	if err != nil {
+		return nil, fmt.Errorf("GetApplicationMetrics: %w", err)
+	}
+	stats, err := o.dockerClient.GetContainerStats(ctx, containerID)
+	if err != nil {
+		return nil, fmt.Errorf("GetApplicationMetrics: %w", err)
+	}
+	return stats, nil
+}
+
 func (o *Orchestrator) GetApplicationLogs(ctx context.Context, app *models.Application, tail int) (string, error) {
 	if app.DockerServiceID == nil {
 		return "No service running.\n", nil

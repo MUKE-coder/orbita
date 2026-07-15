@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,12 +10,15 @@ import (
 
 	"github.com/orbita-sh/orbita/internal/middleware"
 	"github.com/orbita-sh/orbita/internal/response"
+	"github.com/orbita-sh/orbita/internal/service"
 )
 
-type ExecHandler struct{}
+type ExecHandler struct {
+	appService *service.AppService
+}
 
-func NewExecHandler() *ExecHandler {
-	return &ExecHandler{}
+func NewExecHandler(appService *service.AppService) *ExecHandler {
+	return &ExecHandler{appService: appService}
 }
 
 type ExecRequest struct {
@@ -35,23 +39,19 @@ func (h *ExecHandler) ExecInApp(c *gin.Context) {
 		return
 	}
 
-	// TODO: real impl
-	// 1. Find running container for app
-	// 2. Create temporary container with same image/env
-	// 3. Run command, capture output
-	// 4. Return output in response body
-
-	log.Info().
-		Str("app_id", appID.String()).
-		Str("org_id", orgID.String()).
-		Str("command", req.Command).
-		Msg("Exec command in app (stub)")
-
-	output := "$ " + req.Command + "\n" +
-		"Command executed successfully (stub output)\n"
+	output, exitCode, err := h.appService.ExecCommand(c.Request.Context(), appID, orgID, req.Command)
+	if err != nil {
+		if errors.Is(err, service.ErrAppNotFound) {
+			response.NotFound(c, "App not found")
+			return
+		}
+		log.Error().Err(err).Str("app_id", appID.String()).Msg("Exec failed")
+		response.InternalError(c, "Exec failed: "+err.Error())
+		return
+	}
 
 	response.Success(c, http.StatusOK, gin.H{
 		"output":    output,
-		"exit_code": 0,
+		"exit_code": exitCode,
 	})
 }

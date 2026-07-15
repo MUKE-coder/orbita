@@ -115,7 +115,9 @@ func (s *Scheduler) UpdateJob(job *models.CronJob) error {
 }
 
 func (s *Scheduler) TriggerJob(ctx context.Context, job *models.CronJob) error {
-	go s.executor.ExecuteJob(ctx, job)
+	// Detach from the request context: the run outlives the HTTP request that
+	// triggered it, and the job's own timeout bounds it inside ExecuteJob.
+	go s.executor.ExecuteJob(context.Background(), job)
 	return nil
 }
 
