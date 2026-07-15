@@ -27,13 +27,13 @@ audit gap number. Check when done + committed + covered by a test or documented 
       unknown repo → ignored.
 
 ## C. Databases (P1 task 4)
-- [ ] C1. Attach named volume to DB service spec so data persists (gap #4).
-- [ ] C2. Inject `${NAME}_URL` env var into apps in the same environment on deploy (gap #5).
-- [ ] C3. Real backup: run engine dump in a sidecar container, gzip to local backup dir;
+- [x] C1. Attach named volume to DB service spec so data persists (gap #4).
+- [x] C2. Inject `${NAME}_URL` env var into apps in the same environment on deploy (gap #5).
+- [x] C3. Real backup: run engine dump in a sidecar container, gzip to local backup dir;
       record real size (gap #10).
-- [ ] C4. Real restore from a backup file; verify data round-trip (gap #10).
-- [ ] C5. Fire backup schedules via the cron scheduler (gap #10).
-- [ ] C6. Automated test: provision postgres → write row → backup → drop → restore → row back.
+- [x] C4. Real restore from a backup file; verify data round-trip (gap #10).
+- [x] C5. Fire backup schedules via the cron scheduler (gap #10).
+- [x] C6. Automated test: provision postgres → write row → backup → drop → restore → row back.
 
 ## D. RBAC + API keys (P1 tasks 5, 8)
 - [ ] D1. Tests: viewer cannot deploy; developer cannot manage members; cross-org access 404s;

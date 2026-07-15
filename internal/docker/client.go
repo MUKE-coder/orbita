@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -10,10 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/pkg/stdcopy"
+
 	dockertypes "github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
 	filtertypes "github.com/docker/docker/api/types/filters"
 	imagetypes "github.com/docker/docker/api/types/image"
+	mounttypes "github.com/docker/docker/api/types/mount"
 	networktypes "github.com/docker/docker/api/types/network"
 	registrytypes "github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/api/types/swarm"
@@ -75,7 +79,8 @@ type ServiceSpec struct {
 	Name          string
 	Image         string
 	Replicas      int
-	Port          int
+	Port          int  // container port; published on the ingress mesh only when PublishPort is true
+	PublishPort   bool // expose Port publicly via the Swarm ingress mesh
 	EnvVars       map[string]string
 	Labels        map[string]string
 	NetworkName   string
@@ -83,6 +88,13 @@ type ServiceSpec struct {
 	CPULimit      int64  // nanoCPUs (e.g. 1e9 = 1 core). 0 = unlimited.
 	MemoryLimit   int64  // bytes. 0 = unlimited.
 	RestartPolicy string // "any" (default) | "on-failure" | "none"
+	Mounts        []VolumeMount
+}
+
+// VolumeMount attaches a named Docker volume to a service's containers.
+type VolumeMount struct {
+	Source string // volume name
+	Target string // mount path inside the container
 }
 
 type ServiceInfo struct {
@@ -430,6 +442,15 @@ func (c *Client) buildSwarmServiceSpec(ctx context.Context, spec ServiceSpec) (s
 		Labels: labels,
 	}
 
+	// Named volume mounts (e.g. managed-database data directories)
+	for _, m := range spec.Mounts {
+		container.Mounts = append(container.Mounts, mounttypes.Mount{
+			Type:   mounttypes.TypeVolume,
+			Source: m.Source,
+			Target: m.Target,
+		})
+	}
+
 	// Resources
 	resources := &swarm.ResourceRequirements{
 		Limits: &swarm.Limit{},
@@ -485,9 +506,10 @@ func (c *Client) buildSwarmServiceSpec(ctx context.Context, spec ServiceSpec) (s
 		}
 	}
 
-	// Endpoint / port
+	// Endpoint / port. Only published when explicitly requested — databases and
+	// other internal services stay reachable solely on their org network.
 	var endpoint *swarm.EndpointSpec
-	if spec.Port > 0 {
+	if spec.Port > 0 && spec.PublishPort {
 		endpoint = &swarm.EndpointSpec{
 			Ports: []swarm.PortConfig{
 				{
@@ -591,6 +613,86 @@ func (c *Client) WaitForServiceConverged(ctx context.Context, serviceID string, 
 		case <-time.After(2 * time.Second):
 		}
 	}
+}
+
+// FindContainerIDForService returns the container ID of a running task of the
+// service. Single-node assumption: the container is on this host.
+func (c *Client) FindContainerIDForService(ctx context.Context, serviceID string) (string, error) {
+	if c.cli == nil {
+		return "", fmt.Errorf("FindContainerIDForService: client not initialized")
+	}
+
+	taskFilter := filtertypes.NewArgs()
+	taskFilter.Add("service", serviceID)
+	taskFilter.Add("desired-state", "running")
+	tasks, err := c.cli.TaskList(ctx, dockertypes.TaskListOptions{Filters: taskFilter})
+	if err != nil {
+		return "", fmt.Errorf("FindContainerIDForService: %w", err)
+	}
+	for _, t := range tasks {
+		if t.Status.State == swarm.TaskStateRunning && t.Status.ContainerStatus != nil && t.Status.ContainerStatus.ContainerID != "" {
+			return t.Status.ContainerStatus.ContainerID, nil
+		}
+	}
+	return "", fmt.Errorf("FindContainerIDForService: no running container for service %s", serviceID)
+}
+
+// ExecResult carries the demuxed output and exit code of a container exec.
+type ExecResult struct {
+	Stdout   []byte
+	Stderr   []byte
+	ExitCode int
+}
+
+// ExecInContainer runs a command inside a running container, optionally
+// feeding stdin and extra env vars, and returns stdout/stderr and the exit code.
+func (c *Client) ExecInContainer(ctx context.Context, containerID string, cmd []string, env []string, stdin io.Reader) (*ExecResult, error) {
+	if c.cli == nil {
+		return nil, fmt.Errorf("ExecInContainer: client not initialized")
+	}
+
+	execCfg := containertypes.ExecOptions{
+		Cmd:          cmd,
+		Env:          env,
+		AttachStdout: true,
+		AttachStderr: true,
+		AttachStdin:  stdin != nil,
+	}
+	created, err := c.cli.ContainerExecCreate(ctx, containerID, execCfg)
+	if err != nil {
+		return nil, fmt.Errorf("ExecInContainer: create: %w", err)
+	}
+
+	attach, err := c.cli.ContainerExecAttach(ctx, created.ID, containertypes.ExecStartOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("ExecInContainer: attach: %w", err)
+	}
+	defer attach.Close()
+
+	// Feed stdin (if any) concurrently with reading output to avoid deadlock
+	// on large payloads.
+	if stdin != nil {
+		go func() {
+			_, _ = io.Copy(attach.Conn, stdin)
+			_ = attach.CloseWrite()
+		}()
+	}
+
+	var stdout, stderr bytes.Buffer
+	if _, err := stdcopy.StdCopy(&stdout, &stderr, attach.Reader); err != nil {
+		return nil, fmt.Errorf("ExecInContainer: read: %w", err)
+	}
+
+	inspect, err := c.cli.ContainerExecInspect(ctx, created.ID)
+	if err != nil {
+		return nil, fmt.Errorf("ExecInContainer: inspect: %w", err)
+	}
+
+	return &ExecResult{
+		Stdout:   stdout.Bytes(),
+		Stderr:   stderr.Bytes(),
+		ExitCode: inspect.ExitCode,
+	}, nil
 }
 
 // connectContainerToNetwork attaches a container (by name) to a network (by

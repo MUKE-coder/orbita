@@ -1,12 +1,18 @@
 package service
 
 import (
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 
 	"github.com/orbita-sh/orbita/internal/auth"
@@ -24,6 +30,7 @@ type DBService struct {
 	dbRepo        *repository.DBRepository
 	orchestrator  *orchestrator.Orchestrator
 	encryptionKey []byte
+	backupDir     string
 }
 
 func NewDBService(dbRepo *repository.DBRepository, orch *orchestrator.Orchestrator, encryptionKey []byte) *DBService {
@@ -31,6 +38,14 @@ func NewDBService(dbRepo *repository.DBRepository, orch *orchestrator.Orchestrat
 		dbRepo:        dbRepo,
 		orchestrator:  orch,
 		encryptionKey: encryptionKey,
+		backupDir:     "backups",
+	}
+}
+
+// SetBackupDir sets where backup archives are written (default "backups").
+func (s *DBService) SetBackupDir(dir string) {
+	if dir != "" {
+		s.backupDir = dir
 	}
 }
 
@@ -119,6 +134,50 @@ func (s *DBService) ListDatabases(ctx context.Context, orgID uuid.UUID) ([]model
 	return s.dbRepo.ListByOrgID(ctx, orgID)
 }
 
+// EnvDatabaseURLs returns `<NAME>_URL -> connection string` for every managed
+// database in an environment. Injected into app deploys so apps get their
+// database credentials without copy-pasting connection strings.
+func (s *DBService) EnvDatabaseURLs(ctx context.Context, environmentID, orgID uuid.UUID) (map[string]string, error) {
+	dbs, err := s.dbRepo.ListByEnvironment(ctx, environmentID, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("EnvDatabaseURLs: %w", err)
+	}
+
+	orgKey, err := auth.DeriveOrgKey(s.encryptionKey, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("EnvDatabaseURLs: derive key: %w", err)
+	}
+
+	urls := make(map[string]string, len(dbs))
+	for _, mdb := range dbs {
+		if mdb.ConnectionConfig == nil || *mdb.ConnectionConfig == "" {
+			continue
+		}
+		conn, err := auth.Decrypt(*mdb.ConnectionConfig, orgKey)
+		if err != nil {
+			// Legacy rows may hold plaintext connection strings
+			conn = *mdb.ConnectionConfig
+		}
+		urls[envVarNameForDB(mdb.Name)] = conn
+	}
+	return urls, nil
+}
+
+// envVarNameForDB converts a database name into its injected env var name:
+// "rental-db" -> "RENTAL_DB_URL".
+func envVarNameForDB(name string) string {
+	upper := strings.ToUpper(name)
+	var b strings.Builder
+	for _, r := range upper {
+		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	return b.String() + "_URL"
+}
+
 func (s *DBService) DeleteDatabase(ctx context.Context, id, orgID uuid.UUID) error {
 	mdb, err := s.dbRepo.FindByID(ctx, id, orgID)
 	if err != nil {
@@ -186,12 +245,54 @@ func (s *DBService) CreateBackup(ctx context.Context, dbID, orgID uuid.UUID) (*m
 		return nil, fmt.Errorf("CreateBackup: %w", err)
 	}
 
-	// TODO: real impl — run pg_dump/mysqldump/mongodump in sidecar container
-	backup.Status = models.BackupStatusCompleted
-	backup.SizeBytes = 1024 * 1024 // stub: 1MB
-	storagePath := fmt.Sprintf("/backups/%s/%s/%s.gz", orgID, mdb.ID, backup.ID)
-	backup.StoragePath = &storagePath
+	fail := func(err error) (*models.Backup, error) {
+		backup.Status = models.BackupStatusFailed
+		_ = s.dbRepo.UpdateBackup(ctx, backup)
+		return backup, fmt.Errorf("CreateBackup: %w", err)
+	}
 
+	// Dump via the engine's tool inside the DB container
+	connStr, err := s.GetConnectionString(ctx, dbID, orgID)
+	if err != nil {
+		return fail(err)
+	}
+	dump, err := s.orchestrator.DumpDatabase(ctx, mdb, connStr)
+	if err != nil {
+		return fail(err)
+	}
+
+	// Gzip to <backupDir>/<orgID>/<dbID>/<backupID>.gz
+	dir := filepath.Join(s.backupDir, orgID.String(), mdb.ID.String())
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return fail(err)
+	}
+	storagePath := filepath.Join(dir, backup.ID.String()+".gz")
+
+	f, err := os.Create(storagePath)
+	if err != nil {
+		return fail(err)
+	}
+	gz := gzip.NewWriter(f)
+	if _, err := gz.Write(dump); err != nil {
+		f.Close()
+		return fail(err)
+	}
+	if err := gz.Close(); err != nil {
+		f.Close()
+		return fail(err)
+	}
+	if err := f.Close(); err != nil {
+		return fail(err)
+	}
+
+	info, err := os.Stat(storagePath)
+	if err != nil {
+		return fail(err)
+	}
+
+	backup.Status = models.BackupStatusCompleted
+	backup.SizeBytes = info.Size()
+	backup.StoragePath = &storagePath
 	_ = s.dbRepo.UpdateBackup(ctx, backup)
 
 	return backup, nil
@@ -202,7 +303,7 @@ func (s *DBService) ListBackups(ctx context.Context, dbID uuid.UUID, limit int) 
 }
 
 func (s *DBService) RestoreBackup(ctx context.Context, dbID, backupID, orgID uuid.UUID) error {
-	_, err := s.dbRepo.FindByID(ctx, dbID, orgID)
+	mdb, err := s.dbRepo.FindByID(ctx, dbID, orgID)
 	if err != nil {
 		return ErrDBNotFound
 	}
@@ -212,17 +313,128 @@ func (s *DBService) RestoreBackup(ctx context.Context, dbID, backupID, orgID uui
 		return ErrBackupNotFound
 	}
 
-	if backup.SourceID != dbID {
+	if backup.SourceID != dbID || backup.OrganizationID != orgID {
 		return ErrBackupNotFound
 	}
+	if backup.Status != models.BackupStatusCompleted || backup.StoragePath == nil {
+		return fmt.Errorf("RestoreBackup: backup %s is not restorable (status %s)", backupID, backup.Status)
+	}
 
-	// TODO: real impl — restore from backup file
-	_ = backup
+	f, err := os.Open(*backup.StoragePath)
+	if err != nil {
+		return fmt.Errorf("RestoreBackup: open archive: %w", err)
+	}
+	defer f.Close()
+
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return fmt.Errorf("RestoreBackup: gunzip: %w", err)
+	}
+	dump, err := io.ReadAll(gz)
+	if err != nil {
+		return fmt.Errorf("RestoreBackup: read archive: %w", err)
+	}
+
+	connStr, err := s.GetConnectionString(ctx, dbID, orgID)
+	if err != nil {
+		return fmt.Errorf("RestoreBackup: %w", err)
+	}
+
+	if err := s.orchestrator.RestoreDatabase(ctx, mdb, connStr, dump); err != nil {
+		return fmt.Errorf("RestoreBackup: %w", err)
+	}
 	return nil
 }
 
 func (s *DBService) GetBackupSchedule(ctx context.Context, dbID uuid.UUID) (*models.BackupSchedule, error) {
 	return s.dbRepo.GetBackupSchedule(ctx, dbID)
+}
+
+// StartBackupScheduler runs scheduled backups. It checks for due schedules
+// once a minute until ctx is cancelled. Call from main in a goroutine.
+func (s *DBService) StartBackupScheduler(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	log.Info().Msg("Backup scheduler started")
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info().Msg("Backup scheduler stopped")
+			return
+		case <-ticker.C:
+			s.runDueBackups(ctx)
+		}
+	}
+}
+
+func (s *DBService) runDueBackups(ctx context.Context) {
+	due, err := s.dbRepo.ListDueBackupSchedules(ctx, time.Now())
+	if err != nil {
+		log.Error().Err(err).Msg("Backup scheduler: list due schedules")
+		return
+	}
+
+	for i := range due {
+		bs := &due[i]
+
+		if _, err := s.CreateBackup(ctx, bs.SourceID, bs.OrganizationID); err != nil {
+			log.Error().Err(err).Str("db_id", bs.SourceID.String()).Msg("Scheduled backup failed")
+			// fall through: still advance next_run_at so we don't hot-loop a broken DB
+		}
+
+		now := time.Now()
+		next := nextBackupTime(bs.Frequency, now)
+		bs.LastRunAt = &now
+		bs.NextRunAt = &next
+		if err := s.dbRepo.UpdateBackupSchedule(ctx, bs); err != nil {
+			log.Error().Err(err).Str("db_id", bs.SourceID.String()).Msg("Backup scheduler: update schedule")
+		}
+
+		s.pruneBackups(ctx, bs.SourceID, bs.RetentionCount)
+	}
+}
+
+// pruneBackups keeps only the newest `retain` completed backups for a source,
+// deleting older archives from disk and their rows.
+func (s *DBService) pruneBackups(ctx context.Context, sourceID uuid.UUID, retain int) {
+	if retain <= 0 {
+		return
+	}
+	backups, err := s.dbRepo.ListBackups(ctx, sourceID, 1000)
+	if err != nil {
+		log.Error().Err(err).Msg("Backup prune: list")
+		return
+	}
+	kept := 0
+	for _, b := range backups {
+		if b.Status != models.BackupStatusCompleted {
+			continue
+		}
+		kept++
+		if kept <= retain {
+			continue
+		}
+		if b.StoragePath != nil {
+			if err := os.Remove(*b.StoragePath); err != nil && !os.IsNotExist(err) {
+				log.Warn().Err(err).Str("path", *b.StoragePath).Msg("Backup prune: remove file")
+			}
+		}
+		if err := s.dbRepo.DeleteBackup(ctx, b.ID); err != nil {
+			log.Warn().Err(err).Str("backup_id", b.ID.String()).Msg("Backup prune: delete row")
+		}
+	}
+}
+
+func nextBackupTime(frequency string, from time.Time) time.Time {
+	switch frequency {
+	case "hourly":
+		return from.Add(time.Hour)
+	case "weekly":
+		return from.Add(7 * 24 * time.Hour)
+	default: // daily
+		return from.Add(24 * time.Hour)
+	}
 }
 
 func (s *DBService) SetBackupSchedule(ctx context.Context, dbID, orgID uuid.UUID, frequency string, retentionCount int) (*models.BackupSchedule, error) {

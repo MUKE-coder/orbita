@@ -99,6 +99,13 @@ func main() {
 	projectService := service.NewProjectService(projectRepo)
 	appService := service.NewAppService(appRepo, orch)
 	dbService := service.NewDBService(dbRepo, orch, encryptionKey)
+	dbService.SetBackupDir(cfg.BackupDir)
+
+	// Inject managed-database <NAME>_URL env vars into app deploys
+	appService.SetDBURLResolver(dbService)
+
+	// Scheduled database backups
+	go dbService.StartBackupScheduler(ctx)
 	gitService := service.NewGitService(gitRepo, encryptionKey)
 
 	// Wire the orchestrator's git-token resolver so git-source deploys can build from private repos

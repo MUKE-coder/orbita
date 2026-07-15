@@ -36,10 +36,15 @@ func (o *Orchestrator) ProvisionDatabase(ctx context.Context, mdb *models.Manage
 	port := getDefaultPort(mdb.Engine)
 	mdb.Port = &port
 
+	// The Swarm service name doubles as the DNS hostname apps connect to.
+	serviceName := fmt.Sprintf("orbita-db-%s", mdb.ID.String()[:8])
+
 	spec := docker.ServiceSpec{
-		Name:         fmt.Sprintf("orbita-db-%s", mdb.ID.String()[:8]),
-		Image:        image,
-		Replicas:     1,
+		Name:     serviceName,
+		Image:    image,
+		Replicas: 1,
+		// Port intentionally NOT published: databases are reachable only inside
+		// the org network. Apps connect via the service-name DNS.
 		Port:         port,
 		EnvVars:      envVars,
 		NetworkName:  docker.GetOrgNetworkName(orgSlug),
@@ -48,6 +53,10 @@ func (o *Orchestrator) ProvisionDatabase(ctx context.Context, mdb *models.Manage
 			"orbita.db.id":   mdb.ID.String(),
 			"orbita.org":     orgSlug,
 			"orbita.managed": "true",
+		},
+		// Persist data to a named volume — without this every restart wiped the DB.
+		Mounts: []docker.VolumeMount{
+			{Source: volumeName, Target: getDataDir(mdb.Engine)},
 		},
 	}
 
@@ -67,8 +76,8 @@ func (o *Orchestrator) ProvisionDatabase(ctx context.Context, mdb *models.Manage
 	mdb.DockerServiceID = &serviceID
 	mdb.Status = models.DBStatusRunning
 
-	// Build connection string
-	connStr := buildConnectionString(mdb.Engine, mdb.Name, password, port, orgSlug)
+	// Build connection string — host is the Swarm service name (org-network DNS)
+	connStr := buildConnectionString(mdb.Engine, mdb.Name, password, port, serviceName)
 	mdb.ConnectionConfig = &connStr
 
 	log.Info().
@@ -134,6 +143,23 @@ func getDBEnvVars(engine, dbName, password string) map[string]string {
 	}
 }
 
+// getDataDir returns the engine's data directory — the mount point for the
+// persistence volume.
+func getDataDir(engine string) string {
+	switch engine {
+	case models.EnginePostgres:
+		return "/var/lib/postgresql/data"
+	case models.EngineMySQL, models.EngineMariaDB:
+		return "/var/lib/mysql"
+	case models.EngineMongoDB:
+		return "/data/db"
+	case models.EngineRedis:
+		return "/data"
+	default:
+		return "/data"
+	}
+}
+
 func getDefaultPort(engine string) int {
 	switch engine {
 	case models.EnginePostgres:
@@ -149,8 +175,7 @@ func getDefaultPort(engine string) int {
 	}
 }
 
-func buildConnectionString(engine, dbName, password string, port int, orgSlug string) string {
-	host := fmt.Sprintf("orbita-db-%s", dbName)
+func buildConnectionString(engine, dbName, password string, port int, host string) string {
 	switch engine {
 	case models.EnginePostgres:
 		return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", dbName, password, host, port, dbName)

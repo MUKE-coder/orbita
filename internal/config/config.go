@@ -23,6 +23,7 @@ type Config struct {
 	AppBaseURL          string
 	IsProduction        bool
 	SuperAdminEmail     string
+	BackupDir           string
 }
 
 func Load() (*Config, error) {
@@ -43,6 +44,7 @@ func Load() (*Config, error) {
 		AppBaseURL:          getEnv("APP_BASE_URL", "http://localhost:8080"),
 		IsProduction:        getEnvBool("IS_PRODUCTION", false),
 		SuperAdminEmail:     getEnv("SUPER_ADMIN_EMAIL", ""),
+		BackupDir:           getEnv("BACKUP_DIR", "/var/lib/orbita/backups"),
 	}
 
 	if cfg.JWTSecret == "" {

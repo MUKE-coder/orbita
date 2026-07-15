@@ -29,6 +29,7 @@ type AppService struct {
 	appRepo        *repository.AppRepository
 	orchestrator   *orchestrator.Orchestrator
 	envResolver    EnvResolver
+	dbURLResolver  DBURLResolver
 	routeRefresher RouteRefresher
 }
 
@@ -43,6 +44,12 @@ type RouteRefresher interface {
 // Satisfied by *EnvService. Optional: deploys proceed with no env when unset.
 type EnvResolver interface {
 	GetEnvVarMap(ctx context.Context, resourceID uuid.UUID, resourceType string, orgID uuid.UUID) (map[string]string, error)
+}
+
+// DBURLResolver supplies `<NAME>_URL` connection strings for the managed
+// databases in an environment. Satisfied by *DBService. Optional.
+type DBURLResolver interface {
+	EnvDatabaseURLs(ctx context.Context, environmentID, orgID uuid.UUID) (map[string]string, error)
 }
 
 func NewAppService(appRepo *repository.AppRepository, orch *orchestrator.Orchestrator) *AppService {
@@ -76,18 +83,39 @@ func (s *AppService) refreshRoutes(ctx context.Context, app *models.Application)
 	}
 }
 
-// resolveEnvForDeploy returns the env map for an app, or an empty map when no
-// resolver is wired. Resolution failure aborts the deploy rather than silently
+// SetDBURLResolver wires managed-database URL injection into deploys.
+func (s *AppService) SetDBURLResolver(r DBURLResolver) {
+	s.dbURLResolver = r
+}
+
+// resolveEnvForDeploy returns the env map for an app: managed-database
+// `<NAME>_URL` values first, then the app's own env vars (which win on key
+// collision). Resolution failure aborts the deploy rather than silently
 // starting the app without its configuration.
 func (s *AppService) resolveEnvForDeploy(ctx context.Context, app *models.Application) (map[string]string, error) {
-	if s.envResolver == nil {
-		return map[string]string{}, nil
+	merged := map[string]string{}
+
+	if s.dbURLResolver != nil {
+		dbURLs, err := s.dbURLResolver.EnvDatabaseURLs(ctx, app.EnvironmentID, app.OrganizationID)
+		if err != nil {
+			return nil, fmt.Errorf("resolve database urls: %w", err)
+		}
+		for k, v := range dbURLs {
+			merged[k] = v
+		}
 	}
-	envVars, err := s.envResolver.GetEnvVarMap(ctx, app.ID, models.ResourceTypeApp, app.OrganizationID)
-	if err != nil {
-		return nil, fmt.Errorf("resolve env vars: %w", err)
+
+	if s.envResolver != nil {
+		envVars, err := s.envResolver.GetEnvVarMap(ctx, app.ID, models.ResourceTypeApp, app.OrganizationID)
+		if err != nil {
+			return nil, fmt.Errorf("resolve env vars: %w", err)
+		}
+		for k, v := range envVars {
+			merged[k] = v
+		}
 	}
-	return envVars, nil
+
+	return merged, nil
 }
 
 type CreateAppInput struct {

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -32,6 +33,15 @@ func (r *DBRepository) FindByID(ctx context.Context, id, orgID uuid.UUID) (*mode
 		return nil, fmt.Errorf("DBRepo.FindByID: %w", err)
 	}
 	return &mdb, nil
+}
+
+func (r *DBRepository) ListByEnvironment(ctx context.Context, environmentID, orgID uuid.UUID) ([]models.ManagedDatabase, error) {
+	var dbs []models.ManagedDatabase
+	if err := r.db.WithContext(ctx).Scopes(OrgScope(orgID)).
+		Where("environment_id = ?", environmentID).Find(&dbs).Error; err != nil {
+		return nil, fmt.Errorf("DBRepo.ListByEnvironment: %w", err)
+	}
+	return dbs, nil
 }
 
 func (r *DBRepository) ListByOrgID(ctx context.Context, orgID uuid.UUID) ([]models.ManagedDatabase, error) {
@@ -95,6 +105,30 @@ func (r *DBRepository) UpdateBackup(ctx context.Context, b *models.Backup) error
 }
 
 // Backup Schedules
+
+func (r *DBRepository) ListDueBackupSchedules(ctx context.Context, now time.Time) ([]models.BackupSchedule, error) {
+	var schedules []models.BackupSchedule
+	if err := r.db.WithContext(ctx).
+		Where("enabled = true AND next_run_at IS NOT NULL AND next_run_at <= ?", now).
+		Find(&schedules).Error; err != nil {
+		return nil, fmt.Errorf("DBRepo.ListDueBackupSchedules: %w", err)
+	}
+	return schedules, nil
+}
+
+func (r *DBRepository) UpdateBackupSchedule(ctx context.Context, bs *models.BackupSchedule) error {
+	if err := r.db.WithContext(ctx).Save(bs).Error; err != nil {
+		return fmt.Errorf("DBRepo.UpdateBackupSchedule: %w", err)
+	}
+	return nil
+}
+
+func (r *DBRepository) DeleteBackup(ctx context.Context, id uuid.UUID) error {
+	if err := r.db.WithContext(ctx).Delete(&models.Backup{}, "id = ?", id).Error; err != nil {
+		return fmt.Errorf("DBRepo.DeleteBackup: %w", err)
+	}
+	return nil
+}
 
 func (r *DBRepository) GetBackupSchedule(ctx context.Context, sourceID uuid.UUID) (*models.BackupSchedule, error) {
 	var bs models.BackupSchedule

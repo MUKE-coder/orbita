@@ -83,11 +83,12 @@ func (o *Orchestrator) DeployApplication(ctx context.Context, app *models.Applic
 	}
 
 	spec := docker.ServiceSpec{
-		Name:     fmt.Sprintf("orbita-%s", app.ID.String()[:8]),
-		Image:    imageRef,
-		Replicas: app.Replicas,
-		Port:     port,
-		EnvVars:  envVars,
+		Name:        fmt.Sprintf("orbita-%s", app.ID.String()[:8]),
+		Image:       imageRef,
+		Replicas:    app.Replicas,
+		Port:        port,
+		PublishPort: true, // ingress fallback; Traefik routes via the org network when domains exist
+		EnvVars:     envVars,
 		Labels: map[string]string{
 			"orbita.app.id":  app.ID.String(),
 			"orbita.org":     orgSlug,
