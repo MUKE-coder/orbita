@@ -109,6 +109,9 @@ func main() {
 	envRepo := repository.NewEnvRepository(db)
 	envService := service.NewEnvService(envRepo, encryptionKey)
 
+	// Wire env-var resolution into app deploys (secrets decrypted at deploy time)
+	appService.SetEnvResolver(envService)
+
 	// Initialize notification & audit service
 	notifRepo := repository.NewNotificationRepository(db)
 	notifService := service.NewNotificationService(notifRepo)

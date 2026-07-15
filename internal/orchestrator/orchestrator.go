@@ -54,7 +54,7 @@ type DeployConfig struct {
 	CPUShares int `json:"cpu_shares,omitempty"` // 1000 = 1 core
 }
 
-func (o *Orchestrator) DeployApplication(ctx context.Context, app *models.Application, deployment *models.Deployment, orgSlug string) error {
+func (o *Orchestrator) DeployApplication(ctx context.Context, app *models.Application, deployment *models.Deployment, orgSlug string, envVars map[string]string) error {
 	log.Info().
 		Str("app", app.Name).
 		Str("source_type", app.SourceType).
@@ -87,6 +87,7 @@ func (o *Orchestrator) DeployApplication(ctx context.Context, app *models.Applic
 		Image:    imageRef,
 		Replicas: app.Replicas,
 		Port:     port,
+		EnvVars:  envVars,
 		Labels: map[string]string{
 			"orbita.app.id":  app.ID.String(),
 			"orbita.org":     orgSlug,

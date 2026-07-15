@@ -25,6 +25,13 @@ var (
 type AppService struct {
 	appRepo      *repository.AppRepository
 	orchestrator *orchestrator.Orchestrator
+	envResolver  EnvResolver
+}
+
+// EnvResolver supplies the full env-var map (secrets decrypted) for a resource.
+// Satisfied by *EnvService. Optional: deploys proceed with no env when unset.
+type EnvResolver interface {
+	GetEnvVarMap(ctx context.Context, resourceID uuid.UUID, resourceType string, orgID uuid.UUID) (map[string]string, error)
 }
 
 func NewAppService(appRepo *repository.AppRepository, orch *orchestrator.Orchestrator) *AppService {
@@ -32,6 +39,25 @@ func NewAppService(appRepo *repository.AppRepository, orch *orchestrator.Orchest
 		appRepo:      appRepo,
 		orchestrator: orch,
 	}
+}
+
+// SetEnvResolver wires env-var resolution into deploys.
+func (s *AppService) SetEnvResolver(r EnvResolver) {
+	s.envResolver = r
+}
+
+// resolveEnvForDeploy returns the env map for an app, or an empty map when no
+// resolver is wired. Resolution failure aborts the deploy rather than silently
+// starting the app without its configuration.
+func (s *AppService) resolveEnvForDeploy(ctx context.Context, app *models.Application) (map[string]string, error) {
+	if s.envResolver == nil {
+		return map[string]string{}, nil
+	}
+	envVars, err := s.envResolver.GetEnvVarMap(ctx, app.ID, models.ResourceTypeApp, app.OrganizationID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve env vars: %w", err)
+	}
+	return envVars, nil
 }
 
 type CreateAppInput struct {
@@ -174,6 +200,11 @@ func (s *AppService) Deploy(ctx context.Context, appID, orgID uuid.UUID, orgSlug
 	}
 	_ = json.Unmarshal(app.SourceConfig, &srcCfg)
 
+	envVars, err := s.resolveEnvForDeploy(ctx, app)
+	if err != nil {
+		return nil, fmt.Errorf("Deploy: %w", err)
+	}
+
 	version, _ := s.appRepo.GetNextDeployVersion(ctx, appID)
 	now := time.Now()
 
@@ -198,7 +229,7 @@ func (s *AppService) Deploy(ctx context.Context, appID, orgID uuid.UUID, orgSlug
 	_ = s.appRepo.Update(ctx, app)
 
 	// Run deployment
-	if err := s.orchestrator.DeployApplication(ctx, app, deployment, orgSlug); err != nil {
+	if err := s.orchestrator.DeployApplication(ctx, app, deployment, orgSlug, envVars); err != nil {
 		deployment.Status = models.DeployStatusFailed
 		errMsg := err.Error()
 		deployment.ErrorMessage = &errMsg
@@ -222,7 +253,7 @@ func (s *AppService) Deploy(ctx context.Context, appID, orgID uuid.UUID, orgSlug
 	return deployment, nil
 }
 
-func (s *AppService) Rollback(ctx context.Context, appID, deploymentID, orgID uuid.UUID, orgSlug string) (*models.Deployment, error) {
+func (s *AppService) Rollback(ctx context.Context, appID, deploymentID, orgID uuid.UUID, orgSlug string, userID *uuid.UUID) (*models.Deployment, error) {
 	app, err := s.appRepo.FindByID(ctx, appID, orgID)
 	if err != nil {
 		return nil, ErrAppNotFound
@@ -237,6 +268,11 @@ func (s *AppService) Rollback(ctx context.Context, appID, deploymentID, orgID uu
 		return nil, ErrDeploymentNotFound
 	}
 
+	envVars, err := s.resolveEnvForDeploy(ctx, app)
+	if err != nil {
+		return nil, fmt.Errorf("Rollback: %w", err)
+	}
+
 	version, _ := s.appRepo.GetNextDeployVersion(ctx, appID)
 	now := time.Now()
 
@@ -248,18 +284,24 @@ func (s *AppService) Rollback(ctx context.Context, appID, deploymentID, orgID uu
 		DeployConfig: targetDeploy.DeployConfig,
 		Status:       models.DeployStatusRunning,
 		StartedAt:    &now,
-		TriggerType:  "rollback",
+		TriggeredBy:  userID,
+		TriggerType:  models.TriggerRollback,
 	}
 
 	if err := s.appRepo.CreateDeployment(ctx, rollbackDeploy); err != nil {
 		return nil, fmt.Errorf("Rollback: create deployment: %w", err)
 	}
 
-	if err := s.orchestrator.DeployApplication(ctx, app, rollbackDeploy, orgSlug); err != nil {
+	if err := s.orchestrator.DeployApplication(ctx, app, rollbackDeploy, orgSlug, envVars); err != nil {
 		rollbackDeploy.Status = models.DeployStatusFailed
 		errMsg := err.Error()
 		rollbackDeploy.ErrorMessage = &errMsg
+		finishedAt := time.Now()
+		rollbackDeploy.FinishedAt = &finishedAt
 		_ = s.appRepo.UpdateDeployment(ctx, rollbackDeploy)
+
+		app.Status = models.AppStatusFailed
+		_ = s.appRepo.Update(ctx, app)
 		return rollbackDeploy, err
 	}
 

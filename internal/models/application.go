@@ -62,7 +62,8 @@ const (
 	SourceTypeGit         = "git"
 	SourceTypeCompose     = "docker-compose"
 
-	TriggerManual  = "manual"
-	TriggerWebhook = "webhook"
-	TriggerPush    = "push"
+	TriggerManual   = "manual"
+	TriggerWebhook  = "webhook"
+	TriggerPush     = "push"
+	TriggerRollback = "rollback"
 )

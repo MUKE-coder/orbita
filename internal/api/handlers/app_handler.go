@@ -231,6 +231,7 @@ func (h *AppHandler) Deploy(c *gin.Context) {
 func (h *AppHandler) Rollback(c *gin.Context) {
 	orgID := middleware.GetOrgIDFromContext(c)
 	org := middleware.GetOrgFromContext(c)
+	userID := middleware.GetUserIDFromContext(c)
 	appID, err := uuid.Parse(c.Param("appId"))
 	if err != nil {
 		response.BadRequest(c, "Invalid app ID")
@@ -242,7 +243,7 @@ func (h *AppHandler) Rollback(c *gin.Context) {
 		return
 	}
 
-	deployment, err := h.appService.Rollback(c.Request.Context(), appID, deploymentID, orgID, org.Slug)
+	deployment, err := h.appService.Rollback(c.Request.Context(), appID, deploymentID, orgID, org.Slug, &userID)
 	if err != nil {
 		if errors.Is(err, service.ErrAppNotFound) || errors.Is(err, service.ErrDeploymentNotFound) {
 			response.NotFound(c, "Not found")
