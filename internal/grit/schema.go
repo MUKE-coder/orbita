@@ -28,9 +28,9 @@ type Manifest struct {
 	// grit.json instead. When present, paths are validated against the repo.
 	Services map[string]ServiceOverride `yaml:"services,omitempty"`
 
-	Addons  []string          `yaml:"addons,omitempty"` // subset of {postgres, redis, minio}
-	Domains Domains           `yaml:"domains,omitempty"`
-	Migrate *bool             `yaml:"migrate,omitempty"` // default true
+	Addons  []string `yaml:"addons,omitempty"` // subset of {postgres, redis, minio}
+	Domains Domains  `yaml:"domains,omitempty"`
+	Migrate *bool    `yaml:"migrate,omitempty"` // default true
 
 	// Dashboard toggles (grit-knowledge/07). Defaults: observability/security
 	// on, studio off.

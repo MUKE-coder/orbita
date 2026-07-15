@@ -53,12 +53,12 @@ func ParseGritJSON(data []byte) (*GritJSON, error) {
 // relative to the repo root ("" = repo root); DockerfilePath is relative to the
 // context.
 type Service struct {
-	Role           string   // app | api | web | admin | docs
-	DockerfilePath string   // e.g. "Dockerfile" or "apps/web/Dockerfile"
-	BuildContext   string   // "" = repo root, "apps/api" = subdir
-	Port           int      // container listen port
-	NeedsAPIURL    bool     // Next.js apps take NEXT_PUBLIC_API_URL as a build arg
-	IsAPI          bool     // true for the Go API (app or api role) — migrations run here
+	Role           string // app | api | web | admin | docs
+	DockerfilePath string // e.g. "Dockerfile" or "apps/web/Dockerfile"
+	BuildContext   string // "" = repo root, "apps/api" = subdir
+	Port           int    // container listen port
+	NeedsAPIURL    bool   // Next.js apps take NEXT_PUBLIC_API_URL as a build arg
+	IsAPI          bool   // true for the Go API (app or api role) — migrations run here
 }
 
 // IsVPSDeployable reports whether a mode can be deployed to a VPS.
