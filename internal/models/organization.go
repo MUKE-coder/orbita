@@ -135,5 +135,11 @@ var RoleHierarchy = map[string]int{
 }
 
 func HasMinRole(userRole, minRole string) bool {
-	return RoleHierarchy[userRole] >= RoleHierarchy[minRole]
+	// Unknown roles must never satisfy a check — a missing map entry would
+	// otherwise default to 0 and pass viewer-level gates.
+	userRank, ok := RoleHierarchy[userRole]
+	if !ok {
+		return false
+	}
+	return userRank >= RoleHierarchy[minRole]
 }

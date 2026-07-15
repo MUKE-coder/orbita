@@ -35,10 +35,10 @@ _Phase 0 complete: 2026-07-15, commit 354d6b4_
 - [x] **Deploy engine:** confirm zero-downtime rolling update + rollback works for image and Git sources; fix edge cases (failed build, health-check timeout, port mismatch).
 - [x] **Git auto-deploy:** verify GitHub webhook signature (HMAC-SHA256) verification and that push→deploy fires reliably. Fix if broken.
 - [x] **Databases:** verify Postgres provisioning, `${DB}_URL` injection, scheduled backup, and restore actually round-trip data. Add a test.
-- [ ] **RBAC:** write tests proving Viewer can't deploy, Developer can't manage members, cross-org access is denied. Fix any leak.
+- [x] **RBAC:** write tests proving Viewer can't deploy, Developer can't manage members, cross-org access is denied. Fix any leak.
 - [x] **Secrets:** verify AES-256-GCM encryption at rest and per-org key derivation; add a test that secrets are never returned in plaintext over the API.
 - [ ] **TLS:** reproduce and document the common Let's Encrypt failure modes (Cloudflare orange-cloud, DNS not propagated) with clear error messages surfaced to the user.
-- [ ] **API keys:** confirm `orb_` key creation, scoping, and bearer auth on all `/api/v1` routes used by the CLI (deploy, env, domains, logs, rollback).
+- [x] **API keys:** confirm `orb_` key creation, scoping, and bearer auth on all `/api/v1` routes used by the CLI (deploy, env, domains, logs, rollback).
 - [ ] Add missing tests until `make test` is green and covers the core deploy/db/rbac/secrets paths.
 - [ ] Publish a working container image to GHCR (`ghcr.io/muke-coder/orbita`) so `install.sh` works for self-hosters (the README notes this may currently be private/unpublished).
 - [ ] Tag a `v0.1.0` release.

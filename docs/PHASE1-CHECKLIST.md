@@ -36,9 +36,9 @@ audit gap number. Check when done + committed + covered by a test or documented 
 - [x] C6. Automated test: provision postgres → write row → backup → drop → restore → row back.
 
 ## D. RBAC + API keys (P1 tasks 5, 8)
-- [ ] D1. Tests: viewer cannot deploy; developer cannot manage members; cross-org access 404s;
+- [x] D1. Tests: viewer cannot deploy; developer cannot manage members; cross-org access 404s;
       role hierarchy helper unit tests.
-- [ ] D2. Wire `orb_` API-key bearer auth into `/api/v1` org routes needed by the CLI:
+- [x] D2. Wire `orb_` API-key bearer auth into `/api/v1` org routes needed by the CLI:
       deploy, rollback, env, domains, logs, status (gap #2). Scope enforcement + tests.
 
 ## E. Secrets (P1 task 6)

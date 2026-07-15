@@ -25,6 +25,16 @@ func RequireOrgMember(orgRepo *repository.OrgRepository, minRole string) gin.Han
 			return
 		}
 
+		// An org-bound API key must not reach any other org, regardless of the
+		// key owner's memberships.
+		if boundOrg, ok := c.Get("api_key_org_id"); ok {
+			if boundID, isUUID := boundOrg.(uuid.UUID); isUUID && boundID != org.ID {
+				response.Forbidden(c, "API key is not authorized for this organization")
+				c.Abort()
+				return
+			}
+		}
+
 		userID := GetUserIDFromContext(c)
 
 		member, err := orgRepo.GetMember(c.Request.Context(), org.ID, userID)

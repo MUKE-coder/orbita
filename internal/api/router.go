@@ -104,6 +104,8 @@ func NewRouter(deps *RouterDeps) *Router {
 	// Middleware
 	authRateLimit := mw.RateLimit(deps.Redis, 5, 15*time.Minute)
 	requireAuth := mw.RequireAuth(deps.Config.JWTSecret)
+	// JWT or orb_ API key — org routes accept both so the CLI can authenticate
+	authOrKey := mw.ApiKeyAuth(deps.UserRepo, deps.Config.JWTSecret)
 	requireSuperAdmin := mw.RequireSuperAdmin(deps.Config.JWTSecret)
 
 	v1 := engine.Group("/api/v1")
@@ -142,7 +144,7 @@ func NewRouter(deps *RouterDeps) *Router {
 		v1.POST("/join", requireAuth, orgHandler.AcceptInvite)
 
 		// Org routes (authenticated)
-		orgsGroup := v1.Group("/orgs", requireAuth)
+		orgsGroup := v1.Group("/orgs", authOrKey)
 		{
 			orgsGroup.GET("", orgHandler.ListOrgs)
 			orgsGroup.POST("", orgHandler.CreateOrg)
