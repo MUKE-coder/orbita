@@ -76,15 +76,15 @@ _Phase 2 complete: 2026-07-15, commit e352d83_
 
 > Goal: one command turns a fresh VPS into a hardened Orbita host and registers it locally.
 
-- [ ] Scaffold the `grit cloud` command group inside the existing Grit CLI (Cobra subcommands).
-- [ ] **Harden step:** vendor `vps-harden.sh` (from `github.com/MUKE-coder/vps-harden`) and invoke it — SSH lockdown, UFW, Fail2ban, Docker-firewall fix, auto-updates. Preserve the security-score-out-of-100 output.
-- [ ] **Install step:** install Docker (if absent), init Swarm, then run Orbita's existing `install.sh` (Orbita + Postgres + Redis + Traefik). Reuse, don't reimplement.
-- [ ] **Auth bootstrap:** after Orbita is up, create an initial `orb_` deploy API key (via the API once super-admin exists, or a first-run token) and capture it.
-- [ ] **Host registration:** write `~/.grit/hosts.yaml` on the operator's machine mapping a friendly name (e.g. `prod`) → Orbita API URL + `orb_` token. Support multiple hosts.
-- [ ] **Private dashboard helper:** add `grit cloud dashboard --host prod` that opens the SSH tunnel (`-L 3000:localhost:3000` style) so the Orbita panel is reached privately, matching the existing blog workflow.
-- [ ] `grit cloud status --host prod` — hit Orbita's `/health` + platform metrics and print a readable summary.
-- [ ] Flags for automation: `--yes`, `--domain`, `--acme-email` (pass through to Orbita's installer envs).
-- [ ] Test on a fresh Hetzner Ubuntu 24.04 box: one command → hardened server (score ≥ 90) + Orbita on HTTPS + registered host.
+- [x] Scaffold the `grit cloud` command group inside the existing Grit CLI (Cobra subcommands).
+- [x] **Harden step:** vendor `vps-harden.sh` (from `github.com/MUKE-coder/vps-harden`) and invoke it — SSH lockdown, UFW, Fail2ban, Docker-firewall fix, auto-updates. Preserve the security-score-out-of-100 output.
+- [x] **Install step:** install Docker (if absent), init Swarm, then run Orbita's existing `install.sh` (Orbita + Postgres + Redis + Traefik). Reuse, don't reimplement.
+- [x] **Auth bootstrap:** after Orbita is up, create an initial `orb_` deploy API key (via the API once super-admin exists, or a first-run token) and capture it.
+- [x] **Host registration:** write `~/.grit/hosts.yaml` on the operator's machine mapping a friendly name (e.g. `prod`) → Orbita API URL + `orb_` token. Support multiple hosts.
+- [x] **Private dashboard helper:** add `grit cloud dashboard --host prod` that opens the SSH tunnel (`-L 3000:localhost:3000` style) so the Orbita panel is reached privately, matching the existing blog workflow.
+- [x] `grit cloud status --host prod` — hit Orbita's `/health` + platform metrics and print a readable summary.
+- [x] Flags for automation: `--yes`, `--domain`, `--acme-email` (pass through to Orbita's installer envs).
+- [x] Test on a fresh Hetzner Ubuntu 24.04 box: one command → hardened server (score ≥ 90) + Orbita on HTTPS + registered host.
 
 _Phase 3 complete: _____________________
 
