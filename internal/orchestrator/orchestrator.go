@@ -118,6 +118,13 @@ func (o *Orchestrator) DeployApplication(ctx context.Context, app *models.Applic
 		app.DockerServiceID = &serviceID
 	}
 
+	// Gate success on the service actually converging. On a failed update Swarm
+	// rolls back to the previous task (start-first order), so the running
+	// version keeps serving and the deployment is recorded as failed.
+	if err := o.dockerClient.WaitForServiceConverged(ctx, *app.DockerServiceID, 3*time.Minute); err != nil {
+		return fmt.Errorf("DeployApplication: %w", err)
+	}
+
 	app.Status = models.AppStatusRunning
 	log.Info().Str("app", app.Name).Str("image", imageRef).Msg("Deployment completed")
 	return nil

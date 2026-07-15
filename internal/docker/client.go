@@ -58,8 +58,8 @@ func (c *Client) Close() error {
 	return c.cli.Close()
 }
 
-// ping returns an error if the Docker daemon isn't reachable.
-func (c *Client) ping(ctx context.Context) error {
+// Ping returns an error if the Docker daemon isn't reachable.
+func (c *Client) Ping(ctx context.Context) error {
 	if c.cli == nil {
 		return fmt.Errorf("docker client not initialized")
 	}
@@ -456,6 +456,23 @@ func (c *Client) buildSwarmServiceSpec(ctx context.Context, spec ServiceSpec) (s
 		RestartPolicy: &swarm.RestartPolicy{Condition: restartCondition},
 	}
 
+	// Zero-downtime rolling updates: start the new task before stopping the old
+	// one, and roll back automatically if the new task fails to come up within
+	// the monitor window.
+	updateMonitor := 10 * time.Second
+	updateConfig := &swarm.UpdateConfig{
+		Parallelism:   1,
+		Order:         swarm.UpdateOrderStartFirst,
+		FailureAction: swarm.UpdateFailureActionRollback,
+		Monitor:       updateMonitor,
+	}
+	rollbackConfig := &swarm.UpdateConfig{
+		Parallelism:   1,
+		Order:         swarm.UpdateOrderStartFirst,
+		FailureAction: swarm.UpdateFailureActionPause,
+		Monitor:       updateMonitor,
+	}
+
 	// Network attachment (resolve name → ID)
 	if spec.NetworkName != "" {
 		netID, err := c.resolveNetworkID(ctx, spec.NetworkName)
@@ -491,8 +508,89 @@ func (c *Client) buildSwarmServiceSpec(ctx context.Context, spec ServiceSpec) (s
 		Mode: swarm.ServiceMode{
 			Replicated: &swarm.ReplicatedService{Replicas: &replicas},
 		},
-		EndpointSpec: endpoint,
+		UpdateConfig:   updateConfig,
+		RollbackConfig: rollbackConfig,
+		EndpointSpec:   endpoint,
 	}, nil
+}
+
+// WaitForServiceConverged blocks until the service's tasks reach the desired
+// running state, the update completes, or the timeout elapses. For updates that
+// Swarm rolls back automatically it returns an error describing the failure so
+// the deployment is recorded as failed while the previous version keeps serving.
+func (c *Client) WaitForServiceConverged(ctx context.Context, serviceID string, timeout time.Duration) error {
+	if c.cli == nil {
+		return fmt.Errorf("WaitForServiceConverged: client not initialized")
+	}
+
+	deadline := time.Now().Add(timeout)
+	var lastTaskErr string
+
+	for {
+		if time.Now().After(deadline) {
+			msg := "timed out waiting for service to converge"
+			if lastTaskErr != "" {
+				msg += ": " + lastTaskErr
+			}
+			return fmt.Errorf("WaitForServiceConverged: %s", msg)
+		}
+
+		svc, _, err := c.cli.ServiceInspectWithRaw(ctx, serviceID, dockertypes.ServiceInspectOptions{})
+		if err != nil {
+			return fmt.Errorf("WaitForServiceConverged: inspect: %w", err)
+		}
+
+		// Update in progress or settled?
+		if svc.UpdateStatus != nil {
+			switch svc.UpdateStatus.State {
+			case swarm.UpdateStateCompleted:
+				return nil
+			case swarm.UpdateStateRollbackCompleted:
+				return fmt.Errorf("WaitForServiceConverged: update failed and was rolled back: %s", svc.UpdateStatus.Message)
+			case swarm.UpdateStatePaused, swarm.UpdateStateRollbackPaused:
+				return fmt.Errorf("WaitForServiceConverged: update paused: %s", svc.UpdateStatus.Message)
+			}
+			// updating / rollback_started → keep waiting
+		} else {
+			// Fresh service (no update status): count running tasks of the
+			// current spec version against the desired replica count.
+			desired := 1
+			if svc.Spec.Mode.Replicated != nil && svc.Spec.Mode.Replicated.Replicas != nil {
+				desired = int(*svc.Spec.Mode.Replicated.Replicas)
+			}
+
+			taskFilter := filtertypes.NewArgs()
+			taskFilter.Add("service", serviceID)
+			tasks, err := c.cli.TaskList(ctx, dockertypes.TaskListOptions{Filters: taskFilter})
+			if err != nil {
+				return fmt.Errorf("WaitForServiceConverged: task list: %w", err)
+			}
+
+			running := 0
+			for _, t := range tasks {
+				if t.DesiredState != swarm.TaskStateRunning {
+					continue
+				}
+				switch t.Status.State {
+				case swarm.TaskStateRunning:
+					running++
+				case swarm.TaskStateFailed, swarm.TaskStateRejected:
+					if t.Status.Err != "" {
+						lastTaskErr = t.Status.Err
+					}
+				}
+			}
+			if running >= desired {
+				return nil
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("WaitForServiceConverged: %w", ctx.Err())
+		case <-time.After(2 * time.Second):
+		}
+	}
 }
 
 // resolveNetworkID finds a Docker network by name and returns its ID.

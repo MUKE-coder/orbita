@@ -75,6 +75,14 @@ func main() {
 
 	// Initialize Docker client and orchestrator
 	dockerClient := docker.NewClient(cfg.DockerSocket)
+	if err := dockerClient.Ping(ctx); err != nil {
+		if cfg.IsProduction {
+			log.Fatal().Err(err).Str("socket", cfg.DockerSocket).
+				Msg("Docker daemon unreachable — Orbita cannot deploy without it. Check DOCKER_SOCKET and that the daemon is running.")
+		}
+		log.Warn().Err(err).Str("socket", cfg.DockerSocket).
+			Msg("Docker daemon unreachable — deploys will fail until it is available")
+	}
 	orch := orchestrator.New(dockerClient)
 
 	// Encryption key for secrets
