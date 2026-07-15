@@ -49,7 +49,7 @@ audit gap number. Check when done + committed + covered by a test or documented 
       generate 32 bytes (gap #16).
 
 ## F. TLS (P1 task 7)
-- [ ] F1. Document LE failure modes (orange-cloud, DNS not propagated, port 80 blocked, rate
+- [x] F1. Document LE failure modes (orange-cloud, DNS not propagated, port 80 blocked, rate
       limit) in docs/TLS-TROUBLESHOOTING.md; surface a domain "status" with actionable error
       in the domains API (DNS lookup vs server IP already exists — extend with guidance text).
 

@@ -139,6 +139,61 @@ func (s *DomainService) ListDomainsByOrg(ctx context.Context, orgID uuid.UUID) (
 	return s.domainRepo.ListByOrgID(ctx, orgID)
 }
 
+// DomainDiagnosis is the result of a DNS/TLS pre-flight check on a domain,
+// with an actionable message for the most common Let's Encrypt failure modes.
+type DomainDiagnosis struct {
+	Domain             string   `json:"domain"`
+	Resolves           bool     `json:"resolves"`
+	ResolvedIPs        []string `json:"resolved_ips"`
+	CloudflareProxied  bool     `json:"cloudflare_proxied"`
+	Guidance           string   `json:"guidance"`
+}
+
+// Cloudflare's published proxy IPv4 ranges (heuristic detection of the
+// "orange cloud", which breaks Let's Encrypt HTTP-01 issuance behind Traefik).
+var cloudflareCIDRs = []string{
+	"173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22",
+	"141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20",
+	"197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13",
+	"104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22",
+}
+
+// DiagnoseDomain resolves the domain and classifies the most common causes of
+// TLS issuance failure, returning copy-ready guidance.
+func (s *DomainService) DiagnoseDomain(ctx context.Context, domain string) DomainDiagnosis {
+	diag := DomainDiagnosis{Domain: domain}
+
+	ips, err := net.DefaultResolver.LookupIP(ctx, "ip4", domain)
+	if err != nil || len(ips) == 0 {
+		diag.Guidance = "DNS does not resolve yet. Create an A record pointing " + domain +
+			" at your server's IP, then wait for propagation (check with: dig " + domain + " +short). " +
+			"Let's Encrypt cannot issue a certificate until DNS resolves."
+		return diag
+	}
+
+	diag.Resolves = true
+	for _, ip := range ips {
+		diag.ResolvedIPs = append(diag.ResolvedIPs, ip.String())
+		for _, cidr := range cloudflareCIDRs {
+			if _, ipnet, err := net.ParseCIDR(cidr); err == nil && ipnet.Contains(ip) {
+				diag.CloudflareProxied = true
+			}
+		}
+	}
+
+	if diag.CloudflareProxied {
+		diag.Guidance = "This domain resolves to Cloudflare's proxy (orange cloud). Let's Encrypt HTTP-01 " +
+			"challenges will fail with a 404. In the Cloudflare DNS tab, switch the record to 'DNS only' " +
+			"(gray cloud) at least until the certificate is issued."
+		return diag
+	}
+
+	diag.Guidance = "DNS resolves. If the certificate still fails to issue: (1) confirm ports 80/443 are open " +
+		"(ufw allow 80/tcp && ufw allow 443/tcp), (2) confirm the resolved IP is this server, " +
+		"(3) check Let's Encrypt rate limits (5 certificates/week per domain) — see docker compose logs traefik."
+	return diag
+}
+
 func (s *DomainService) VerifyDomain(ctx context.Context, domain string) (bool, error) {
 	// Check DNS CNAME or A record
 	cnames, err := net.LookupCNAME(domain)

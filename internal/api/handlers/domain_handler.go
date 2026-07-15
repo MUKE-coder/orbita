@@ -117,9 +117,13 @@ func (h *DomainHandler) VerifyDomain(c *gin.Context) {
 		return
 	}
 
-	verified, _ := h.domainService.VerifyDomain(c.Request.Context(), domain)
+	diag := h.domainService.DiagnoseDomain(c.Request.Context(), domain)
 	response.Success(c, http.StatusOK, gin.H{
-		"domain":   domain,
-		"verified": verified,
+		"domain":             diag.Domain,
+		"verified":           diag.Resolves && !diag.CloudflareProxied,
+		"resolves":           diag.Resolves,
+		"resolved_ips":       diag.ResolvedIPs,
+		"cloudflare_proxied": diag.CloudflareProxied,
+		"guidance":           diag.Guidance,
 	})
 }
