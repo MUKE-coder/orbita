@@ -107,7 +107,7 @@ _Phase 3 complete: 2026-07-15, commit 778bab0_
 - [x] Confirm the GitHub webhook is registered so future `git push` auto-deploys.
 - [x] Full end-to-end test on the sample Grit repo against the Phase 3 host.
 
-_Phase 4 complete: _____________________
+_Phase 4 complete: 2026-07-15, commit f081c7f_
 
 ---
 

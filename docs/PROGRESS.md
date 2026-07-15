@@ -4,6 +4,34 @@ Running log per work session. Newest entry first.
 
 ---
 
+## 2026-07-15 — Session 5: Phase 4 (grit deploy) — COMPLETE
+
+The magic command works: local Grit code → live, migrated, HTTPS app in one line, verified
+end-to-end through the CLI. All 12 tasks done. Commit `f081c7f`; Phase 4 complete: `f081c7f`.
+
+- **`grit deploy`**: resolve host → load grit.yaml (or first-run wizard) → ensure org → ensure
+  GitHub repo + push (github-auth token) → reconcile via the Grit API → build → migrate under
+  advisory lock → cut over → print live URL + Pulse/Sentinel links + webhook note.
+- **`grit deploy --plan`** (dry run), **`grit logs -f`** (WebSocket stream), **`grit rollback`**.
+- CLI internals: Grit API client (plan/reconcile/deploy/status/rollback + EnsureOrg), project
+  loader + dotenv + first-run wizard, GitHub ensure-repo+push. Optional `repo_url` in grit.yaml
+  for self-hosted git.
+- **Verified E2E via the CLI**: `--plan` dry run; reconcile (idempotent) → build from git →
+  migrate under advisory lock → live; `/api/health` db-ok + real `POST/GET /api/notes` round-trip
+  against the injected `DATABASE_URL`; live/API/Pulse/Sentinel links printed. `docs/PHASE4-E2E.md`.
+
+**Bug fixed (Phase 1 gap surfaced here):** managed-DB **volume leak** — deleting a managed DB
+left its Docker volume, so re-provisioning a same-named DB reused the stale volume; Postgres
+ignores `POSTGRES_PASSWORD` on a non-empty data dir, so the new `DATABASE_URL` failed SCRAM auth
+over TCP (app crash-looped). Fixed `RemoveDatabase` (removes the volume) + `ProvisionDatabase`
+(clears an orphaned volume of its deterministic name before create).
+
+**Next:** Phase 5 — polish, docs, demo: sample repo (have `testdata/grit-sample`), error-UX
+pass, `grit cloud`/`grit deploy` reference + grit.yaml spec + quickstart, README Grit Cloud
+section, tag `grit-cloud v1.0.0`.
+
+---
+
 ## 2026-07-15 — Session 4: Phase 3 (grit cloud init installer) — COMPLETE
 
 The `grit cloud` CLI now provisions a fresh VPS into a hardened Orbita host and registers it
