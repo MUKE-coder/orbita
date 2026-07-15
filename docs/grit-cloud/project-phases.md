@@ -68,7 +68,7 @@ _Phase 1 complete: 2026-07-15, commit
 - [x] Add API endpoints (or extend existing app endpoints) the CLI needs: create-or-update Grit app from `grit.yaml`, trigger deploy, fetch deploy status/logs, rollback. Document them.
 - [x] End-to-end test: POST a `grit.yaml` + repo reference to the API and confirm a full build→migrate→route→live cycle on a test server.
 
-_Phase 2 complete: _____________________
+_Phase 2 complete: 2026-07-15, commit e352d83_
 
 ---
 

@@ -4,6 +4,51 @@ Running log per work session. Newest entry first.
 
 ---
 
+## 2026-07-15 — Session 3: Phase 2 (Grit-awareness) — COMPLETE
+
+Orbita now understands a Grit app as a first-class type and can build/route/migrate it with
+zero user configuration. All 9 tasks done, verified live end-to-end. Commits `00c683b`…`e352d83`.
+Phase 2 complete: `e352d83`.
+
+**Ground truth first:** read all of `grit-knowledge/` and cross-checked against the real
+`stoka` app on disk — detection/build recipe match its `docker-compose.prod.yml` exactly.
+
+- **P2.1 detection/schema** (`internal/grit`): parse grit.yaml + grit.json; derive the service
+  map + build recipe from the architecture mode (single/api/double/triple, +docs); reject
+  mobile; validate. `grit.json` + filesystem is the source of truth, not hand-written paths.
+- **P2.2 Grit source type**: `source_type=grit`; each deployable service is one application row
+  grouped by `grit_app`/`grit_role` (migration 000024); build args threaded into the git build.
+- **P2.3 build recipe**: reuse the shipped Dockerfiles with the correct contexts (api →
+  `apps/api`; web/admin/docs → repo root + own Dockerfile + `NEXT_PUBLIC_API_URL`); fallback
+  generators match the shipped shapes.
+- **P2.4–2.7 reconcile+deploy** (`GritService`): idempotent create-or-update of
+  project/env/addons/apps/env/domains; postgres/redis via the managed-DB path + minio
+  provisioner (`DATABASE_URL`/`REDIS_URL`/`MINIO_*` injected); migration hook runs
+  `cmd/migrate` in a one-off container under a `pg_advisory_lock`, gating cutover; Pulse/Sentinel
+  on by default with generated passwords (studio off).
+- **P2.8 CLI API**: `/grit/plan|reconcile|deploy|:app/status|:app/rollback` (`orb_` key works);
+  `docs/GRIT-API.md`. Fixed a pre-existing `EnvRepo.Upsert` duplicate-key bug exposed by
+  re-reconcile.
+- **P2.9 end-to-end**: built a real `api`-mode Grit sample (`testdata/grit-sample`), served it
+  over local git, and drove the whole cycle through Orbita's API — reconcile → build from git
+  context → migrate under advisory lock (created the `notes` table; a broken repo aborted
+  cutover) → route → live: `/api/health` db-ok and a real `POST/GET /api/notes` round-trip
+  against the injected `DATABASE_URL`. `docs/PHASE2-E2E.md`.
+
+**Decisions/notes:**
+- A Grit app fans out to one Orbita application per service — the Phase-1 deploy engine is
+  reused unchanged (no rewrite).
+- Migrator image is `golang:1.25-alpine` (covers Grit deps needing a newer toolchain than the
+  1.24 the Dockerfiles pin).
+- Real private `stoka-app` deploy is token-gated (needs `grit cloud github-auth`, Phase 4);
+  detection/plan verified against its shape. Swarm ingress unreachable from Windows host
+  loopback → liveness verified in-container (what Traefik/health use).
+
+**Next:** Phase 3 — `grit cloud init` installer (Cobra subcommands, vps-harden, install Orbita,
+`orb_` token bootstrap, `~/.grit/hosts.yaml`).
+
+---
+
 ## 2026-07-15 — Session 2: Phase 1 (finish & harden Orbita) — COMPLETE
 
 Phase 1 done end-to-end. Every gap from the audit's P0/P1 list is closed, each change
