@@ -8,15 +8,15 @@ import (
 )
 
 type BuildContext struct {
-	RepoURL       string
-	Branch        string
-	RootDir       string
-	BuildMethod   string // dockerfile, nixpacks, buildpack
+	RepoURL        string
+	Branch         string
+	RootDir        string
+	BuildMethod    string // dockerfile, nixpacks, buildpack
 	DockerfilePath string
-	BuildArgs     map[string]string
-	OrgSlug       string
-	AppName       string
-	CommitSHA     string
+	BuildArgs      map[string]string
+	OrgSlug        string
+	AppName        string
+	CommitSHA      string
 }
 
 type BuildResult struct {

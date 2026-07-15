@@ -25,6 +25,43 @@ func NewProjectService(projectRepo *repository.ProjectRepository) *ProjectServic
 	return &ProjectService{projectRepo: projectRepo}
 }
 
+// EnsureProject finds a project by name within the org or creates one (with the
+// default Production+Staging environments). Idempotent — used by Grit reconcile.
+func (s *ProjectService) EnsureProject(ctx context.Context, orgID uuid.UUID, name string) (*models.Project, error) {
+	projects, err := s.projectRepo.ListByOrgID(ctx, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("EnsureProject: %w", err)
+	}
+	for i := range projects {
+		if projects[i].Name == name {
+			return s.projectRepo.FindByID(ctx, projects[i].ID, orgID)
+		}
+	}
+	return s.CreateProject(ctx, orgID, name, nil, "")
+}
+
+// ProductionEnvID returns the ID of a project's production environment (the
+// first one of type production), creating one if somehow absent.
+func (s *ProjectService) ProductionEnvID(ctx context.Context, project *models.Project, orgID uuid.UUID) (uuid.UUID, error) {
+	envs, err := s.projectRepo.ListEnvironments(ctx, project.ID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("ProductionEnvID: %w", err)
+	}
+	for _, e := range envs {
+		if e.Type == models.EnvTypeProduction {
+			return e.ID, nil
+		}
+	}
+	if len(envs) > 0 {
+		return envs[0].ID, nil
+	}
+	env, err := s.CreateEnvironment(ctx, project.ID, orgID, "Production", models.EnvTypeProduction)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return env.ID, nil
+}
+
 func (s *ProjectService) CreateProject(ctx context.Context, orgID uuid.UUID, name string, description *string, emoji string) (*models.Project, error) {
 	if emoji == "" {
 		emoji = "🚀"

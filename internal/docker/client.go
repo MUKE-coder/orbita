@@ -79,8 +79,9 @@ type ServiceSpec struct {
 	Name          string
 	Image         string
 	Replicas      int
-	Port          int  // container port; published on the ingress mesh only when PublishPort is true
-	PublishPort   bool // expose Port publicly via the Swarm ingress mesh
+	Port          int      // container port; published on the ingress mesh only when PublishPort is true
+	PublishPort   bool     // expose Port publicly via the Swarm ingress mesh
+	Command       []string // container command / args (overrides image CMD)
 	EnvVars       map[string]string
 	Labels        map[string]string
 	NetworkName   string
@@ -334,12 +335,12 @@ func (c *Client) InspectService(ctx context.Context, serviceID string) (*Service
 
 // HostInfo summarizes the resources available on the Docker host.
 type HostInfo struct {
-	CPUCount   int    `json:"cpu_count"`    // logical CPUs
-	MemoryMB   int    `json:"memory_mb"`    // total RAM in MB
-	OSName     string `json:"os_name"`      // "linux" etc
-	Kernel     string `json:"kernel"`       // kernel version
-	ServerVer  string `json:"server_ver"`   // Docker daemon version
-	DataRoot   string `json:"data_root"`    // host path of /var/lib/docker
+	CPUCount  int    `json:"cpu_count"`  // logical CPUs
+	MemoryMB  int    `json:"memory_mb"`  // total RAM in MB
+	OSName    string `json:"os_name"`    // "linux" etc
+	Kernel    string `json:"kernel"`     // kernel version
+	ServerVer string `json:"server_ver"` // Docker daemon version
+	DataRoot  string `json:"data_root"`  // host path of /var/lib/docker
 }
 
 // HostInfo queries the Docker daemon for host capacity.
@@ -440,6 +441,10 @@ func (c *Client) buildSwarmServiceSpec(ctx context.Context, spec ServiceSpec) (s
 		Image:  spec.Image,
 		Env:    env,
 		Labels: labels,
+	}
+	if len(spec.Command) > 0 {
+		// ContainerSpec.Args overrides the image CMD (entrypoint stays).
+		container.Args = spec.Command
 	}
 
 	// Named volume mounts (e.g. managed-database data directories)
@@ -615,6 +620,36 @@ func (c *Client) WaitForServiceConverged(ctx context.Context, serviceID string, 
 	}
 }
 
+// FindServiceEnvByName returns a running service's ContainerSpec env as a map,
+// keyed by service name. ok=false if no such service exists. Used to make addon
+// provisioning idempotent (read back generated credentials).
+func (c *Client) FindServiceEnvByName(ctx context.Context, name string) (map[string]string, bool, error) {
+	if c.cli == nil {
+		return nil, false, fmt.Errorf("FindServiceEnvByName: client not initialized")
+	}
+	f := filtertypes.NewArgs()
+	f.Add("name", name)
+	services, err := c.cli.ServiceList(ctx, dockertypes.ServiceListOptions{Filters: f})
+	if err != nil {
+		return nil, false, fmt.Errorf("FindServiceEnvByName: %w", err)
+	}
+	for _, svc := range services {
+		if svc.Spec.Name != name {
+			continue // filter is a substring match; require exact
+		}
+		env := map[string]string{}
+		if svc.Spec.TaskTemplate.ContainerSpec != nil {
+			for _, e := range svc.Spec.TaskTemplate.ContainerSpec.Env {
+				if i := strings.IndexByte(e, '='); i > 0 {
+					env[e[:i]] = e[i+1:]
+				}
+			}
+		}
+		return env, true, nil
+	}
+	return nil, false, nil
+}
+
 // FindContainerIDForService returns the container ID of a running task of the
 // service. Single-node assumption: the container is on this host.
 func (c *Client) FindContainerIDForService(ctx context.Context, serviceID string) (string, error) {
@@ -747,14 +782,14 @@ func (c *Client) FollowServiceLogs(ctx context.Context, serviceID string, tail i
 
 // OneOffSpec describes a run-to-completion container (cron jobs).
 type OneOffSpec struct {
-	Image        string
-	Command      []string
-	EnvVars      map[string]string
-	NetworkName  string
-	Labels       map[string]string
-	MemoryLimit  int64 // bytes, 0 = unlimited
-	CPULimit     int64 // nanoCPUs, 0 = unlimited
-	MaxLogBytes  int   // cap captured logs (default 100KB)
+	Image       string
+	Command     []string
+	EnvVars     map[string]string
+	NetworkName string
+	Labels      map[string]string
+	MemoryLimit int64 // bytes, 0 = unlimited
+	CPULimit    int64 // nanoCPUs, 0 = unlimited
+	MaxLogBytes int   // cap captured logs (default 100KB)
 }
 
 // RunOneOffContainer creates a container, runs it to completion (or ctx
