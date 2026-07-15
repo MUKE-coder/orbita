@@ -16,15 +16,15 @@ import (
 	orbita "github.com/orbita-sh/orbita"
 	"github.com/orbita-sh/orbita/internal/api"
 	"github.com/orbita-sh/orbita/internal/config"
+	orbitaCron "github.com/orbita-sh/orbita/internal/cron"
 	"github.com/orbita-sh/orbita/internal/database"
 	"github.com/orbita-sh/orbita/internal/docker"
 	"github.com/orbita-sh/orbita/internal/mailer"
 	"github.com/orbita-sh/orbita/internal/orchestrator"
-	orbitaCron "github.com/orbita-sh/orbita/internal/cron"
 	orbitaRedis "github.com/orbita-sh/orbita/internal/redis"
-	orbitaTraefik "github.com/orbita-sh/orbita/internal/traefik"
 	"github.com/orbita-sh/orbita/internal/repository"
 	"github.com/orbita-sh/orbita/internal/service"
+	orbitaTraefik "github.com/orbita-sh/orbita/internal/traefik"
 )
 
 func main() {
@@ -130,6 +130,12 @@ func main() {
 	// Wire env-var resolution into app deploys (secrets decrypted at deploy time)
 	appService.SetEnvResolver(envService)
 
+	// Grit-awareness: reconcile grit.yaml → apps/addons/env/domains and drive
+	// the Grit-aware deploy (build → migrate → route → live).
+	gritService := service.NewGritService(
+		appRepo, orgRepo, projectService, appService, dbService, envService, domainService, orch, encryptionKey,
+	)
+
 	// Initialize notification & audit service
 	notifRepo := repository.NewNotificationRepository(db)
 	notifService := service.NewNotificationService(notifRepo)
@@ -157,27 +163,28 @@ func main() {
 
 	// Setup router
 	router := api.NewRouter(&api.RouterDeps{
-		Config:         cfg,
-		AuthService:    authService,
-		OrgService:     orgService,
-		ProjectService: projectService,
-		AppService:     appService,
-		DBService:      dbService,
-		CronService:    cronService,
-		DomainService:   domainService,
-		TemplateService: templateService,
-		EnvService:           envService,
-		NotificationService:  notifService,
-		GitService:           gitService,
-		NodeManager:    nodeManager,
-		DockerClient:   dockerClient,
-		UserRepo:       userRepo,
-		OrgRepo:        orgRepo,
-		AppRepo:        appRepo,
-		DBRepo:         dbRepo,
-		CronRepo:       cronRepo,
-		Redis:          rdb,
-		StaticFS:       staticFS,
+		Config:              cfg,
+		AuthService:         authService,
+		OrgService:          orgService,
+		ProjectService:      projectService,
+		AppService:          appService,
+		DBService:           dbService,
+		CronService:         cronService,
+		DomainService:       domainService,
+		TemplateService:     templateService,
+		EnvService:          envService,
+		NotificationService: notifService,
+		GitService:          gitService,
+		GritService:         gritService,
+		NodeManager:         nodeManager,
+		DockerClient:        dockerClient,
+		UserRepo:            userRepo,
+		OrgRepo:             orgRepo,
+		AppRepo:             appRepo,
+		DBRepo:              dbRepo,
+		CronRepo:            cronRepo,
+		Redis:               rdb,
+		StaticFS:            staticFS,
 	})
 
 	// Create HTTP server

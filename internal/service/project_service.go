@@ -40,6 +40,21 @@ func (s *ProjectService) EnsureProject(ctx context.Context, orgID uuid.UUID, nam
 	return s.CreateProject(ctx, orgID, name, nil, "")
 }
 
+// EnsureProjectReadOnly finds a project by name without creating it. Returns
+// (nil, nil) when absent.
+func (s *ProjectService) EnsureProjectReadOnly(ctx context.Context, orgID uuid.UUID, name string) (*models.Project, error) {
+	projects, err := s.projectRepo.ListByOrgID(ctx, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("EnsureProjectReadOnly: %w", err)
+	}
+	for i := range projects {
+		if projects[i].Name == name {
+			return s.projectRepo.FindByID(ctx, projects[i].ID, orgID)
+		}
+	}
+	return nil, nil
+}
+
 // ProductionEnvID returns the ID of a project's production environment (the
 // first one of type production), creating one if somehow absent.
 func (s *ProjectService) ProductionEnvID(ctx context.Context, project *models.Project, orgID uuid.UUID) (uuid.UUID, error) {

@@ -41,6 +41,7 @@ type RouterDeps struct {
 	EnvService           *service.EnvService
 	NotificationService  *service.NotificationService
 	GitService           *service.GitService
+	GritService          *service.GritService
 	NodeManager    *orchestrator.NodeManager
 	DockerClient   *docker.Client
 	UserRepo       *repository.UserRepository
@@ -92,6 +93,7 @@ func NewRouter(deps *RouterDeps) *Router {
 	envHandler := handlers.NewEnvHandler(deps.EnvService)
 	notifHandler := handlers.NewNotificationHandler(deps.NotificationService)
 	gitHandler := handlers.NewGitHandler(deps.GitService)
+	gritHandler := handlers.NewGritHandler(deps.GritService)
 	webhookHandler := handlers.NewWebhookHandler(deps.AppService, deps.GitService, deps.OrgService)
 	execHandler := handlers.NewExecHandler(deps.AppService)
 	nodeHandler := handlers.NewNodeHandler(deps.NodeManager)
@@ -184,6 +186,10 @@ func NewRouter(deps *RouterDeps) *Router {
 					viewerAccess.GET("/databases/:dbId/backups", dbHandler.ListBackups)
 					viewerAccess.GET("/databases/:dbId/backup-schedule", dbHandler.GetBackupSchedule)
 
+					// Grit (CLI): plan + status are read-only (viewer+)
+					viewerAccess.POST("/grit/plan", gritHandler.Plan)
+					viewerAccess.GET("/grit/:gritApp/status", gritHandler.Status)
+
 					// Domains (viewer+ can read)
 					viewerAccess.GET("/domains", domainHandler.ListOrgDomains)
 					viewerAccess.GET("/apps/:appId/domains", domainHandler.ListAppDomains)
@@ -226,6 +232,11 @@ func NewRouter(deps *RouterDeps) *Router {
 					devAccess.PUT("/apps/:appId", appHandler.UpdateApp)
 					devAccess.POST("/apps/:appId/deploy", appHandler.Deploy)
 					devAccess.POST("/apps/:appId/webhook-secret", appHandler.RegenerateWebhookSecret)
+
+					// Grit deploy (CLI): reconcile + deploy + rollback (developer+)
+					devAccess.POST("/grit/reconcile", gritHandler.Reconcile)
+					devAccess.POST("/grit/deploy", gritHandler.Deploy)
+					devAccess.POST("/grit/:gritApp/rollback", gritHandler.Rollback)
 					devAccess.POST("/apps/:appId/rollback/:deploymentId", appHandler.Rollback)
 					devAccess.POST("/apps/:appId/restart", appHandler.Restart)
 					devAccess.POST("/apps/:appId/stop", appHandler.Stop)

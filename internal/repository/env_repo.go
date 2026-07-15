@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -19,23 +20,31 @@ func NewEnvRepository(db *gorm.DB) *EnvRepository {
 }
 
 func (r *EnvRepository) Upsert(ctx context.Context, ev *models.EnvVariable) error {
-	result := r.db.WithContext(ctx).
+	// Look up the existing row by the unique tuple (resource, key) — NOT by the
+	// caller-supplied primary key, which is freshly generated on every set and
+	// would make FirstOrCreate miss the existing row and INSERT a duplicate.
+	var existing models.EnvVariable
+	err := r.db.WithContext(ctx).
 		Where("resource_id = ? AND resource_type = ? AND key = ? AND deleted_at IS NULL",
 			ev.ResourceID, ev.ResourceType, ev.Key).
-		Assign(models.EnvVariable{
-			ValueEncrypted: ev.ValueEncrypted,
-			IsSecret:       ev.IsSecret,
-			OrganizationID: ev.OrganizationID,
-		}).
-		FirstOrCreate(ev)
-	if result.Error != nil {
-		return fmt.Errorf("EnvRepo.Upsert: %w", result.Error)
-	}
-	// If record existed, update it
-	if result.RowsAffected == 0 {
-		if err := r.db.WithContext(ctx).Save(ev).Error; err != nil {
-			return fmt.Errorf("EnvRepo.Upsert save: %w", err)
+		First(&existing).Error
+
+	if err == nil {
+		existing.ValueEncrypted = ev.ValueEncrypted
+		existing.IsSecret = ev.IsSecret
+		existing.OrganizationID = ev.OrganizationID
+		if err := r.db.WithContext(ctx).Save(&existing).Error; err != nil {
+			return fmt.Errorf("EnvRepo.Upsert update: %w", err)
 		}
+		*ev = existing
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("EnvRepo.Upsert lookup: %w", err)
+	}
+
+	if err := r.db.WithContext(ctx).Create(ev).Error; err != nil {
+		return fmt.Errorf("EnvRepo.Upsert create: %w", err)
 	}
 	return nil
 }
