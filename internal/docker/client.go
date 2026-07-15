@@ -593,6 +593,29 @@ func (c *Client) WaitForServiceConverged(ctx context.Context, serviceID string, 
 	}
 }
 
+// connectContainerToNetwork attaches a container (by name) to a network (by
+// name). Idempotent: already-attached is treated as success.
+func (c *Client) connectContainerToNetwork(ctx context.Context, containerName, networkName string) error {
+	if c.cli == nil {
+		return fmt.Errorf("connectContainerToNetwork: client not initialized")
+	}
+
+	netID, err := c.resolveNetworkID(ctx, networkName)
+	if err != nil {
+		return fmt.Errorf("connectContainerToNetwork: %w", err)
+	}
+
+	if err := c.cli.NetworkConnect(ctx, netID, containerName, nil); err != nil {
+		if strings.Contains(err.Error(), "already exists in network") {
+			return nil
+		}
+		return fmt.Errorf("connectContainerToNetwork: %w", err)
+	}
+
+	log.Info().Str("container", containerName).Str("network", networkName).Msg("Container attached to network")
+	return nil
+}
+
 // resolveNetworkID finds a Docker network by name and returns its ID.
 func (c *Client) resolveNetworkID(ctx context.Context, name string) (string, error) {
 	nets, err := c.cli.NetworkList(ctx, networktypes.ListOptions{

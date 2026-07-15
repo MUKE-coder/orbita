@@ -65,6 +65,14 @@ func CreateOrgNetwork(orgSlug string) error {
 		}
 	}
 	log.Info().Str("network", name).Str("id", id).Msg("Org network ready")
+
+	// Attach the Traefik container to the new org network so it can reach the
+	// org's services by name for routing. Best-effort: in dev there may be no
+	// Traefik container at all.
+	if err := cli.connectContainerToNetwork(ctx, "orbita-traefik", name); err != nil {
+		log.Warn().Err(err).Str("network", name).
+			Msg("Could not attach Traefik to org network — custom-domain routing into this org will fail until it is attached")
+	}
 	return nil
 }
 

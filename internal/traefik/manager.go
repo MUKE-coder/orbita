@@ -19,11 +19,12 @@ func NewManager(configDir string) *Manager {
 }
 
 type TraefikResource struct {
-	ResourceID   uuid.UUID
-	Domain       string
-	ServiceName  string
-	ServicePort  int
-	SSLEnabled   bool
+	ResourceID    uuid.UUID
+	DomainID      uuid.UUID // one config file per domain — a resource can have several
+	Domain        string
+	ServiceName   string
+	ServicePort   int
+	SSLEnabled    bool
 	HTTPSRedirect bool
 }
 
@@ -85,8 +86,11 @@ func (m *Manager) UpsertRoute(resource TraefikResource) error {
 		return fmt.Errorf("UpsertRoute: create dir: %w", err)
 	}
 
-	routerName := fmt.Sprintf("orbita-%s", resource.ResourceID.String()[:8])
-	serviceName := fmt.Sprintf("orbita-svc-%s", resource.ResourceID.String()[:8])
+	// Names are scoped per resource+domain so multiple domains on one app get
+	// independent routers instead of overwriting each other.
+	suffix := fmt.Sprintf("%s-%s", resource.ResourceID.String()[:8], resource.DomainID.String()[:8])
+	routerName := fmt.Sprintf("orbita-%s", suffix)
+	serviceName := fmt.Sprintf("orbita-svc-%s", suffix)
 
 	cfg := traefikConfig{
 		HTTP: &httpConfig{
@@ -136,7 +140,7 @@ func (m *Manager) UpsertRoute(resource TraefikResource) error {
 		}
 	}
 
-	configFile := filepath.Join(dynamicDir, fmt.Sprintf("%s.json", resource.ResourceID.String()))
+	configFile := filepath.Join(dynamicDir, routeFileName(resource.ResourceID, resource.DomainID))
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("UpsertRoute: marshal: %w", err)
@@ -155,14 +159,44 @@ func (m *Manager) UpsertRoute(resource TraefikResource) error {
 	return nil
 }
 
-func (m *Manager) RemoveRoute(resourceID uuid.UUID) error {
+// routeFileName is the canonical per-domain dynamic config filename. The
+// resourceID prefix lets RemoveResourceRoutes glob every route for a resource.
+func routeFileName(resourceID, domainID uuid.UUID) string {
+	return fmt.Sprintf("%s--%s.json", resourceID.String(), domainID.String())
+}
+
+// RemoveRoute deletes the dynamic config for one domain of a resource.
+func (m *Manager) RemoveRoute(resourceID, domainID uuid.UUID) error {
 	dynamicDir := filepath.Join(m.configDir, "dynamic")
-	configFile := filepath.Join(dynamicDir, fmt.Sprintf("%s.json", resourceID.String()))
+	configFile := filepath.Join(dynamicDir, routeFileName(resourceID, domainID))
 
 	if err := os.Remove(configFile); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("RemoveRoute: %w", err)
 	}
 
-	log.Info().Str("resource_id", resourceID.String()).Msg("Traefik route removed")
+	// Also clean up any legacy single-file route from before per-domain configs.
+	legacy := filepath.Join(dynamicDir, fmt.Sprintf("%s.json", resourceID.String()))
+	_ = os.Remove(legacy)
+
+	log.Info().Str("resource_id", resourceID.String()).Str("domain_id", domainID.String()).Msg("Traefik route removed")
+	return nil
+}
+
+// RemoveResourceRoutes deletes every dynamic config file belonging to a
+// resource (all its domains). Used when the resource itself is deleted.
+func (m *Manager) RemoveResourceRoutes(resourceID uuid.UUID) error {
+	dynamicDir := filepath.Join(m.configDir, "dynamic")
+	matches, err := filepath.Glob(filepath.Join(dynamicDir, resourceID.String()+"*.json"))
+	if err != nil {
+		return fmt.Errorf("RemoveResourceRoutes: %w", err)
+	}
+	for _, f := range matches {
+		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("RemoveResourceRoutes: %w", err)
+		}
+	}
+	if len(matches) > 0 {
+		log.Info().Str("resource_id", resourceID.String()).Int("routes", len(matches)).Msg("Traefik routes removed for resource")
+	}
 	return nil
 }

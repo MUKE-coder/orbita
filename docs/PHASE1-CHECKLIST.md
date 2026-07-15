@@ -5,15 +5,15 @@ deploy engine → git+webhook auto-deploy → backup/restore → RBAC → TLS. E
 audit gap number. Check when done + committed + covered by a test or documented verification.
 
 ## A. Deploy engine (P1 task 2)
-- [ ] A1. Inject env vars (incl. decrypted secrets) into service spec on deploy (gap #1).
-- [ ] A2. Swarm `UpdateConfig` start-first + rollback-on-failure; container healthcheck from
+- [x] A1. Inject env vars (incl. decrypted secrets) into service spec on deploy (gap #1).
+- [x] A2. Swarm `UpdateConfig` start-first + rollback-on-failure; container healthcheck from
       app config; failed update must not kill the running version (gap #6).
-- [ ] A3. Write Traefik route on deploy when the app has domains; keep ingress publish as
+- [x] A3. Write Traefik route on deploy when the app has domains; keep ingress publish as
       fallback (gap #7).
-- [ ] A4. Rollback parity: set `TriggeredBy`, timestamps on rollback deployments (gap #20).
-- [ ] A5. Deploy edge cases return useful errors: failed build (surface build log tail),
+- [x] A4. Rollback parity: set `TriggeredBy`, timestamps on rollback deployments (gap #20).
+- [x] A5. Deploy edge cases return useful errors: failed build (surface build log tail),
       port mismatch, image pull failure.
-- [ ] A6. Ping Docker daemon at startup; fail loudly (log.Fatal in prod, warn in dev) instead
+- [x] A6. Ping Docker daemon at startup; fail loudly (log.Fatal in prod, warn in dev) instead
       of silent stub client (gap #17).
 
 ## B. Git + webhook auto-deploy (P1 task 3)

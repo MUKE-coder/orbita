@@ -109,6 +109,9 @@ func main() {
 	traefikMgr := orbitaTraefik.NewManager(cfg.TraefikConfigDir)
 	domainService := service.NewDomainService(domainRepo, traefikMgr)
 
+	// Keep Traefik routes in sync with deploys and app deletion
+	appService.SetRouteRefresher(domainService)
+
 	// Initialize template/service system
 	serviceRepo := repository.NewServiceRepository(db)
 	templateService := service.NewTemplateService(serviceRepo, dockerClient)

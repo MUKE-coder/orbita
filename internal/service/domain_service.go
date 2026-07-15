@@ -63,6 +63,7 @@ func (s *DomainService) AddDomain(ctx context.Context, resourceID uuid.UUID, res
 	serviceName := fmt.Sprintf("orbita-%s", resourceID.String()[:8])
 	if err := s.traefik.UpsertRoute(traefik.TraefikResource{
 		ResourceID:  resourceID,
+		DomainID:    d.ID,
 		Domain:      domain,
 		ServiceName: serviceName,
 		ServicePort: port,
@@ -94,9 +95,40 @@ func (s *DomainService) RemoveDomain(ctx context.Context, domainID, orgID uuid.U
 	}
 
 	// Remove Traefik config
-	_ = s.traefik.RemoveRoute(d.ResourceID)
+	_ = s.traefik.RemoveRoute(d.ResourceID, d.ID)
 
 	return s.domainRepo.Delete(ctx, domainID)
+}
+
+// RefreshAppRoutes re-writes the Traefik dynamic config for every domain of an
+// app. Called after each successful deploy so routes track the current port
+// and survive a wiped config directory.
+func (s *DomainService) RefreshAppRoutes(ctx context.Context, appID uuid.UUID, port int) error {
+	domains, err := s.domainRepo.ListByResource(ctx, appID, models.ResourceTypeApp)
+	if err != nil {
+		return fmt.Errorf("RefreshAppRoutes: %w", err)
+	}
+
+	serviceName := fmt.Sprintf("orbita-%s", appID.String()[:8])
+	for _, d := range domains {
+		if err := s.traefik.UpsertRoute(traefik.TraefikResource{
+			ResourceID:  d.ResourceID,
+			DomainID:    d.ID,
+			Domain:      d.Domain,
+			ServiceName: serviceName,
+			ServicePort: port,
+			SSLEnabled:  d.SSLEnabled,
+		}); err != nil {
+			return fmt.Errorf("RefreshAppRoutes: %s: %w", d.Domain, err)
+		}
+	}
+	return nil
+}
+
+// RemoveAppRoutes deletes every Traefik route belonging to an app. Called when
+// the app is deleted.
+func (s *DomainService) RemoveAppRoutes(ctx context.Context, appID uuid.UUID) error {
+	return s.traefik.RemoveResourceRoutes(appID)
 }
 
 func (s *DomainService) ListDomainsByResource(ctx context.Context, resourceID uuid.UUID, resourceType string) ([]models.Domain, error) {

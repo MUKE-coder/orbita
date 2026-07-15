@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 
 	"github.com/orbita-sh/orbita/internal/models"
@@ -23,9 +24,17 @@ var (
 )
 
 type AppService struct {
-	appRepo      *repository.AppRepository
-	orchestrator *orchestrator.Orchestrator
-	envResolver  EnvResolver
+	appRepo        *repository.AppRepository
+	orchestrator   *orchestrator.Orchestrator
+	envResolver    EnvResolver
+	routeRefresher RouteRefresher
+}
+
+// RouteRefresher keeps Traefik routes in sync with app lifecycle events.
+// Satisfied by *DomainService. Optional: no-op when unset.
+type RouteRefresher interface {
+	RefreshAppRoutes(ctx context.Context, appID uuid.UUID, port int) error
+	RemoveAppRoutes(ctx context.Context, appID uuid.UUID) error
 }
 
 // EnvResolver supplies the full env-var map (secrets decrypted) for a resource.
@@ -44,6 +53,25 @@ func NewAppService(appRepo *repository.AppRepository, orch *orchestrator.Orchest
 // SetEnvResolver wires env-var resolution into deploys.
 func (s *AppService) SetEnvResolver(r EnvResolver) {
 	s.envResolver = r
+}
+
+// SetRouteRefresher wires Traefik route maintenance into deploys and deletes.
+func (s *AppService) SetRouteRefresher(r RouteRefresher) {
+	s.routeRefresher = r
+}
+
+// refreshRoutes best-effort refreshes the app's Traefik routes after a deploy.
+func (s *AppService) refreshRoutes(ctx context.Context, app *models.Application) {
+	if s.routeRefresher == nil {
+		return
+	}
+	port := 0
+	if app.Port != nil {
+		port = *app.Port
+	}
+	if err := s.routeRefresher.RefreshAppRoutes(ctx, app.ID, port); err != nil {
+		log.Warn().Err(err).Str("app", app.Name).Msg("Failed to refresh Traefik routes after deploy")
+	}
 }
 
 // resolveEnvForDeploy returns the env map for an app, or an empty map when no
@@ -185,6 +213,12 @@ func (s *AppService) DeleteApp(ctx context.Context, id, orgID uuid.UUID, orgSlug
 		return fmt.Errorf("DeleteApp: remove: %w", err)
 	}
 
+	if s.routeRefresher != nil {
+		if err := s.routeRefresher.RemoveAppRoutes(ctx, app.ID); err != nil {
+			log.Warn().Err(err).Str("app", app.Name).Msg("Failed to remove Traefik routes on app delete")
+		}
+	}
+
 	return s.appRepo.Delete(ctx, id, orgID)
 }
 
@@ -250,6 +284,8 @@ func (s *AppService) Deploy(ctx context.Context, appID, orgID uuid.UUID, orgSlug
 	_ = s.appRepo.UpdateDeployment(ctx, deployment)
 	_ = s.appRepo.Update(ctx, app)
 
+	s.refreshRoutes(ctx, app)
+
 	return deployment, nil
 }
 
@@ -310,6 +346,8 @@ func (s *AppService) Rollback(ctx context.Context, appID, deploymentID, orgID uu
 	rollbackDeploy.FinishedAt = &finishedAt
 	_ = s.appRepo.UpdateDeployment(ctx, rollbackDeploy)
 	_ = s.appRepo.Update(ctx, app)
+
+	s.refreshRoutes(ctx, app)
 
 	return rollbackDeploy, nil
 }
