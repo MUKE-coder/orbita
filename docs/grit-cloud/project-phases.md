@@ -120,9 +120,9 @@ _Phase 4 complete: 2026-07-15, commit f081c7f_
 - [x] Docs: `grit cloud` + `grit deploy` reference, the `grit.yaml` spec, and a "fresh VPS → live app in 2 commands" quickstart.
 - [x] Record the end-to-end demo (the YouTube-ready walkthrough).
 - [x] Update Orbita's `README.md` with the Grit Cloud section and cross-link from `jb.desishub.com`.
-- [ ] Tag `grit-cloud v1.0.0`.
+- [x] Tag `grit-cloud v1.0.0`.
 
-_Phase 5 complete: _____________________
+_Phase 5 complete: 2026-07-15, commit 51404ac_
 
 ---
 
