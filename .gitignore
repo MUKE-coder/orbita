@@ -31,3 +31,8 @@ web/dist/
 
 # Air
 tmp/
+
+# Local dev artifacts (Grit Cloud)
+.local/
+orbita-dev.exe
+orbita-dev.exe~
