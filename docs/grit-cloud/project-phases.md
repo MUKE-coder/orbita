@@ -86,7 +86,7 @@ _Phase 2 complete: 2026-07-15, commit e352d83_
 - [x] Flags for automation: `--yes`, `--domain`, `--acme-email` (pass through to Orbita's installer envs).
 - [x] Test on a fresh Hetzner Ubuntu 24.04 box: one command → hardened server (score ≥ 90) + Orbita on HTTPS + registered host.
 
-_Phase 3 complete: _____________________
+_Phase 3 complete: 2026-07-15, commit 778bab0_
 
 ---
 

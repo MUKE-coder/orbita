@@ -4,6 +4,38 @@ Running log per work session. Newest entry first.
 
 ---
 
+## 2026-07-15 — Session 4: Phase 3 (grit cloud init installer) — COMPLETE
+
+The `grit cloud` CLI now provisions a fresh VPS into a hardened Orbita host and registers it
+locally. All 9 tasks done. Commit `778bab0`; Phase 3 complete: `778bab0`.
+
+Built as a standalone Cobra binary at `cmd/grit/` inside the Orbita module so it reuses
+`internal/grit` (Phase 2's schema/detection). `make build-cli` → `./grit`.
+
+- **`grit cloud init`** (SSH-driven): harden (vendored `vps-harden.sh --no-dokploy`, preserves
+  the 0–100 score) → install Docker+Swarm+Orbita (reuses `install.sh`) → wait healthy →
+  register the first user (super admin) + create an `orb_` deploy key → write
+  `~/.grit/hosts.yaml`. Required flags reported together; `--yes`/`--skip-harden`;
+  `GRIT_ADMIN_PASSWORD`.
+- **`grit cloud status/dashboard/hosts/github-auth`**: health+metrics summary; SSH `-L`
+  dashboard tunnel; multi-host registry (0600); GitHub token store for Phase 4.
+- Packages: `internal/orbita` (API client), `internal/sshx` (x/crypto/ssh exec+upload),
+  `internal/hosts`, `internal/ui` (design-guide §9 colors/step timeline), `internal/assets`
+  (embedded harden script).
+
+**Verified:** CLI builds + help + flag validation; hosts round-trip + SSH-target parsing (unit);
+`grit cloud status` against live Orbita with an `orb_` key; and **the exact init bootstrap path**
+(health → login → create `orb_` key → the key authenticates) live against Orbita. The
+SSH-driven harden/install run real remote commands — covered by the fresh-VPS manual steps in
+`docs/GRIT-CLOUD-CLI.md` (P3.9; needs a real box + DNS).
+
+**Next:** Phase 4 — `grit deploy`: read grit.yaml, ensure the GitHub repo, commit the build
+recipe, push, then reconcile+deploy via the Orbita Grit API (Phase 2 endpoints), stream logs,
+`--plan`, rollback. The Phase-2 reconcile/deploy engine + Phase-3 hosts/client/github-auth are
+the foundation.
+
+---
+
 ## 2026-07-15 — Session 3: Phase 2 (Grit-awareness) — COMPLETE
 
 Orbita now understands a Grit app as a first-class type and can build/route/migrate it with
