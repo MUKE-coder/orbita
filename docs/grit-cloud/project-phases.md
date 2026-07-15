@@ -59,7 +59,7 @@ _Phase 1 complete: 2026-07-15, commit
 > `grit-knowledge/` wins.
 
 - [x] Define the `grit.yaml` schema (see `project-description.md` §5) as a Go struct + JSON schema. Add a parser + validator in `internal/grit/`.
-- [ ] Add a **Grit app source type** alongside the existing Docker-image and Git sources (extend the `applications` model + create/update handlers). Migration for any new columns.
+- [x] Add a **Grit app source type** alongside the existing Docker-image and Git sources (extend the `applications` model + create/update handlers). Migration for any new columns.
 - [ ] **Build recipe generator:** given a `grit.yaml`, generate a correct multi-stage Dockerfile — Go build stage (`CGO_ENABLED=0`, ldflags `-s -w`) for the API/worker, Node build stage for the Next.js `web`, minimal runtime stage. Put in `internal/grit/build/`. Test against a sample Grit repo.
 - [ ] **Routing:** from `grit.yaml` `domains`, generate the right Traefik labels/routers for `web`, `api`, `admin`. Reuse Orbita's existing Traefik config writer.
 - [ ] **Addon provisioning:** when `grit.yaml` lists `postgres`/`redis`/`minio`, ensure Orbita provisions them in the org's isolated network and injects their URLs as env vars (reuse the managed-database path).

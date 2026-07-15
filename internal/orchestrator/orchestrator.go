@@ -40,13 +40,18 @@ type SourceConfig struct {
 	// docker-image
 	Image string `json:"image"`
 
-	// git
+	// git / grit
 	GitConnectionID string `json:"git_connection_id,omitempty"`
 	RepoFullName    string `json:"repo_full_name,omitempty"`
 	RepoURL         string `json:"repo_url,omitempty"`
 	Branch          string `json:"branch,omitempty"`
 	DockerfilePath  string `json:"dockerfile_path,omitempty"`
 	BuildContext    string `json:"build_context,omitempty"`
+
+	// grit only: build-time args baked into the image (e.g. NEXT_PUBLIC_API_URL
+	// for the Next.js services) and the service role for labeling.
+	BuildArgs map[string]string `json:"build_args,omitempty"`
+	GritRole  string            `json:"grit_role,omitempty"`
 }
 
 type DeployConfig struct {
@@ -149,7 +154,10 @@ func (o *Orchestrator) resolveImage(ctx context.Context, app *models.Application
 		reader.Close()
 		return srcCfg.Image, nil
 
-	case models.SourceTypeGit:
+	case models.SourceTypeGit, models.SourceTypeGrit:
+		// Grit services build exactly like a git source — a remote git context
+		// with a specific Dockerfile, build context, and (for Next.js apps)
+		// build args. The recipe is derived from grit.json (see internal/grit).
 		return o.buildFromGit(ctx, app, deployment, srcCfg, orgSlug)
 
 	default:
@@ -217,7 +225,7 @@ func (o *Orchestrator) buildFromGit(ctx context.Context, app *models.Application
 		Str("tag", tag).
 		Msg("Building image from git")
 
-	reader, err := o.dockerClient.BuildImage(ctx, remote, tag, dockerfile, nil, nil)
+	reader, err := o.dockerClient.BuildImage(ctx, remote, tag, dockerfile, srcCfg.BuildArgs, nil)
 	if err != nil {
 		return "", fmt.Errorf("buildFromGit: %w", err)
 	}

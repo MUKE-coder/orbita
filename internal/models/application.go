@@ -23,6 +23,11 @@ type Application struct {
 	Port            *int            `json:"port"`
 	AutoDeploy      bool            `json:"auto_deploy" gorm:"not null;default:false"`
 	WebhookSecret   *string         `json:"-"`
+	// Grit-awareness: set when this application is one service of a Grit app.
+	// GritApp groups the services (api/web/admin/docs) of one logical Grit app;
+	// GritRole is this service's role.
+	GritApp         *string         `json:"grit_app,omitempty"`
+	GritRole        *string         `json:"grit_role,omitempty"`
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt  `json:"-" gorm:"index"`
@@ -61,6 +66,7 @@ const (
 	SourceTypeDockerImage = "docker-image"
 	SourceTypeGit         = "git"
 	SourceTypeCompose     = "docker-compose"
+	SourceTypeGrit        = "grit"
 
 	TriggerManual   = "manual"
 	TriggerWebhook  = "webhook"

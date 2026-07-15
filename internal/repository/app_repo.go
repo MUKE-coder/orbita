@@ -52,6 +52,18 @@ func (r *AppRepository) ListByEnvID(ctx context.Context, envID, orgID uuid.UUID)
 	return apps, nil
 }
 
+// ListGritServices returns the application rows belonging to one logical Grit
+// app within an environment (its api/web/admin/docs services).
+func (r *AppRepository) ListGritServices(ctx context.Context, envID, orgID uuid.UUID, gritApp string) ([]models.Application, error) {
+	var apps []models.Application
+	if err := r.db.WithContext(ctx).Scopes(OrgScope(orgID)).
+		Where("environment_id = ? AND grit_app = ?", envID, gritApp).
+		Order("grit_role").Find(&apps).Error; err != nil {
+		return nil, fmt.Errorf("AppRepo.ListGritServices: %w", err)
+	}
+	return apps, nil
+}
+
 func (r *AppRepository) Update(ctx context.Context, app *models.Application) error {
 	if err := r.db.WithContext(ctx).Save(app).Error; err != nil {
 		return fmt.Errorf("AppRepo.Update: %w", err)

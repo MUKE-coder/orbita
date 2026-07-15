@@ -132,7 +132,7 @@ type CreateAppInput struct {
 	// source_type = docker-image
 	Image string `json:"image"`
 
-	// source_type = git
+	// source_type = git / grit
 	GitConnectionID *uuid.UUID `json:"git_connection_id"` // optional — public repos build without one
 	RepoFullName    string     `json:"repo_full_name"`    // "owner/repo"
 	RepoURL         string     `json:"repo_url"`          // public clone URL; token is added at build time
@@ -140,6 +140,11 @@ type CreateAppInput struct {
 	DockerfilePath  string     `json:"dockerfile_path"`
 	BuildContext    string     `json:"build_context"`
 	AutoDeploy      *bool      `json:"auto_deploy"` // git apps default to true
+
+	// source_type = grit: per-service build args + grouping/role
+	BuildArgs map[string]string `json:"build_args,omitempty"`
+	GritApp   string            `json:"grit_app,omitempty"`  // logical Grit app name (groups services)
+	GritRole  string            `json:"grit_role,omitempty"` // app | api | web | admin | docs
 }
 
 func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input CreateAppInput) (*models.Application, error) {
@@ -147,7 +152,7 @@ func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input Creat
 	src := map[string]interface{}{
 		"image": input.Image, // kept for docker-image and as a build target tag for git
 	}
-	if input.SourceType == "git" {
+	if input.SourceType == models.SourceTypeGit || input.SourceType == models.SourceTypeGrit {
 		dockerfile := input.DockerfilePath
 		if dockerfile == "" {
 			dockerfile = "Dockerfile"
@@ -164,6 +169,14 @@ func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input Creat
 		src["branch"] = input.Branch
 		src["dockerfile_path"] = dockerfile
 		src["build_context"] = input.BuildContext
+		if input.SourceType == models.SourceTypeGrit {
+			if len(input.BuildArgs) > 0 {
+				src["build_args"] = input.BuildArgs
+			}
+			if input.GritRole != "" {
+				src["grit_role"] = input.GritRole
+			}
+		}
 	}
 	sourceConfig, _ := json.Marshal(src)
 
@@ -196,9 +209,16 @@ func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input Creat
 		Port:           input.Port,
 	}
 
-	if input.SourceType == "git" {
-		// Auto-deploy on push is the default for git apps; a webhook secret is
-		// always generated so unsigned webhook deliveries are never accepted.
+	if input.GritApp != "" {
+		app.GritApp = &input.GritApp
+	}
+	if input.GritRole != "" {
+		app.GritRole = &input.GritRole
+	}
+
+	if input.SourceType == models.SourceTypeGit || input.SourceType == models.SourceTypeGrit {
+		// Auto-deploy on push is the default for git/grit apps; a webhook secret
+		// is always generated so unsigned webhook deliveries are never accepted.
 		autoDeploy := true
 		if input.AutoDeploy != nil {
 			autoDeploy = *input.AutoDeploy
