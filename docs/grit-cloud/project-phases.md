@@ -18,10 +18,10 @@ This is the execution plan. Work **top to bottom**, one phase at a time. Do not 
 - [x] Create a working branch: `git checkout -b grit-cloud`
 - [x] Read `README.md`, `CLAUDE.md`, and the existing `project-description.md`, `project-phases.md`, `prompt.md` end to end.
 - [x] Map the codebase: list every service in `internal/service/`, every handler group in `internal/api/handlers/`, and every model in `internal/models/`. Write findings to `docs/ORBITA-AUDIT.md`.
-- [ ] Stand it up locally: `docker compose -f docker/docker-compose.dev.yml up -d`, `cp .env.example .env`, fill secrets, `make migrate`, `make dev`, and `cd web && npm install && npm run dev`.
-- [ ] Register a super admin, create an org, and deploy `nginx:alpine` from a Docker image through the UI to confirm the core deploy path works.
-- [ ] Deploy a test app from a **GitHub repo** through the UI to confirm the Git + webhook path works. Note anything broken.
-- [ ] Run `make test` and record which tests pass/fail/are missing in `docs/ORBITA-AUDIT.md`.
+- [x] Stand it up locally: `docker compose -f docker/docker-compose.dev.yml up -d`, `cp .env.example .env`, fill secrets, `make migrate`, `make dev`, and `cd web && npm install && npm run dev`.
+- [x] Register a super admin, create an org, and deploy `nginx:alpine` from a Docker image through the UI to confirm the core deploy path works.
+- [x] Deploy a test app from a **GitHub repo** through the UI to confirm the Git + webhook path works. Note anything broken.
+- [x] Run `make test` and record which tests pass/fail/are missing in `docs/ORBITA-AUDIT.md`.
 
 _Phase 0 complete: _____________________
 

@@ -135,7 +135,42 @@ webhook signature, RBAC matrix, secrets round-trip, backup/restore, API-key auth
   backup/restore, metrics — all stubbed or missing (see §3).
 - CLAUDE.md is accurate about layering, org-scoping, RBAC grouping, migrations discipline.
 
-## 6. Local stand-up log (Phase 0)
+## 6. Local stand-up log (Phase 0) — verified 2026-07-15
 
-- Environment: Windows 11 + Docker Desktop 29.5.3 (Swarm available), Go 1.26.4, Node 26.
-- _to be filled as P0.5–P0.8 complete_
+Environment: Windows 11 + Docker Desktop 29.5.3 (Swarm initialized), Go 1.26.4, Node 26.
+`make` and `golangci-lint` are not installed on this dev box — the Makefile targets were run
+via their underlying commands (`go test ./... -race`, `go vet`, `go run ./cmd/migrate`).
+
+What was done (API-driven; same handlers/services the UI calls — headless environment):
+1. `docker compose -f docker/docker-compose.dev.yml up -d` → Postgres 15 + Redis 7 up.
+2. `.env` from `.env.example` with generated secrets; `DOCKER_SOCKET=npipe:////./pipe/docker_engine`
+   (client accepts any `scheme://` host — works on Windows), local `TRAEFIK_CONFIG_DIR`.
+3. `go run ./cmd/migrate up` → all 23 migrations applied.
+4. `web`: `npm install && npm run build` (embed requires `web/dist`), then server built+run →
+   `/health` OK, SPA served.
+5. **Register** first user → `is_super_admin=true` in JWT. **Org** `desishub` created (network,
+   default plan assigned). **Project** auto-creates Production+Staging environments.
+6. **Docker-image deploy** (`nginx:alpine`, port 80) → Swarm service `orbita-<id>` 1/1 running,
+   content verified in-container. NOTE: published ingress port unreachable from host loopback —
+   Docker Desktop/Windows Swarm limitation, not an Orbita bug.
+7. **Git deploy** from public GitHub repo (`traefik/whoami`) → image built via Docker remote git
+   context (`orbita-desishub-<id>:v1`), deployment `success`, service running.
+8. **Webhook**: simulated GitHub push → deploy v2 triggered and succeeded — but only after
+   manual DB fixes (see new findings below).
+9. Auth rate limiting verified live (6th login → `RATE_LIMIT_EXCEEDED`).
+10. `go test ./... -race`: **green but vacuous — every package "[no test files]"**. `go vet` clean.
+
+### Additional gaps found during live verification (append to §3 P0 list)
+21. **Git-source app creation requires `git_connection_id` even for public repos** — the
+    orchestrator supports tokenless public clones but the handler rejects them. (app_service)
+22. **Webhook matching can never fire for apps created via the API**: matcher is
+    `source_config->>'repo_url' = <github clone_url>` (git_repo.go:54) but app creation stores
+    `repo_url: ""` when only `repo_full_name` is given. Must derive/normalize repo_url.
+23. **`auto_deploy` defaults to `false` and no API/UI field can enable it** — `UpdateAppRequest`
+    only has name/port/replicas. Webhook auto-deploy is unreachable end-to-end without SQL.
+24. **Webhook deploys pass empty org slug** — `Deploy(ctx, app.ID, app.OrganizationID, "", nil)`
+    → image tagged `orbita--<id>:v2`, and network/cgroup names would derive from the empty slug
+    on a first-time create. Also recorded as `trigger_type=manual`, not `webhook`.
+25. **No webhook auto-registration on GitHub** at app creation (docs claim it; nothing calls the
+    GitHub hooks API), and `webhook_secret` is never generated — so gap #3 (unsigned bypass) is
+    the *default* state.
