@@ -325,14 +325,14 @@ if [ -f .env ]; then
   DB_PASSWORD="${DB_PASSWORD:-$(openssl rand -hex 16)}"
   JWT_SECRET="${JWT_SECRET:-$(openssl rand -hex 32)}"
   JWT_REFRESH_SECRET="${JWT_REFRESH_SECRET:-$(openssl rand -hex 32)}"
-  ENCRYPTION_MASTER_KEY="${ENCRYPTION_MASTER_KEY:-$(openssl rand -hex 16)}"
+  ENCRYPTION_MASTER_KEY="${ENCRYPTION_MASTER_KEY:-$(openssl rand -hex 32)}"
   DOMAIN_EXISTING="${ORBITA_HOST:-}"
   ACME_EMAIL_EXISTING="${ACME_EMAIL:-}"
 else
   DB_PASSWORD=$(openssl rand -hex 16)
   JWT_SECRET=$(openssl rand -hex 32)
   JWT_REFRESH_SECRET=$(openssl rand -hex 32)
-  ENCRYPTION_MASTER_KEY=$(openssl rand -hex 16)
+  ENCRYPTION_MASTER_KEY=$(openssl rand -hex 32)
   DOMAIN_EXISTING=""
   ACME_EMAIL_EXISTING=""
 fi

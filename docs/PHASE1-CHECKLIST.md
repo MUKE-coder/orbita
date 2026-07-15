@@ -42,10 +42,10 @@ audit gap number. Check when done + committed + covered by a test or documented 
       deploy, rollback, env, domains, logs, status (gap #2). Scope enforcement + tests.
 
 ## E. Secrets (P1 task 6)
-- [ ] E1. Unit tests: AES-256-GCM round-trip, HKDF per-org key differs per org, tampered
+- [x] E1. Unit tests: AES-256-GCM round-trip, HKDF per-org key differs per org, tampered
       ciphertext rejected.
-- [ ] E2. API test: secret env values never returned in plaintext (masked list response).
-- [ ] E3. Require `ENCRYPTION_MASTER_KEY` at startup (32-byte hex); update install.sh to
+- [x] E2. API test: secret env values never returned in plaintext (masked list response).
+- [x] E3. Require `ENCRYPTION_MASTER_KEY` at startup (32-byte hex); update install.sh to
       generate 32 bytes (gap #16).
 
 ## F. TLS (P1 task 7)

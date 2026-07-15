@@ -53,6 +53,11 @@ func Load() (*Config, error) {
 	if cfg.JWTRefreshSecret == "" {
 		return nil, fmt.Errorf("JWT_REFRESH_SECRET is required")
 	}
+	// Every org encryption key is HKDF-derived from this value. An empty or
+	// short key would silently weaken all tenant secrets at rest.
+	if len(cfg.EncryptionMasterKey) < 32 {
+		return nil, fmt.Errorf("ENCRYPTION_MASTER_KEY is required and must be at least 32 characters (generate with: openssl rand -hex 32)")
+	}
 
 	return cfg, nil
 }
