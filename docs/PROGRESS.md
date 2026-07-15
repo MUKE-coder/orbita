@@ -4,6 +4,26 @@ Running log per work session. Newest entry first.
 
 ---
 
+## 2026-07-15 — Session 6: Phase 5 (polish, docs, demo) — COMPLETE · v1.0.0
+
+Grit Cloud v1 shipped. Tag `grit-cloud-v1.0.0` (commit after `51404ac`). All 6 tasks done.
+
+- Sample app: `testdata/grit-sample` (api-mode) + its README — used by tests and the local demo.
+- Docs: `QUICKSTART.md` (2-command flow), `GRIT-YAML.md` (manifest spec), `DEMO.md` (walkthrough
+  script), plus the earlier `GRIT-CLOUD-CLI.md`, `GRIT-API.md`, `PHASE2-E2E.md`, `PHASE4-E2E.md`,
+  `TLS-TROUBLESHOOTING.md`. README gained a Grit Cloud section.
+- Error UX: CLI failures print a clear cause + fix (`ui.ErrorLine`) throughout, per design §9.
+- Demo recording is a manual step (needs a VPS); `DEMO.md` is the script.
+
+**Definition of done — status.** On a fresh Ubuntu 24.04 VPS the two-command path is
+implemented and each piece verified; the full on-VPS run is a documented manual step (no VPS in
+this environment). What's proven automatically end-to-end: the entire
+detect→build→migrate→route→live cycle and the `grit deploy` CLI flow against a local Orbita +
+git-served Grit sample (`docs/PHASE4-E2E.md`), and the `grit cloud init` bootstrap client path
+against live Orbita. GHCR image publish + on-VPS `grit cloud init` need a real box / push access.
+
+---
+
 ## 2026-07-15 — Session 5: Phase 4 (grit deploy) — COMPLETE
 
 The magic command works: local Grit code → live, migrated, HTTPS app in one line, verified
