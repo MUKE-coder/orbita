@@ -51,7 +51,11 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          # amd64 only — native, ~5-8 min. Covers all standard x86 VPS (Hetzner
+          # CX/CPX, DigitalOcean, Vultr, Contabo, AWS x86). Add linux/arm64 back
+          # for ARM hosts (Hetzner CAX, Graviton) — it builds under QEMU and is
+          # ~3-4x slower.
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
