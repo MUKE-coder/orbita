@@ -1,0 +1,99 @@
+export const metadata = { title: 'Quickstart' }
+
+# Quickstart
+
+From a fresh Ubuntu 24.04 VPS to a live, migrated, HTTPS Grit app — **two commands**.
+
+## Prerequisites
+
+- A fresh **Ubuntu 24.04** VPS with a public IP (Hetzner CX22 is plenty).
+- A domain you control. Point A-records at the VPS IP and wait for DNS to resolve.
+- The `grit` CLI on your laptop, and SSH access.
+
+<Callout type="warning" title="DNS must resolve first">
+`dig orbita.example.com +short` must return your server IP before you start — Let's Encrypt
+can't issue a certificate until it does. (If it's not ready, the wizard installs on the IP and
+you add the domain later.)
+</Callout>
+
+## Command 1 — provision the host
+
+Just run it — the wizard asks a few questions and does everything else:
+
+```bash
+grit cloud init
+```
+
+```
+▸ Grit Cloud — set up Orbita on your server
+? Do you already have a server (a fresh Ubuntu 24.04 VPS)?  [Y/n] y
+? Server IP address  203.0.113.10
+  ✔ Server is reachable
+? How do you log into the server right now?
+  › 1) I have a root password (from my hosting provider)
+    2) I added an SSH key when I created the VPS
+? Root password:  ••••••••
+? Create a secure deploy user named  [deploy]
+? SSH key for the deploy user:
+  › 1) Generate a new key for me (recommended)
+    2) Paste an existing public key
+? Domain for the Orbita dashboard (blank = use the server IP)  orbita.example.com
+  ✔ DNS points here — we'll set up HTTPS at https://orbita.example.com
+? Email for Let's Encrypt (TLS certificates)  [admin@orbita.example.com]
+? Your email for the Orbita admin login  you@example.com
+? Proceed?  [Y/n] y
+```
+
+It updates the server, **hardens it** (new sudo `deploy` user, generates an SSH key, disables
+root + password login, UFW, Fail2ban, security score), installs Docker + Orbita + Traefik on your
+HTTPS subdomain (or the server IP if DNS isn't pointed yet), creates your admin login + an `orb_`
+deploy token, and registers the host in `~/.grit/hosts.yaml`.
+
+<Callout type="tip" title="Automate it">
+For CI/scripts, pass flags + `--yes` to skip the wizard:
+`grit cloud init --server root@IP --domain orbita.example.com --acme-email you@example.com --admin-email admin@example.com --yes`
+</Callout>
+
+```bash
+grit cloud status --host prod        # ● ok, version
+```
+
+## Command 2 — deploy your Grit app
+
+From your Grit project directory (it has a `grit.json`):
+
+```bash
+grit cloud github-auth               # once: store a GitHub token (repo + admin:repo_hook)
+grit deploy --host prod
+```
+
+If there's no `grit.yaml`, a first-run wizard creates one. Then `grit deploy` ensures the repo,
+reconciles infrastructure, builds, migrates under an advisory lock, and cuts over:
+
+```
+✔ Live
+  App:       https://rental.example.com
+  API:       https://api.rental.example.com
+  Pulse:     https://api.rental.example.com/pulse/ui
+  Sentinel:  https://api.rental.example.com/sentinel/ui
+  Auto-deploy is on: future `git push` to main redeploys via webhook.
+```
+
+## After that
+
+<Callout type="tip" title="You're done — it keeps deploying">
+Every `git push` to your branch auto-deploys via webhook. The CLI is now optional.
+</Callout>
+
+```bash
+grit deploy --plan --host prod    # preview changes without applying
+grit logs -f --host prod          # stream logs
+grit rollback --host prod         # revert to the previous deploy
+grit cloud dashboard --host prod  # private SSH tunnel to the Orbita panel
+```
+
+## Next
+
+- [Install on a fresh server](/docs/install) — the manual path, step by step.
+- [Deploy a Grit app](/docs/deploy) — the full deploy flow explained.
+- [grit.yaml spec](/docs/grit-yaml) — the deploy manifest.

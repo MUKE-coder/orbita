@@ -1,0 +1,35 @@
+{
+  "name": "orbita-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Orbita / Grit Cloud — landing page + docs (Next.js). Design inspired by animateicons (MIT, © Avijit Dey).",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "framer-motion": "^11.11.0",
+    "lucide-react": "^0.451.0",
+    "next": "^14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@mdx-js/loader": "^3.1.0",
+    "@mdx-js/react": "^3.1.0",
+    "@next/mdx": "14.2.15",
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "rehype-pretty-code": "^0.14.0",
+    "remark-gfm": "^4.0.0",
+    "shiki": "^1.22.0",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5"
+  }
+}

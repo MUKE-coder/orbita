@@ -1,0 +1,86 @@
+export const metadata = { title: 'CLI reference' }
+
+# CLI reference
+
+Every command is subcommand of `grit`. Host-targeting commands take `--host <name>` (defaults to
+the host marked default in `~/.grit/hosts.yaml`).
+
+## `grit cloud init`
+
+Provision a fresh Ubuntu VPS: secure it, install Docker + Orbita + Traefik, create your admin
+login and an `orb_` deploy token, and register the host. **Interactive by default** — run it with
+no flags and answer the wizard.
+
+```bash
+grit cloud init
+```
+
+| Flag | Meaning |
+|---|---|
+| `--server user@ip[:port]` | Server to connect to (skips the "IP" prompt) |
+| `--ssh-key <path>` | Private key for the initial connection |
+| `--domain <host>` | Dashboard domain (blank → install on the IP) |
+| `--acme-email <email>` | Let's Encrypt contact for TLS |
+| `--admin-email <email>` | Orbita super-admin login |
+| `--deploy-user <name>` | Sudo user to create (default `deploy`) |
+| `--gen-key` | Generate a new SSH key for the deploy user |
+| `--deploy-pubkey <path>` | Use an existing public key instead |
+| `--skip-harden` | Skip the hardening script |
+| `--name <host>` | Name to register the host under (default `prod`) |
+| `--yes` | Non-interactive — use flags + defaults, no prompts |
+
+<Callout type="tip" title="Interactive by default, scriptable with flags">
+Provide every required value plus `--yes` for CI. Anything you omit in interactive mode is asked;
+anything you pass is used as the default.
+</Callout>
+
+## `grit cloud` — host management
+
+| Command | Does |
+|---|---|
+| `grit cloud status` | Platform health + version + metrics |
+| `grit cloud github-auth` | Store a GitHub token (repo + admin:repo_hook) for repo push |
+| `grit cloud dashboard` | Open a private SSH tunnel to the Orbita panel |
+| `grit cloud hosts` | List registered hosts |
+| `grit cloud use <name>` | Set the default host |
+| `grit cloud login` | Re-authenticate / refresh the `orb_` token |
+
+## `grit deploy`
+
+Deploy the Grit app in the current directory.
+
+```bash
+grit deploy [--host prod] [--plan] [--no-migrate] [--branch main]
+```
+
+| Flag | Meaning |
+|---|---|
+| `--host <name>` | Target host |
+| `--plan` | Dry run — print the plan, change nothing |
+| `--no-migrate` | Skip migrations (overrides `grit.yaml`) |
+| `--branch <name>` | Branch to build (default from `grit.yaml`) |
+| `--yes` | Skip the first-run `grit.yaml` wizard confirmation |
+
+## Operations
+
+| Command | Does |
+|---|---|
+| `grit logs [-f]` | Tail (or stream) app logs over WebSocket |
+| `grit rollback` | Revert to the previous deploy |
+| `grit ps` | List running services + health |
+| `grit env pull` / `env push` | Sync encrypted env with Orbita |
+| `grit exec -- <cmd>` | Run a one-off command in the app container |
+
+## Config files
+
+| Path | Purpose |
+|---|---|
+| `~/.grit/hosts.yaml` | Registered hosts: API URL, `orb_` token, default flag |
+| `./grit.yaml` | Per-app deploy manifest ([spec](/docs/grit-yaml)) |
+| `./grit.json` | Grit's app descriptor — read, never written by Orbita |
+| `~/.ssh/<deploy-key>` | Generated deploy key (private stays on your laptop) |
+
+## Next
+
+- [Deploy a Grit app](/docs/deploy)
+- [Troubleshooting](/docs/troubleshooting)

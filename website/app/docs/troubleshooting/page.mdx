@@ -1,0 +1,101 @@
+export const metadata = { title: 'Troubleshooting' }
+
+# Troubleshooting
+
+The failures you're most likely to hit, and the exact fix.
+
+## Certificate never issues (site stays on HTTP / browser warning)
+
+Traefik can't get a Let's Encrypt cert until DNS resolves **and** ports 80/443 are open.
+
+```bash
+dig orbita.example.com +short        # must print your server IP
+sudo ufw status                       # 80/tcp and 443/tcp must be ALLOW
+docker logs traefik 2>&1 | grep -i acme
+```
+
+<Callout type="warning" title="Rate limits">
+Let's Encrypt limits failed issuances. Fix DNS/firewall **first**, then restart Traefik once —
+don't loop restarts, or you'll hit the rate limit and wait an hour.
+</Callout>
+
+## `grit cloud init` can't connect
+
+```
+✖ Server is not reachable on 22
+```
+
+- Confirm the IP and that the VPS finished booting.
+- Provider firewall/security-group must allow inbound SSH (22).
+- If you chose *password* login but the provider only set an SSH key, re-run and pick the key.
+
+## Wizard hardened the server, now nothing on 80/443
+
+Hardening resets UFW. Orbita's init re-opens 80/443/8080 after — if you ran a **custom** harden
+step, re-open them:
+
+```bash
+sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw allow 8080/tcp
+```
+
+## Deploy fails at the migration step
+
+```
+✖ migrate: exit code 1
+```
+
+<Callout type="danger" title="Cutover is blocked on purpose">
+A non-zero migration aborts the deploy — the previous version keeps serving. Orbita will not cut
+over to a schema-mismatched image.
+</Callout>
+
+- **`go.sum` missing** — the most common cause. `go run ./cmd/migrate` can't resolve modules.
+  Commit `go.sum`.
+- **Advisory lock held** — a previous migrate crashed. It auto-releases on connection close; if
+  stuck, check for a hung one-off container: `docker ps -a | grep migrate`.
+- Inspect: `grit logs --host prod --service migrate`.
+
+## Orbita container won't start
+
+```bash
+cd /opt/orbita && docker compose logs orbita | tail -50
+```
+
+- **`ENCRYPTION_MASTER_KEY` missing/short** — must be 32 bytes (`openssl rand -hex 32`). Orbita
+  refuses to start without it.
+- **`JWT_SECRET` / `JWT_REFRESH_SECRET` unset** — startup fails hard. Check `/opt/orbita/.env`.
+- **Postgres not ready** — `docker compose ps`; if `postgres` is unhealthy, inspect its logs.
+
+## Health check passes locally but the domain 502s
+
+The app is up; the proxy can't route.
+
+```bash
+curl -s http://localhost:8080/health     # ok → Orbita is fine
+docker logs traefik | tail -30            # look for router/service errors
+```
+
+Usually a domain typo in `grit.yaml` (must be a **bare hostname** — no scheme/port/path) or DNS
+not yet propagated.
+
+## `git push` doesn't auto-deploy
+
+- The webhook needs `admin:repo_hook` scope — re-run `grit cloud github-auth` with a token that
+  has it.
+- Check the repo's **Settings → Webhooks** for a delivery to your Orbita URL with a 2xx response.
+
+## Reset everything and start clean
+
+<Callout type="danger" title="Destroys all data">
+This wipes containers, volumes, and the database.
+</Callout>
+
+```bash
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | sudo bash -s -- --force-reset
+```
+
+## Still stuck?
+
+Open an issue with `docker compose logs orbita`, `docker logs traefik`, and the output of
+`grit cloud status --host prod`.

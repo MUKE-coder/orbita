@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-bg text-ink font-sans antialiased;
+  background-image:
+    radial-gradient(60rem 40rem at 80% -10%, rgba(109, 92, 231, 0.12), transparent 60%),
+    radial-gradient(50rem 30rem at 0% 0%, rgba(34, 211, 238, 0.06), transparent 55%);
+  background-attachment: fixed;
+}
+
+/* Hairline utility */
+.hair {
+  @apply border border-hair;
+}
+
+/* --- Docs prose --- */
+.prose-orbita {
+  @apply text-[15px] leading-7 text-ink;
+}
+.prose-orbita h1 {
+  @apply text-3xl font-semibold tracking-tight mt-2 mb-4;
+}
+.prose-orbita h2 {
+  @apply text-xl font-semibold tracking-tight mt-10 mb-3 pt-2 scroll-mt-24;
+}
+.prose-orbita h3 {
+  @apply text-base font-semibold mt-8 mb-2 scroll-mt-24;
+}
+.prose-orbita p {
+  @apply my-4 text-muted;
+}
+.prose-orbita a {
+  @apply text-cyan underline-offset-2 hover:underline;
+}
+.prose-orbita strong {
+  @apply text-ink font-semibold;
+}
+.prose-orbita ul {
+  @apply my-4 list-disc pl-6 text-muted space-y-1.5;
+}
+.prose-orbita ol {
+  @apply my-4 list-decimal pl-6 text-muted space-y-1.5;
+}
+.prose-orbita hr {
+  @apply my-8 border-hair;
+}
+
+/* Inline code as a subtle pill */
+.prose-orbita :not(pre) > code {
+  @apply font-mono text-[0.86em] rounded-[5px] px-1.5 py-0.5;
+  background: var(--indigo-soft, rgba(109, 92, 231, 0.14));
+  color: #9C8DF5;
+}
+
+/* Code blocks (rehype-pretty-code) */
+.prose-orbita pre {
+  @apply my-5 overflow-x-auto rounded-[10px] border border-hair bg-[#0d1017] p-4 text-[13.5px] leading-6;
+}
+.prose-orbita pre code {
+  @apply font-mono;
+  counter-reset: line;
+}
+[data-rehype-pretty-code-figure] {
+  @apply my-5;
+}
+
+/* Tables: dense, hairline, tabular numbers */
+.prose-orbita table {
+  @apply my-6 w-full border-collapse text-[13.5px];
+  font-variant-numeric: tabular-nums;
+}
+.prose-orbita th {
+  @apply border-b border-hair px-3 py-2 text-left font-semibold text-ink;
+}
+.prose-orbita td {
+  @apply border-b border-hair/60 px-3 py-2 align-top text-muted;
+}
+
+/* Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #252a34 transparent;
+}
