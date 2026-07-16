@@ -55,11 +55,19 @@ type Client struct {
 	target Target
 }
 
-// Connect dials the target using, in order: an explicit key file, the SSH
-// agent, then ~/.ssh/id_ed25519 / id_rsa. Host keys are accepted on first use
-// (the operator is provisioning their own box).
-func Connect(t Target, keyFile string) (*Client, error) {
-	auths, err := authMethods(keyFile)
+// Auth describes how to authenticate the initial SSH connection to a server.
+// For a fresh VPS this is either a key (added at creation) or the provider's
+// root password.
+type Auth struct {
+	KeyFile  string // explicit private key path (optional)
+	Password string // root/user password (optional)
+}
+
+// Connect dials the target using, in order: the explicit password (if given),
+// an explicit key file, the SSH agent, then ~/.ssh/id_ed25519 / id_rsa. Host
+// keys are accepted on first use (the operator is provisioning their own box).
+func Connect(t Target, auth Auth) (*Client, error) {
+	auths, err := authMethods(auth)
 	if err != nil {
 		return nil, err
 	}
@@ -128,12 +136,17 @@ func (c *Client) Upload(content []byte, remotePath string, mode string) error {
 	return sess.Wait()
 }
 
-func authMethods(keyFile string) ([]ssh.AuthMethod, error) {
+func authMethods(auth Auth) ([]ssh.AuthMethod, error) {
 	var methods []ssh.AuthMethod
 
+	// Root/user password (fresh VPS with a provider-given password)
+	if auth.Password != "" {
+		methods = append(methods, ssh.Password(auth.Password))
+	}
+
 	// Explicit key file
-	if keyFile != "" {
-		signer, err := loadKey(keyFile)
+	if auth.KeyFile != "" {
+		signer, err := loadKey(auth.KeyFile)
 		if err != nil {
 			return nil, err
 		}
@@ -158,9 +171,21 @@ func authMethods(keyFile string) ([]ssh.AuthMethod, error) {
 	}
 
 	if len(methods) == 0 {
-		return nil, fmt.Errorf("no SSH auth available — pass --ssh-key or start an ssh-agent")
+		return nil, fmt.Errorf("no SSH auth available — provide a key or password, or start an ssh-agent")
 	}
 	return methods, nil
+}
+
+// TestReachable dials the target's SSH port to check the server is up and
+// reachable before we try to authenticate. Returns nil if a TCP connection
+// opens within the timeout.
+func TestReachable(t Target, timeout time.Duration) error {
+	conn, err := net.DialTimeout("tcp", t.Addr(), timeout)
+	if err != nil {
+		return err
+	}
+	_ = conn.Close()
+	return nil
 }
 
 func loadKey(path string) (ssh.Signer, error) {
