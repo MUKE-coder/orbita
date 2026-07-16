@@ -1,0 +1,18 @@
+{
+  "name": "orbita-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Orbita / Grit Cloud landing page + docs (VitePress)",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
+  }
+}

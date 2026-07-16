@@ -1,0 +1,130 @@
+/* Orbita / Grit Cloud brand theme — dark-first, techy, hairline borders,
+   monospace for real values. Maps the design guide palette onto VitePress. */
+
+:root {
+  --orbita-indigo: #6D5CE7;
+  --orbita-indigo-hover: #5B4BD1;
+  --orbita-cyan: #22D3EE;
+  --orbita-lime: #C9F31D;
+
+  /* Brand → VitePress primary */
+  --vp-c-brand-1: #8B7BF0;
+  --vp-c-brand-2: #6D5CE7;
+  --vp-c-brand-3: #5B4BD1;
+  --vp-c-brand-soft: rgba(109, 92, 231, 0.16);
+
+  --vp-font-family-mono: 'JetBrains Mono', 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Dark theme surfaces — near-black with a faint blue, hairline borders */
+.dark {
+  --vp-c-bg: #0B0D12;
+  --vp-c-bg-alt: #12151C;
+  --vp-c-bg-elv: #1A1E27;
+  --vp-c-bg-soft: #12151C;
+  --vp-c-border: #252A34;
+  --vp-c-divider: #1e222b;
+  --vp-c-text-1: #E6E8EC;
+  --vp-c-text-2: #9AA0AA;
+  --vp-c-text-3: #5C626D;
+  --vp-c-brand-1: #9C8DF5;
+}
+
+/* ---------- Hero (landing) ---------- */
+.dark .VPHero .name,
+.dark .VPHero .text {
+  letter-spacing: -0.02em;
+}
+.VPHero .name .clip {
+  background: linear-gradient(120deg, var(--orbita-indigo) 20%, var(--orbita-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.dark .VPHero .tagline {
+  color: var(--vp-c-text-2);
+}
+
+/* Brand button gradient */
+.VPButton.brand {
+  background: linear-gradient(120deg, var(--orbita-indigo), #7d6ef0);
+  border-color: transparent;
+}
+.VPButton.brand:hover {
+  background: linear-gradient(120deg, var(--orbita-indigo-hover), var(--orbita-indigo));
+}
+
+/* ---------- Feature cards ---------- */
+.dark .VPFeature {
+  background: var(--vp-c-bg-alt);
+  border: 1px solid var(--vp-c-border);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.dark .VPFeature:hover {
+  border-color: var(--orbita-indigo);
+  transform: translateY(-2px);
+}
+.VPFeature .icon {
+  background: var(--vp-c-brand-soft) !important;
+  border-radius: 8px;
+}
+
+/* ---------- Code blocks: mono, hairline, subtle ---------- */
+.vp-doc div[class*='language-'] {
+  border: 1px solid var(--vp-c-border);
+  border-radius: 10px;
+}
+.vp-doc [class*='language-'] code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 13.5px;
+}
+
+/* Inline code as a subtle pill */
+.vp-doc :not(pre) > code {
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+  border-radius: 5px;
+  font-size: 0.86em;
+  padding: 2px 6px;
+}
+
+/* ---------- Custom containers (tip / warning / danger) ---------- */
+.vp-doc .custom-block {
+  border-radius: 10px;
+  border-width: 1px;
+  border-left-width: 3px;
+}
+.vp-doc .custom-block.tip {
+  border-color: var(--orbita-cyan);
+}
+.vp-doc .custom-block.tip .custom-block-title {
+  color: var(--orbita-cyan);
+}
+
+/* ---------- Tables: dense, hairline, tabular numbers ---------- */
+.vp-doc table {
+  font-variant-numeric: tabular-nums;
+  display: table;
+  width: 100%;
+}
+.vp-doc tr {
+  border-color: var(--vp-c-divider);
+}
+
+/* ---------- Nav / sidebar polish ---------- */
+.dark .VPNavBar {
+  border-bottom: 1px solid var(--vp-c-border);
+}
+.VPSidebarItem.is-active > .item .text {
+  color: var(--vp-c-brand-1);
+}
+
+/* Status pills used in prose (● Running, etc.) */
+.status-ok { color: #22C55E; }
+.status-warn { color: #F59E0B; }
+.status-err { color: #EF4444; }
+.status-live { color: var(--orbita-cyan); }
+
+/* Home hero image glow */
+.VPHero .image-bg {
+  background: radial-gradient(circle, rgba(109, 92, 231, 0.5), transparent 62%);
+}

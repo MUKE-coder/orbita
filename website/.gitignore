@@ -1,0 +1,8 @@
+node_modules/
+.vitepress/dist/
+.vitepress/cache/
+*.log
+
+# Sandbox pnpm artifacts — this project uses npm (package-lock.json)
+pnpm-lock.yaml
+pnpm-workspace.yaml
