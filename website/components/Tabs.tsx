@@ -2,7 +2,7 @@
 
 import { useState, Children, isValidElement } from 'react'
 
-// Simple code-group tabs. Usage in MDX:
+// Code-group tabs. Usage in MDX:
 //   <Tabs labels={["One-line", "Manual"]}>
 //     <TabItem> ...code block... </TabItem>
 //     <TabItem> ...code block... </TabItem>
@@ -12,16 +12,14 @@ export function Tabs({ labels, children }: { labels: string[]; children: React.R
   const [active, setActive] = useState(0)
   const panels = Children.toArray(children).filter(isValidElement)
   return (
-    <div className="my-5 overflow-hidden rounded-[10px] border border-hair">
-      <div className="flex gap-1 border-b border-hair bg-elev1 px-2 pt-2">
+    <div className="my-5 overflow-hidden rounded-xl border border-hair/60 bg-gradient-to-b from-white/[0.03] to-white/[0.01]">
+      <div className="flex gap-1 border-b border-hair/60 px-2 pt-2">
         {labels.map((label, i) => (
           <button
             key={label}
             onClick={() => setActive(i)}
             className={`rounded-t-md px-3 py-1.5 text-[13px] transition ${
-              i === active
-                ? 'bg-[#0d1017] text-ink'
-                : 'text-muted hover:text-ink'
+              i === active ? 'bg-surfaceElevated text-primary' : 'text-textSecondary hover:text-textPrimary'
             }`}
           >
             {label}

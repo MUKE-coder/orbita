@@ -12,16 +12,16 @@ export function PrevNext() {
   const prev = i > 0 ? docOrder[i - 1] : null
   const next = i < docOrder.length - 1 ? docOrder[i + 1] : null
   return (
-    <div className="mt-12 flex items-center justify-between gap-4 border-t border-hair pt-6 text-sm">
+    <div className="mt-12 flex items-center justify-between gap-4 border-t border-divider/50 pt-6 text-sm">
       {prev ? (
-        <Link href={prev.href} className="flex items-center gap-2 text-muted hover:text-ink">
+        <Link href={prev.href} className="flex items-center gap-2 text-textSecondary hover:text-primary">
           <ArrowLeft size={15} /> {prev.title}
         </Link>
       ) : (
         <span />
       )}
       {next ? (
-        <Link href={next.href} className="flex items-center gap-2 text-muted hover:text-ink">
+        <Link href={next.href} className="flex items-center gap-2 text-textSecondary hover:text-primary">
           {next.title} <ArrowRight size={15} />
         </Link>
       ) : (

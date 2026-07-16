@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, Variants } from 'framer-motion'
 import {
   ArrowRight,
   Boxes,
@@ -10,175 +10,279 @@ import {
   Globe,
   Activity,
   Feather,
+  ShieldCheck,
+  Layers,
+  GitBranch,
+  Server,
 } from 'lucide-react'
-import { CodeCard } from '@/components/CodeCard'
+import { CommandCard } from '@/components/CommandCard'
+import { Section, SectionHeader } from '@/components/Section'
+import { GithubMark } from '@/components/icons/GithubMark'
 
-const features = [
+const container: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
+}
+const item: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
+}
+
+// Glowing coral CTA — the animateicons "Browse icons" button treatment.
+const ctaClass =
+  'group relative inline-flex items-center justify-center gap-1.5 overflow-hidden rounded-full bg-gradient-to-b from-primary to-primary/85 px-6 py-2.5 text-sm font-semibold text-[var(--cta-text)] shadow-[0_1px_0_rgba(255,255,255,0.18)_inset,0_10px_28px_-8px_rgba(244,91,72,0.55)] ring-1 ring-inset ring-white/15 transition-all duration-200 hover:shadow-[0_1px_0_rgba(255,255,255,0.22)_inset,0_14px_36px_-8px_rgba(244,91,72,0.7)] hover:brightness-110 active:scale-[0.98]'
+
+const highlights = [
   {
     icon: Boxes,
     title: 'True multi-tenancy',
-    body: 'Isolated Docker networks, per-org AES-256 keys, cgroup v2 CPU/RAM quotas, and 4-role RBAC. Run every client on one cheap box — they never see each other.',
+    body: 'Per-org Docker networks, AES-256 keys, cgroup v2 CPU/RAM quotas, and 4-role RBAC. Run every client on one cheap box — they never see each other.',
   },
   {
-    icon: Zap,
+    icon: ShieldCheck,
+    title: 'Secure by the first command',
+    body: 'grit cloud init hardens the server — deploy user, SSH keys, locked-down root, UFW, Fail2ban — then installs Orbita on your HTTPS subdomain.',
+  },
+  {
+    icon: Layers,
     title: 'Grit-aware, zero-config',
-    body: 'A Grit app has a known shape, so Orbita reads it — builds each service from the Dockerfiles Grit ships, provisions Postgres/Redis/MinIO, wires domains, and migrates.',
+    body: 'A Grit app has a known shape. Orbita builds each service from the Dockerfiles Grit ships, provisions Postgres/Redis/MinIO, and wires domains.',
   },
   {
-    icon: Lock,
+    icon: GitBranch,
     title: 'Migrations under a lock',
     body: 'Deploys build, then run migrations under a Postgres advisory lock before cutover. A failed migration aborts — never a schema-mismatched cutover.',
+  },
+]
+
+const features = [
+  {
+    icon: Server,
+    title: 'One ~30 MB binary',
+    body: 'The Go control plane embeds the React dashboard and idles under 50 MB of RAM — leaving nearly all of your server for the apps you run.',
   },
   {
     icon: Globe,
     title: 'HTTPS by default',
-    body: 'Traefik v3 with automatic Let’s Encrypt, HTTP→HTTPS redirect, and per-app routing generated from grit.yaml. Nothing binds the public host but the proxy.',
+    body: 'Traefik v3 with automatic Let’s Encrypt, HTTP→HTTPS redirect, and per-app routing generated from grit.yaml. Only the proxy binds the public host.',
   },
   {
     icon: Activity,
     title: 'Observable from day one',
-    body: 'Pulse (latency/SQL/errors) and Sentinel (WAF/rate-limit/anomaly) mount on every Grit app by default. Live logs, metrics, and an in-browser terminal.',
+    body: 'Pulse (latency/SQL/errors) and Sentinel (WAF/rate-limit/anomaly) mount on every Grit app by default. Live logs, metrics, in-browser terminal.',
+  },
+  {
+    icon: Zap,
+    title: 'Push to deploy',
+    body: 'After the first deploy, every git push to your branch redeploys via webhook. The CLI becomes optional — the platform keeps shipping.',
+  },
+  {
+    icon: Lock,
+    title: 'Isolated secrets',
+    body: 'Each org’s secrets are encrypted with an AES-256 key HKDF-derived from a master key + org ID — never the master key directly.',
   },
   {
     icon: Feather,
-    title: 'One ~30 MB binary',
-    body: 'The Go control plane embeds the React dashboard and idles under 50 MB of RAM — leaving nearly all of your server for the apps you actually run.',
+    title: 'Beginner-first CLI',
+    body: 'Interactive by default: the wizard asks what it needs and does the rest. Flags stay available for CI and scripting when you want them.',
   },
 ]
 
-const fade = {
-  hidden: { opacity: 0, y: 14 },
-  show: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.05, duration: 0.4, ease: 'easeOut' },
-  }),
+// Small glass code panel used in the "two commands" section.
+function CodePanel({ label, file, children }: { label: string; file?: string; children: React.ReactNode }) {
+  return (
+    <div className="glass glass-bevel">
+      <div className="flex items-center justify-between gap-2 border-b border-hair/40 px-4 py-2 text-[11px] uppercase tracking-wide text-textSecondary">
+        <span>{label}</span>
+        {file ? <span className="truncate text-textMuted">{file}</span> : null}
+      </div>
+      <pre className="overflow-x-auto px-4 py-3.5 font-mono text-[13px] leading-6">{children}</pre>
+    </div>
+  )
 }
 
 export default function Home() {
   return (
-    <main className="mx-auto max-w-6xl px-5">
-      {/* Hero */}
-      <section className="grid items-center gap-10 py-16 lg:grid-cols-2 lg:py-24">
-        <div>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="inline-flex items-center gap-2 rounded-full border border-hair bg-elev1 px-3 py-1 font-mono text-[11px] text-muted"
-          >
-            <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-cyan" />
-            SELF-HOSTED · MULTI-TENANT · GRIT-AWARE
-          </motion.div>
-
-          <motion.h1
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, delay: 0.05 }}
-            className="mt-5 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl"
-          >
-            One control plane for{' '}
-            <span className="bg-gradient-to-r from-indigo to-cyan bg-clip-text text-transparent">
-              your whole stack.
-            </span>
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, delay: 0.12 }}
-            className="mt-5 max-w-xl text-[15px] leading-7 text-muted"
-          >
-            A self-hosted, multi-tenant PaaS in a single Go binary — and the control plane for Grit
-            Cloud. Go from a bare, unsecured VPS to a hardened box running a live, migrated, HTTPS
-            app in two commands.
-          </motion.p>
+    <main>
+      <div className="relative overflow-hidden">
+        {/* Hero */}
+        <div className="relative flex min-h-[calc(100dvh-8rem)] items-center justify-center overflow-hidden">
+          <div className="bg-grid" />
 
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, delay: 0.18 }}
-            className="mt-8 flex flex-wrap items-center gap-3"
+            variants={container}
+            initial="hidden"
+            animate="show"
+            className="relative z-10 mx-auto flex w-full max-w-3xl flex-col items-center justify-center gap-8 px-4 py-16 text-center"
           >
-            <Link
-              href="/docs/quickstart"
-              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo to-[#7d6ef0] px-4 py-2.5 text-sm font-medium text-white transition hover:brightness-110"
+            <motion.a
+              variants={item}
+              href="https://github.com/MUKE-coder/orbita"
+              target="_blank"
+              rel="noreferrer"
+              className="-mb-2 inline-flex items-center gap-2 rounded-full border border-hair bg-surface px-4 py-2 text-xs text-textPrimary hover:bg-surfaceHover"
             >
-              Quickstart <ArrowRight size={16} />
-            </Link>
-            <Link
-              href="/docs/what-is-orbita"
-              className="inline-flex items-center gap-2 rounded-lg border border-hair px-4 py-2.5 text-sm text-ink transition hover:bg-elev2"
-            >
-              What is Orbita?
-            </Link>
-          </motion.div>
-        </div>
+              <GithubMark className="size-4" />
+              <span className="font-medium">Open Source</span>
+              <span className="rounded-full border border-hair px-2 py-0.5 text-[10px] text-textSecondary">
+                MIT
+              </span>
+            </motion.a>
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-        >
-          <CodeCard
-            title="two commands, from bare server to live app"
-            lines={[
-              { text: '$ grit cloud init', tone: 'cmd' },
-              { text: '  ✔ Server hardened (score 94/100)', tone: 'ok' },
-              { text: '  ✔ Orbita live at https://orbita.example.com', tone: 'ok' },
-              { text: '', tone: 'muted' },
-              { text: '$ grit deploy --host prod', tone: 'cmd' },
-              { text: '  ✔ Migrations applied (advisory lock)', tone: 'ok' },
-              { text: '  ✔ Live', tone: 'ok' },
-              { text: '    App:  https://rental.example.com', tone: 'accent' },
-              { text: '    API:  https://api.rental.example.com', tone: 'accent' },
-              { text: '  git push → auto-deploys via webhook', tone: 'muted' },
-            ]}
-          />
-        </motion.div>
-      </section>
-
-      {/* Features */}
-      <section className="py-8">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((f, i) => (
-            <motion.div
-              key={f.title}
-              custom={i}
-              variants={fade}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, margin: '-40px' }}
-              className="group rounded-xl border border-hair bg-elev1 p-5 transition hover:-translate-y-0.5 hover:border-indigo"
+            <motion.h1
+              variants={item}
+              className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl"
             >
-              <div className="mb-3 inline-flex rounded-lg bg-indigo-soft p-2.5">
-                <f.icon size={18} className="text-indigo" />
-              </div>
-              <h3 className="text-[15px] font-semibold">{f.title}</h3>
-              <p className="mt-1.5 text-sm leading-6 text-muted">{f.body}</p>
+              <span className="text-primary">Secure a server,</span>
+              <br />
+              <span className="font-medium text-textPrimary">deploy in two commands</span>
+            </motion.h1>
+
+            <motion.div variants={item} className="max-w-xl space-y-2 text-sm leading-relaxed text-zinc-300">
+              <p>
+                A self-hosted, multi-tenant PaaS in a single Go binary — and the control plane for
+                Grit Cloud. Go from a bare, unsecured VPS to a hardened box running a live, migrated,
+                HTTPS app.
+              </p>
             </motion.div>
-          ))}
-        </div>
-      </section>
 
-      {/* Closing CTA */}
-      <section className="py-16">
-        <div className="rounded-2xl border border-hair bg-gradient-to-b from-elev1 to-bg p-8 text-center sm:p-12">
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Secure a VPS and ship a full-stack app in two commands.
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-muted">
-            Self-hosted on a €4.5/mo box, with true isolation, migrations, and observability. That’s
-            Grit Cloud.
-          </p>
-          <Link
-            href="/docs/quickstart"
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo to-[#7d6ef0] px-5 py-2.5 text-sm font-medium text-white transition hover:brightness-110"
-          >
-            Get started <ArrowRight size={16} />
-          </Link>
+            <motion.div variants={item} className="flex w-full items-center justify-center">
+              <CommandCard />
+            </motion.div>
+
+            <motion.div variants={item} className="flex flex-wrap items-center justify-center gap-3">
+              <Link href="/docs/quickstart" className={ctaClass}>
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-6 top-px h-px bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                />
+                <span>Quickstart</span>
+                <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+              </Link>
+              <Link
+                href="/docs/what-is-orbita"
+                className="inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-medium text-textPrimary transition-colors hover:text-primary"
+              >
+                What is Orbita?
+              </Link>
+            </motion.div>
+          </motion.div>
         </div>
-      </section>
+
+        {/* Two commands, zero config */}
+        <Section id="two-commands" noBorder>
+          <SectionHeader
+            title="Two commands, zero config"
+            subtitle="grit cloud init secures the box and installs Orbita. grit deploy ships your app — built, migrated, live over HTTPS."
+            spacing="tight"
+          />
+
+          <div className="grid items-center gap-6 sm:gap-8 lg:grid-cols-2 lg:gap-12">
+            <ul className="grid h-full min-w-0 gap-4 sm:grid-cols-2 sm:gap-5">
+              {highlights.map(({ icon: Icon, title, body }) => (
+                <li key={title} className="glass glass-bevel group flex flex-col gap-3 p-5 transition-all duration-300 hover:border-primary/40 hover:shadow-[0_8px_24px_-12px_rgba(244,91,72,0.3)]">
+                  <div className="inline-flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-gradient-to-b from-primary/15 to-primary/5 text-primary">
+                    <Icon size={20} />
+                  </div>
+                  <h3 className="text-sm font-semibold text-textPrimary">{title}</h3>
+                  <p className="text-xs leading-relaxed text-textSecondary">{body}</p>
+                </li>
+              ))}
+            </ul>
+
+            <div className="flex min-w-0 flex-col gap-4">
+              <CodePanel label="Provision" file="on your laptop">
+                <code>
+                  <span className="select-none text-primary">$ </span>
+                  <span className="text-textPrimary">grit cloud init</span>
+                  {'\n'}
+                  <span className="text-success">  ✔ Server hardened (score 94/100)</span>
+                  {'\n'}
+                  <span className="text-success">  ✔ Orbita live at https://orbita.example.com</span>
+                </code>
+              </CodePanel>
+
+              <CodePanel label="Deploy" file="in your Grit app">
+                <code>
+                  <span className="select-none text-primary">$ </span>
+                  <span className="text-textPrimary">grit deploy --host prod</span>
+                  {'\n'}
+                  <span className="text-success">  ✔ Migrations applied (advisory lock)</span>
+                  {'\n'}
+                  <span className="text-success">  ✔ Live</span>
+                  {'\n'}
+                  <span className="text-textSecondary">    App:  https://rental.example.com</span>
+                  {'\n'}
+                  <span className="text-textSecondary">    API:  https://api.rental.example.com</span>
+                  {'\n'}
+                  <span className="text-textMuted">  git push → auto-deploys via webhook</span>
+                </code>
+              </CodePanel>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Link href="/docs/quickstart" className={ctaClass}>
+                  <span aria-hidden className="pointer-events-none absolute inset-x-5 top-px h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+                  Read the quickstart
+                  <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+                </Link>
+                <Link href="/docs/deploy" className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-textPrimary transition-colors hover:text-primary">
+                  How deploy works
+                </Link>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        {/* Feature grid */}
+        <Section>
+          <SectionHeader
+            title="Built for one box, many clients"
+            subtitle="True isolation, automatic HTTPS, and observability — without a heavy control plane."
+          />
+
+          <motion.div
+            variants={container}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: '-80px' }}
+            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {features.map(({ icon: Icon, title, body }) => (
+              <motion.div
+                key={title}
+                variants={item}
+                className="glass glass-bevel group p-6 transition-all duration-300 hover:border-primary/40 hover:shadow-[0_8px_24px_-12px_rgba(244,91,72,0.3)]"
+              >
+                <div className="mb-4 inline-flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-gradient-to-b from-primary/15 to-primary/5 text-primary">
+                  <Icon size={22} />
+                </div>
+                <h3 className="mb-2 text-sm font-semibold text-textPrimary">{title}</h3>
+                <p className="text-sm leading-relaxed text-textSecondary">{body}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </Section>
+
+        {/* Closing CTA */}
+        <Section>
+          <div className="glass glass-bevel mx-auto max-w-3xl p-8 text-center sm:p-12">
+            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+              Secure a VPS and ship a full-stack app in two commands.
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-textSecondary">
+              Self-hosted on a cheap box, with true isolation, migrations, and observability.
+              That’s Grit Cloud.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <Link href="/docs/quickstart" className={ctaClass}>
+                <span aria-hidden className="pointer-events-none absolute inset-x-6 top-px h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+                Get started
+                <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+          </div>
+        </Section>
+      </div>
     </main>
   )
 }

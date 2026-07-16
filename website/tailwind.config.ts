@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss'
 
-// Orbita brand tokens (design guide): dark-first, indigo/cyan, hairline borders.
+// Theme + layout mirror the animateicons project (MIT, © Avijit Dey) — see
+// NOTICE. Coral-on-black, glass surfaces, hairline borders. Content is Orbita's.
 const config: Config = {
   darkMode: 'class',
   content: [
@@ -11,20 +12,29 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: '#0B0D12',
-        elev1: '#12151C',
-        elev2: '#1A1E27',
-        hair: '#252A34',
-        ink: '#E6E8EC',
-        muted: '#9AA0AA',
-        faint: '#5C626D',
-        indigo: { DEFAULT: '#6D5CE7', hover: '#5B4BD1', soft: 'rgba(109,92,231,0.14)' },
-        cyan: '#22D3EE',
-        lime: '#C9F31D',
+        bgDark: '#000000',
+        primary: {
+          DEFAULT: '#f45b48',
+          hover: '#e04e3d',
+          glow: 'rgba(244,91,72,0.25)',
+        },
+        surface: '#0b0b0b',
+        surfaceElevated: '#161616',
+        surfaceHover: '#111111',
+        textPrimary: '#e5e7eb',
+        textSecondary: '#b0b3b8',
+        textMuted: '#7c7c7c',
+        textDisabled: '#575757',
+        hair: '#1f2933',
+        divider: '#2a2c2f',
+        success: '#22c55e',
+        warning: '#f59e0b',
+        error: '#ef4444',
+        info: '#38bdf8',
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        sans: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-geist-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       maxWidth: { content: '46rem' },
       keyframes: {

@@ -10,7 +10,7 @@ export function Sidebar() {
     <nav className="space-y-6 text-sm">
       {sidebar.map((section) => (
         <div key={section.title}>
-          <div className="mb-2 font-mono text-[11px] uppercase tracking-wide text-faint">
+          <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-textMuted">
             {section.title}
           </div>
           <ul className="space-y-0.5">
@@ -22,8 +22,8 @@ export function Sidebar() {
                     href={item.href}
                     className={`block rounded-md px-2.5 py-1.5 transition ${
                       active
-                        ? 'bg-indigo-soft font-medium text-ink'
-                        : 'text-muted hover:bg-elev2 hover:text-ink'
+                        ? 'bg-surfaceElevated font-medium text-primary'
+                        : 'text-textSecondary hover:bg-surfaceHover hover:text-textPrimary'
                     }`}
                   >
                     {item.title}
