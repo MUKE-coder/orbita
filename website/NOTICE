@@ -13,6 +13,14 @@ a documentation site built with Next.js, MDX, Tailwind CSS, and framer-motion. W
 reused its landing-page and docs layout patterns as a starting point and replaced
 all content and icon code with Orbita's own. We gratefully acknowledge the author.
 
+Circuit Board component
+-----------------------
+
+components/ui/circuit-board.tsx is vendored from the componentry.dev shadcn
+registry (@componentry/circuit-board — https://componentry.dev). The only change
+from upstream is repointing the `cn` import to our local util. We use it to draw
+the animated architecture illustration and gratefully acknowledge the authors.
+
 MIT License (animateicons)
 --------------------------
 

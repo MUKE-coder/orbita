@@ -14,10 +14,13 @@ import {
   Layers,
   GitBranch,
   Server,
+  Terminal,
+  Database,
 } from 'lucide-react'
 import { CommandCard } from '@/components/CommandCard'
 import { Section, SectionHeader } from '@/components/Section'
 import { GithubMark } from '@/components/icons/GithubMark'
+import { ArchitectureBoard } from '@/components/ArchitectureBoard'
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -230,6 +233,50 @@ export default function Home() {
                 </Link>
               </div>
             </div>
+          </div>
+        </Section>
+
+        {/* Architecture illustration */}
+        <Section id="architecture">
+          <SectionHeader
+            title="How it fits together"
+            subtitle="Your CLI and browser talk to one Go binary. It drives Traefik, Postgres, Redis, and Docker Swarm on the host — every org fully isolated."
+            spacing="tight"
+          />
+
+          <div className="glass glass-bevel mx-auto max-w-4xl p-2 sm:p-4">
+            <ArchitectureBoard />
+          </div>
+
+          <div className="mt-8 grid gap-6 sm:grid-cols-3">
+            {[
+              {
+                icon: Terminal,
+                title: 'Entry points',
+                body: 'The grit CLI (over an orb_ token) and the embedded dashboard both hit the same REST API — nothing else is exposed.',
+              },
+              {
+                icon: Boxes,
+                title: 'One control plane',
+                body: 'A single ~30 MB Go binary: Gin router → services → GORM, plus the orchestrator that speaks the Docker SDK and writes Traefik config.',
+              },
+              {
+                icon: Database,
+                title: 'Backing services',
+                body: 'Postgres holds metadata + encrypted secrets, Redis handles cache and rate limits, and Swarm runs every workload with rolling updates.',
+              },
+            ].map(({ icon: Icon, title, body }) => (
+              <div
+                key={title}
+                className="glass glass-bevel p-5"
+              >
+                <div className="mb-3 inline-flex size-9 items-center justify-center rounded-lg border border-primary/20 bg-gradient-to-b from-primary/15 to-primary/5 text-primary">
+                  <Icon size={18} />
+                </div>
+                <h3 className="mb-1.5 text-sm font-semibold text-textPrimary">{title}</h3>
+                <p className="text-xs leading-relaxed text-textSecondary">{body}</p>
+              </div>
+            ))}
           </div>
         </Section>
 
