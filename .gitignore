@@ -1,6 +1,6 @@
-# Binaries
-orbita
-orbita.exe
+# Binaries (root-anchored so they don't match the cmd/grit/internal/orbita package dir)
+/orbita
+/orbita.exe
 *.exe
 *.dll
 *.so
@@ -27,7 +27,11 @@ coverage.txt
 
 # Frontend
 web/node_modules/
-web/dist/
+# Ignore built SPA output but keep a placeholder so `//go:embed all:web/dist`
+# compiles in CI without a frontend build. (Ignore contents, not the dir, so the
+# negation can re-include the placeholder.)
+web/dist/*
+!web/dist/.gitkeep
 
 # Air
 tmp/
