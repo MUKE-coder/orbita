@@ -339,17 +339,38 @@ fi
 
 echo -e "${GREEN}[5/7]${NC} Creating configuration..."
 
-# Prompt for domain (allow non-interactive via env)
+# Prompt for a value, falling back to the caller's default when we can't ask.
+#
+# `[ -r /dev/tty ]` is NOT a reliable test: the device node exists and tests
+# readable even with no controlling terminal, but opening it then fails with
+# ENXIO ("No such device or address") — which killed the whole script under
+# `set -euo pipefail`. That's exactly the `curl … | sudo bash` case over a
+# non-interactive SSH session, i.e. the documented install command. So actually
+# try to open the tty, and never prompt at all under --yes.
 read_with_tty() {
   local __var="$1"; shift
   local __prompt="$*"
   local __val=""
+  if [ "${ORBITA_AUTO_CLEAN:-}" = "yes" ]; then
+    printf -v "$__var" '%s' ""   # --yes: take the default, ask nothing
+    return 0
+  fi
   if [ -t 0 ]; then
     read -rp "  $__prompt" __val
-  elif [ -r /dev/tty ]; then
-    read -rp "  $__prompt" __val < /dev/tty
+  elif { exec 3</dev/tty; } 2>/dev/null; then
+    read -rp "  $__prompt" __val <&3
+    exec 3<&-
   fi
   printf -v "$__var" '%s' "$__val"
+}
+
+# Primary IP of this machine — the sane default when no domain is given, so a
+# non-interactive install on a remote VPS points at the box rather than at
+# "localhost" (which would be wrong in every link Orbita generates).
+default_domain() {
+  local ip
+  ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  if [ -n "$ip" ]; then printf '%s' "$ip"; else printf 'localhost'; fi
 }
 
 if [ -n "${ORBITA_DOMAIN:-}" ]; then
@@ -357,8 +378,8 @@ if [ -n "${ORBITA_DOMAIN:-}" ]; then
 elif [ -n "$DOMAIN_EXISTING" ]; then
   DOMAIN="$DOMAIN_EXISTING"
 else
-  read_with_tty DOMAIN "Enter your domain (e.g., orbita.example.com) [localhost]: "
-  DOMAIN=${DOMAIN:-localhost}
+  read_with_tty DOMAIN "Enter your domain (e.g., orbita.example.com) [$(default_domain)]: "
+  DOMAIN=${DOMAIN:-$(default_domain)}
 fi
 
 if [ -n "${ORBITA_ACME_EMAIL:-}" ]; then
