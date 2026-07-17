@@ -45,6 +45,9 @@ No CLI, no Go — just SSH and `curl`.
 - Ports **80**, **443** and **8080** free.
 - Optional: a domain, if you want HTTPS instead of a bare IP.
 
+Don't have these yet, or new to self-hosting? [**Before you begin**](/docs/before-you-begin) shows
+you how to get a server, point a domain at it, and make an SSH key — start there.
+
 <Callout type="danger" title="Use a fresh box">
 Orbita's Traefik must own ports 80/443. If `nginx`, `apache2`, `caddy` or `lighttpd` holds one,
 the installer **stops and uninstalls it** — and with `--yes` it does so **without asking**. Don't
