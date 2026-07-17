@@ -1,13 +1,13 @@
 package traefik
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v3"
 )
 
 type Manager struct {
@@ -29,55 +29,55 @@ type TraefikResource struct {
 }
 
 type traefikConfig struct {
-	HTTP *httpConfig `json:"http,omitempty"`
+	HTTP *httpConfig `json:"http,omitempty" yaml:"http,omitempty"`
 }
 
 type httpConfig struct {
-	Routers     map[string]router     `json:"routers,omitempty"`
-	Services    map[string]svcConfig  `json:"services,omitempty"`
-	Middlewares map[string]middleware `json:"middlewares,omitempty"`
+	Routers     map[string]router     `json:"routers,omitempty" yaml:"routers,omitempty"`
+	Services    map[string]svcConfig  `json:"services,omitempty" yaml:"services,omitempty"`
+	Middlewares map[string]middleware `json:"middlewares,omitempty" yaml:"middlewares,omitempty"`
 }
 
 type router struct {
-	Rule        string   `json:"rule"`
-	Service     string   `json:"service"`
-	EntryPoints []string `json:"entryPoints"`
-	TLS         *tlsConf `json:"tls,omitempty"`
-	Middlewares []string `json:"middlewares,omitempty"`
+	Rule        string   `json:"rule" yaml:"rule"`
+	Service     string   `json:"service" yaml:"service"`
+	EntryPoints []string `json:"entryPoints" yaml:"entryPoints"`
+	TLS         *tlsConf `json:"tls,omitempty" yaml:"tls,omitempty"`
+	Middlewares []string `json:"middlewares,omitempty" yaml:"middlewares,omitempty"`
 }
 
 type tlsConf struct {
-	CertResolver string `json:"certResolver,omitempty"`
+	CertResolver string `json:"certResolver,omitempty" yaml:"certResolver,omitempty"`
 }
 
 type svcConfig struct {
-	LoadBalancer *loadBalancer `json:"loadBalancer,omitempty"`
+	LoadBalancer *loadBalancer `json:"loadBalancer,omitempty" yaml:"loadBalancer,omitempty"`
 }
 
 type loadBalancer struct {
-	Servers []server `json:"servers"`
+	Servers []server `json:"servers" yaml:"servers"`
 }
 
 type server struct {
-	URL string `json:"url"`
+	URL string `json:"url" yaml:"url"`
 }
 
 type middleware struct {
-	RedirectScheme *redirectScheme `json:"redirectScheme,omitempty"`
-	Headers        *headers        `json:"headers,omitempty"`
+	RedirectScheme *redirectScheme `json:"redirectScheme,omitempty" yaml:"redirectScheme,omitempty"`
+	Headers        *headers        `json:"headers,omitempty" yaml:"headers,omitempty"`
 }
 
 type redirectScheme struct {
-	Scheme    string `json:"scheme"`
-	Permanent bool   `json:"permanent"`
+	Scheme    string `json:"scheme" yaml:"scheme"`
+	Permanent bool   `json:"permanent" yaml:"permanent"`
 }
 
 type headers struct {
-	SSLRedirect          bool `json:"sslRedirect,omitempty"`
-	STSSeconds           int  `json:"stsSeconds,omitempty"`
-	STSIncludeSubdomains bool `json:"stsIncludeSubdomains,omitempty"`
-	ContentTypeNosniff   bool `json:"contentTypeNosniff,omitempty"`
-	FrameDeny            bool `json:"frameDeny,omitempty"`
+	SSLRedirect          bool `json:"sslRedirect,omitempty" yaml:"sslRedirect,omitempty"`
+	STSSeconds           int  `json:"stsSeconds,omitempty" yaml:"stsSeconds,omitempty"`
+	STSIncludeSubdomains bool `json:"stsIncludeSubdomains,omitempty" yaml:"stsIncludeSubdomains,omitempty"`
+	ContentTypeNosniff   bool `json:"contentTypeNosniff,omitempty" yaml:"contentTypeNosniff,omitempty"`
+	FrameDeny            bool `json:"frameDeny,omitempty" yaml:"frameDeny,omitempty"`
 }
 
 func (m *Manager) UpsertRoute(resource TraefikResource) error {
@@ -141,7 +141,13 @@ func (m *Manager) UpsertRoute(resource TraefikResource) error {
 	}
 
 	configFile := filepath.Join(dynamicDir, routeFileName(resource.ResourceID, resource.DomainID))
-	data, err := json.MarshalIndent(cfg, "", "  ")
+	// Emit YAML, not JSON. Traefik v3's file provider silently parses .json
+	// dynamic-config files to an EMPTY configuration (verified on a real box:
+	// an identical router loads from a .yml file but not a .json one), so every
+	// tenant route was written but never took effect — no routing, no TLS, only
+	// the default cert. YAML is Traefik's primary dynamic-config format and
+	// loads correctly.
+	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("UpsertRoute: marshal: %w", err)
 	}
@@ -162,7 +168,7 @@ func (m *Manager) UpsertRoute(resource TraefikResource) error {
 // routeFileName is the canonical per-domain dynamic config filename. The
 // resourceID prefix lets RemoveResourceRoutes glob every route for a resource.
 func routeFileName(resourceID, domainID uuid.UUID) string {
-	return fmt.Sprintf("%s--%s.json", resourceID.String(), domainID.String())
+	return fmt.Sprintf("%s--%s.yml", resourceID.String(), domainID.String())
 }
 
 // RemoveRoute deletes the dynamic config for one domain of a resource.
@@ -173,6 +179,10 @@ func (m *Manager) RemoveRoute(resourceID, domainID uuid.UUID) error {
 	if err := os.Remove(configFile); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("RemoveRoute: %w", err)
 	}
+	// Remove the old .json for this domain too (pre-YAML deploys wrote .json,
+	// which Traefik never loaded — clean it up so the dir doesn't accumulate
+	// dead files).
+	_ = os.Remove(filepath.Join(dynamicDir, fmt.Sprintf("%s--%s.json", resourceID.String(), domainID.String())))
 
 	// Also clean up any legacy single-file route from before per-domain configs.
 	legacy := filepath.Join(dynamicDir, fmt.Sprintf("%s.json", resourceID.String()))
@@ -186,7 +196,9 @@ func (m *Manager) RemoveRoute(resourceID, domainID uuid.UUID) error {
 // resource (all its domains). Used when the resource itself is deleted.
 func (m *Manager) RemoveResourceRoutes(resourceID uuid.UUID) error {
 	dynamicDir := filepath.Join(m.configDir, "dynamic")
-	matches, err := filepath.Glob(filepath.Join(dynamicDir, resourceID.String()+"*.json"))
+	// Match both the current .yml routes and any leftover .json from before the
+	// YAML switch.
+	matches, err := filepath.Glob(filepath.Join(dynamicDir, resourceID.String()+"*"))
 	if err != nil {
 		return fmt.Errorf("RemoveResourceRoutes: %w", err)
 	}
