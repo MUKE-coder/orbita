@@ -127,12 +127,9 @@ Traefik requests the certificate on the first request to your domain.
 </TabItem>
 </Tabs>
 
-<Callout type="warning" title="Hardening left only SSH open">
-If the installer can't bind the ports it needs:
-
-```bash title="Server terminal (SSH)"
-sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw allow 8080/tcp
-```
+<Callout type="tip" title="The firewall is handled for you">
+Hardening firewalls container ports (ufw-docker), and the installer opens exactly what Orbita
+needs with the right `ufw route allow` rules. No manual `ufw` commands.
 </Callout>
 
 Check it came up:

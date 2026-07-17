@@ -53,7 +53,14 @@ env:
 
 ## Deploy it
 
-From the project directory (the one with `grit.json`):
+First, make sure the CLI knows your server. If you ran `orbita init`, it's already registered.
+Otherwise connect to it once:
+
+```bash title="Local terminal (your PC)"
+orbita login https://orbita.example.com     # once — registers the host as "prod"
+```
+
+Then, from the project directory (the one with `grit.json`):
 
 ```bash title="Local terminal (your PC)"
 orbita github-auth          # once — store a GitHub token (repo + admin:repo_hook)
