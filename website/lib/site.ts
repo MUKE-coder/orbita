@@ -32,7 +32,10 @@ export const sidebar: DocSection[] = [
   },
   {
     title: 'Guides',
-    items: [{ title: 'Deploying Grit apps', href: '/docs/grit-apps' }],
+    items: [
+      { title: 'Using the dashboard', href: '/docs/dashboard' },
+      { title: 'Deploying Grit apps', href: '/docs/grit-apps' },
+    ],
   },
   {
     title: 'Reference',

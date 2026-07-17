@@ -24,6 +24,7 @@ type Config struct {
 	IsProduction        bool
 	SuperAdminEmail     string
 	BackupDir           string
+	DisableRegistration bool
 }
 
 func Load() (*Config, error) {
@@ -43,6 +44,9 @@ func Load() (*Config, error) {
 		CORSOrigins:         getEnv("CORS_ORIGINS", "http://localhost:5173"),
 		AppBaseURL:          getEnv("APP_BASE_URL", "http://localhost:8080"),
 		IsProduction:        getEnvBool("IS_PRODUCTION", false),
+		// When true, public self-registration is closed after the first user
+		// (the super-admin). Further accounts must come through org invites.
+		DisableRegistration: getEnvBool("ORBITA_DISABLE_REGISTRATION", false),
 		SuperAdminEmail:     getEnv("SUPER_ADMIN_EMAIL", ""),
 		BackupDir:           getEnv("BACKUP_DIR", "/var/lib/orbita/backups"),
 	}

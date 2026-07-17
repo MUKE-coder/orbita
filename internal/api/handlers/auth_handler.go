@@ -58,6 +58,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			response.Conflict(c, "Email already registered")
 			return
 		}
+		if errors.Is(err, service.ErrRegistrationDisabled) {
+			response.Forbidden(c, "Registration is disabled on this server. Ask an admin to invite you.")
+			return
+		}
 		response.InternalError(c, "Failed to register")
 		return
 	}

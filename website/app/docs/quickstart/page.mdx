@@ -245,61 +245,61 @@ Open the dashboard in your browser:
 - **With a domain:** `https://orbita.example.com`
 - **IP only:** `http://YOUR_SERVER_IP:8080`
 
-**Register the first user right away.** That account becomes the super-admin, and registration
-stays open until it exists — so the first person to visit claims the server. Then create your
+**Register the first user right away.** That account becomes the super-admin. Then create your
 first **organisation** (your workspace for apps, databases, and domains).
+
+<Callout type="warning" title="Registration stays open by default">
+The first account to register becomes super-admin — so do it immediately, before anyone else
+finds the URL. Registration does **not** close on its own afterwards: later visitors can still
+create (non-admin) accounts. To shut it after setup, set `ORBITA_DISABLE_REGISTRATION=true` — see
+[Using the dashboard](/docs/dashboard#close-registration-after-setup-recommended).
+</Callout>
 
 ---
 
 ## Step 7 — Deploy your first app
 
-From the dashboard, create an app from whichever source fits. All three build, run, and route the
-same way — automatic HTTPS included once you attach a domain.
+Inside the dashboard the hierarchy is **organisation → project → app**. Create an organisation,
+then a project, then **Create App** from one of two sources:
 
 ### A Docker image
 
-The fastest way to see the platform work end to end:
+The fastest way to see the platform work end to end — anything on Docker Hub or GHCR:
 
 ```text title="Orbita dashboard"
-Apps → Create App → Source: Docker Image
+Create App → Source: Docker Image
   Image: nginx:alpine     Port: 80
-→ Deploy
+→ Create
 ```
 
-### A Git repository
+### A Git repository (with a Dockerfile)
 
 Connect GitHub once under **Settings → Git Connections** (a token with `repo` +
 `admin:repo_hook`), then:
 
 ```text title="Orbita dashboard"
-Apps → Create App → Source: Git Repository
-  Pick the repo + branch
-  Build: Dockerfile   (used automatically if your repo has one)
-→ Deploy
+Create App → Source: Git Repository
+  Pick the connection, repo + branch
+  Dockerfile path: Dockerfile
+→ Create
 ```
 
-Orbita registers a webhook, so every future `git push` redeploys.
+Orbita builds the image and registers a webhook, so every future `git push` redeploys.
 
-### Any language, no Dockerfile
+<Callout type="note" title="Your repo needs a Dockerfile — for now">
+Git builds from a **Dockerfile**. Docker Compose as a source, and Nixpacks (auto-build with no
+Dockerfile), are planned but **not available yet** — add a small Dockerfile in the meantime. Grit
+apps are the exception: they deploy [zero-config](/docs/grit-apps).
+</Callout>
 
-No Dockerfile? Choose **Nixpacks** and Orbita detects the language and builds it for you — Laravel,
-Django, Rails, Node, Go, static sites:
+### Then add a domain, env vars, and a database
 
-```text title="Orbita dashboard"
-Apps → Create App → Source: Git Repository
-  Pick the repo + branch
-  Build: Nixpacks
-→ Deploy
-```
+From the app's tabs: **Domains** to attach a hostname (point its A record at the server first);
+**Environment** for variables (mark secrets — encrypted at rest). Databases are created at the org
+level under **Databases → Create** (Postgres / Redis / MinIO), then wired in via an env var.
 
-### Add a domain, a database, and env vars
-
-From the app's page: **Domains → Add** to give it a hostname (point its A record at the server
-first, per Step 2); **Addons → Add** to provision a managed Postgres, Redis, or MinIO with the
-connection URL injected automatically; **Environment** to set variables, marked secret if
-sensitive (encrypted at rest, never shown again).
-
-That's it — you have a live app on your own hardware.
+The full walkthrough — every screen and tab, from register to rollback and inviting your team — is
+in **[Using the dashboard](/docs/dashboard)**.
 
 ---
 

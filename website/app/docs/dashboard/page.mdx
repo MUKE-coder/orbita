@@ -1,0 +1,155 @@
+export const metadata = { title: 'Using the dashboard' }
+
+# Using the dashboard
+
+Orbita is installed and you're looking at the login screen — now what? This page walks the whole
+dashboard, from creating your account to a live app and back-ups. It's the browser-only path; the
+[CLI](/docs/cli) mirrors it for people who prefer the terminal.
+
+The shape of it: **register → organisation → project → app → configure → deploy**.
+
+## 1. Register your account
+
+Open the dashboard (`https://orbita.example.com`, or `http://YOUR_IP:8080` in IP mode) and click
+**Register**. Fill in your name, email, and a password.
+
+<Callout type="danger" title="Register immediately — the first account owns the server">
+The **first** person to register becomes the **super-admin**, with full control of the box.
+Registration is open, so do this the moment install finishes. If a stranger reaches the URL and
+registers first, they own your server.
+</Callout>
+
+### Close registration after setup (recommended)
+
+By default, registration stays **open** — later visitors can still create (non-admin) accounts.
+Once your admin account exists and you don't need public sign-up, close it: add this line to
+`/opt/orbita/.env` on the server and restart Orbita.
+
+```bash title="Server terminal (SSH)"
+echo 'ORBITA_DISABLE_REGISTRATION=true' | sudo tee -a /opt/orbita/.env
+cd /opt/orbita && sudo docker compose up -d orbita
+```
+
+Now `/register` is closed to everyone except the very first account (so a fresh install can still
+be bootstrapped). New teammates join by **invitation** instead — see [step 8](#8-invite-your-team).
+
+## 2. Create an organisation
+
+An **organisation** is your top-level workspace. Every app, database, and domain lives inside
+one, and each org is fully isolated from the others — its own Docker network, encryption key, and
+resource quota.
+
+Click **Create Organisation**, give it a name (e.g. *Acme*), and you're in.
+
+## 3. Create a project
+
+Inside the org, apps are grouped into **projects**, and each project has one or more
+**environments** (like `production`). Create a project (e.g. *Website*) — you'll pick it when you
+create an app.
+
+## 4. Deploy an app
+
+From your project, click **Create App**. Orbita builds from one of two sources:
+
+### From a Docker image
+
+The quickest way to see it work — anything on Docker Hub or GHCR, no build needed:
+
+- **Source:** Docker Image
+- **Image:** `nginx:alpine` (or `ghcr.io/you/app:v1.2.3`)
+- **Port:** the port your image listens on (e.g. `80`)
+
+Click **Create**, and it deploys.
+
+### From a Git repository
+
+Builds your code into an image on every push.
+
+1. **Connect Git first.** Go to **Settings → Git Connections** and add a GitHub token (scopes:
+   `repo` + `admin:repo_hook`). This lets Orbita clone private repos and set up auto-deploy
+   webhooks.
+2. Back in **Create App**, choose **Source: Git Repository**, pick the connection, repo, and
+   branch.
+3. Set the **Dockerfile path** (default `Dockerfile`) and a **build context** if your Dockerfile
+   isn't at the repo root.
+
+Orbita builds the image with Docker's BuildKit and deploys it. Every future `git push` to that
+branch redeploys automatically.
+
+<Callout type="warning" title="Git builds need a Dockerfile — today">
+The Git source builds from a **Dockerfile** in your repo. If your project doesn't have one, add a
+small Dockerfile for now. **Docker Compose as an app source, and Nixpacks auto-build (no
+Dockerfile), are on the roadmap but not available yet** — don't rely on them from the dashboard.
+For a framework that already ships Dockerfiles, see [Deploying Grit apps](/docs/grit-apps), which
+is fully zero-config.
+</Callout>
+
+## 5. Configure the app
+
+Open the app to reach its tabs: **Overview, Deployments, Logs, Metrics, Environment, Terminal,
+Domains**.
+
+### Environment variables
+
+Under **Environment**, add variables one per line in `.env` style, or paste a whole block. Mark
+anything sensitive as a **secret** — it's encrypted at rest with your org's key and never shown
+again after saving.
+
+### A domain and HTTPS
+
+Under **Domains → Add**, enter a hostname (e.g. `shop.example.com`). Point that name's **A
+record** at your server first (see [Getting started, step 2](/docs/quickstart#step-2--point-a-domain-at-it)).
+Traefik fetches a Let's Encrypt certificate on the first request — the app is then live over
+HTTPS.
+
+### A database
+
+Databases are created at the org level, not inside the app. Go to **Databases → Create**, pick
+Postgres, Redis, or MinIO, and Orbita provisions it inside your org's private network. Copy the
+connection URL it gives you into the app's **Environment** (e.g. `DATABASE_URL`). Nothing is
+exposed publicly — the database is reachable only from your org's apps.
+
+## 6. Watch it deploy
+
+- **Deployments** — every build, with its status and time. This is also where you roll back.
+- **Logs** — live output from the running container (streamed).
+- **Metrics** — CPU and memory for the app.
+- **Terminal** — a shell inside the running container, in your browser.
+
+A deploy goes build → start → health check → route. When it's healthy and a domain is attached,
+your app answers on that domain over HTTPS.
+
+## 7. Roll back
+
+Made a bad deploy? Open **Deployments**, find the previous good one, and click **Rollback**.
+Previous images are kept, so it's an instant image swap — no rebuild.
+
+## 8. Invite your team
+
+Add people under **Members → Invite** (org admins only). Enter their email and a role:
+
+| Role | Can |
+|---|---|
+| **viewer** | See apps, logs, metrics |
+| **developer** | Deploy, manage env + domains |
+| **admin** | Manage members, git connections, everything in the org |
+| **owner** | Admin + transfer/delete the org |
+
+They get an email with a join link. If registration is closed, invitees still need an account to
+accept — have them register while it's briefly open, or keep sign-up open for your team's domain.
+
+## What's not supported yet
+
+To set expectations honestly:
+
+- **Docker Compose** as an app source — planned, not yet available.
+- **Nixpacks** (auto-build a repo with no Dockerfile) — planned, not yet available.
+
+Today: **Docker images** and **Git repos with a Dockerfile** both work end to end, and **Grit
+apps** deploy zero-config. For anything else, add a Dockerfile.
+
+## Next
+
+- [Getting started](/docs/quickstart) — the full install-to-first-app walkthrough.
+- [Deploying Grit apps](/docs/grit-apps) — zero-config deploys.
+- [CLI reference](/docs/cli) — the same operations from your terminal.

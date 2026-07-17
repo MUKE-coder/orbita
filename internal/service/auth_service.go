@@ -18,7 +18,8 @@ import (
 
 var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
-	ErrEmailAlreadyExists = errors.New("email already registered")
+	ErrEmailAlreadyExists   = errors.New("email already registered")
+	ErrRegistrationDisabled = errors.New("registration is disabled — ask an admin to invite you")
 	ErrUserNotFound       = errors.New("user not found")
 	ErrInvalidToken       = errors.New("invalid or expired token")
 	ErrInvalidOTP         = errors.New("invalid or expired OTP")
@@ -61,6 +62,14 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 	// Check if this is the first user (make super admin)
 	count, _ := s.userRepo.CountUsers(ctx)
 	isSuperAdmin := count == 0
+
+	// With ORBITA_DISABLE_REGISTRATION set, public sign-up is closed once the
+	// first user exists — the takeover window after setup is shut, and new
+	// people join via org invites instead. The very first account is always
+	// allowed so the instance can still be bootstrapped.
+	if s.cfg.DisableRegistration && count > 0 {
+		return nil, nil, ErrRegistrationDisabled
+	}
 
 	user := &models.User{
 		ID:           uuid.New(),

@@ -48,7 +48,7 @@ Orbita picks in this order — first match wins:
 | 1 | `grit.json` | The [Grit fast path](/docs/grit-apps) — reuse the Dockerfiles Grit ships, correct build contexts, migrations under a lock |
 | 2 | `Dockerfile` | Builds it. No guessing. |
 | 3 | an explicit build in `orbita.yaml` | Exactly what you specified |
-| 4 | none of the above | **Nixpacks** — detects Laravel, Django, Rails, Node, Go, static… and builds it anyway |
+| 4 | none of the above | **Nixpacks** — auto-detect the language and build without a Dockerfile *(planned — not available yet; add a Dockerfile for now)* |
 
 <Callout type="tip" title="You usually write almost nothing">
 Most apps need only `app`, `repo` and `domains`. Ports, build contexts, and addon environment
