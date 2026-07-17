@@ -85,6 +85,15 @@ func ErrorLine(cause, fix string) {
 	}
 }
 
+// WarnLine prints a non-fatal problem plus what it means, in the same shape as
+// ErrorLine. Goes to stdout — the run is still on track.
+func WarnLine(cause, detail string) {
+	fmt.Println(c(amber+bold, "  ! "+cause))
+	if detail != "" {
+		fmt.Println(c(dim, "    → "+detail))
+	}
+}
+
 // Field prints an aligned "label: value" line.
 func Field(label, value string) {
 	fmt.Printf("  %s %s\n", c(slate, pad(label+":", 16)), value)

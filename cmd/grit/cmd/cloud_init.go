@@ -38,6 +38,10 @@ type initOpts struct {
 	deployPubKey string // pasted deploy public key (when not generating)
 	skipHarden   bool
 
+	// forgetHostKey removes this server's entry from the local ~/.ssh/known_hosts
+	// (ssh-keygen -R) when it's stale — e.g. the VPS was rebuilt on the same IP.
+	forgetHostKey bool
+
 	yes bool // non-interactive
 
 	// computed
@@ -71,6 +75,8 @@ func cloudInitCmd() *cobra.Command {
 	f.StringVar(&o.deployPubKey, "deploy-pubkey", "", "deploy user's public key (else one is generated)")
 	f.BoolVarP(&o.yes, "yes", "y", false, "non-interactive; use flags + defaults, don't prompt")
 	f.BoolVar(&o.skipHarden, "skip-harden", false, "skip hardening (server already hardened)")
+	f.BoolVar(&o.forgetHostKey, "forget-host-key", false,
+		"if this IP has a stale key in ~/.ssh/known_hosts (rebuilt VPS), remove it (ssh-keygen -R)")
 	return c
 }
 
@@ -122,6 +128,11 @@ func runInit(ctx context.Context, o *initOpts) error {
 	}
 	defer client.Close()
 	ui.Step("Connected to " + ui.Value(target.Host))
+
+	// 1b. We connect trust-on-first-use, but the operator will `ssh` into this
+	//     box themselves later — and OpenSSH refuses a changed host key. Offer
+	//     to clear a stale entry now, while we know the server's real key.
+	hostKeyStep(client, target, o)
 
 	// 2. Update the system.
 	ui.StepActive("Updating the server (apt update && upgrade)…")
@@ -295,6 +306,45 @@ func validateInit(o *initOpts) error {
 		return fmt.Errorf("missing required values: %s", strings.Join(missing, ", "))
 	}
 	return nil
+}
+
+// hostKeyStep warns when ~/.ssh/known_hosts on this machine holds a different
+// key for the server, and offers to drop it (ssh-keygen -R).
+//
+// grit itself never trips over this — we connect trust-on-first-use — but the
+// operator's own `ssh deploy@host` will hard-fail with "REMOTE HOST
+// IDENTIFICATION HAS CHANGED" until the stale entry goes. Rebuilding a VPS on
+// the same IP is the usual cause. Nothing here is fatal, so no error return.
+func hostKeyStep(client *sshx.Client, target sshx.Target, o *initOpts) {
+	state, err := client.KnownHostState()
+	if err != nil || state != sshx.HostKeyMismatch {
+		return // absent/match, or we couldn't read known_hosts — nothing to do
+	}
+
+	entry := sshx.KnownHostEntry(target)
+	ui.WarnLine(
+		"Your machine has a different saved SSH key for "+entry,
+		"the VPS was probably rebuilt on this IP — your own `ssh` will refuse to connect until the old key is removed",
+	)
+
+	// --forget-host-key removes it outright; otherwise ask. In non-interactive
+	// runs without the flag we only tell them the command — never edit their
+	// known_hosts behind their back.
+	remove := o.forgetHostKey
+	if !remove && !o.yes {
+		remove = ui.Confirm("Remove the old key from ~/.ssh/known_hosts?", true)
+	}
+	if !remove {
+		ui.Field("Fix it later with", ui.Value(sshx.ForgetHostCommand(target)))
+		return
+	}
+
+	if _, err := sshx.ForgetHost(target); err != nil {
+		ui.StepFail("Couldn't update known_hosts: " + err.Error())
+		ui.Field("Run this yourself", ui.Value(sshx.ForgetHostCommand(target)))
+		return
+	}
+	ui.Step("Removed the stale host key for " + ui.Value(entry))
 }
 
 // hardenStep uploads and runs the vendored vps-harden.sh with the deploy user +

@@ -53,6 +53,13 @@ func (t Target) Addr() string { return net.JoinHostPort(t.Host, t.Port) }
 type Client struct {
 	client *ssh.Client
 	target Target
+
+	// Host key as presented by the server during the handshake, plus the exact
+	// hostname/remote pair OpenSSH's own callback would have seen. Captured so
+	// we can tell the user whether their ~/.ssh/known_hosts entry is stale.
+	hostKey      ssh.PublicKey
+	hostKeyName  string
+	hostKeyRemot net.Addr
 }
 
 // Auth describes how to authenticate the initial SSH connection to a server.
@@ -71,17 +78,34 @@ func Connect(t Target, auth Auth) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Trust on first use — the operator is provisioning their own box — but
+	// record what the server presented so KnownHostState can compare it against
+	// ~/.ssh/known_hosts afterwards.
+	var (
+		hostKey  ssh.PublicKey
+		hostName string
+		remote   net.Addr
+	)
 	cfg := &ssh.ClientConfig{
-		User:            t.User,
-		Auth:            auths,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), //nolint: provisioning a fresh box
-		Timeout:         15 * time.Second,
+		User: t.User,
+		Auth: auths,
+		HostKeyCallback: func(hostname string, rem net.Addr, key ssh.PublicKey) error {
+			hostKey, hostName, remote = key, hostname, rem
+			return nil
+		},
+		Timeout: 15 * time.Second,
 	}
 	client, err := ssh.Dial("tcp", t.Addr(), cfg)
 	if err != nil {
 		return nil, fmt.Errorf("ssh dial %s: %w", t.Addr(), err)
 	}
-	return &Client{client: client, target: t}, nil
+	return &Client{
+		client:       client,
+		target:       t,
+		hostKey:      hostKey,
+		hostKeyName:  hostName,
+		hostKeyRemot: remote,
+	}, nil
 }
 
 func (c *Client) Close() error { return c.client.Close() }
