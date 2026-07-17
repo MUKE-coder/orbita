@@ -21,7 +21,7 @@ func NewGritHandler(gritService *service.GritService) *GritHandler {
 	return &GritHandler{gritService: gritService}
 }
 
-// GritReconcileRequest is the CLI payload: the grit.yaml text, the detected
+// GritReconcileRequest is the CLI payload: the orbita.yaml text, the detected
 // grit.json text, the env-file values, and the git connection (optional).
 type GritReconcileRequest struct {
 	GritYAML        string            `json:"grit_yaml" binding:"required"`
@@ -44,7 +44,7 @@ func (h *GritHandler) parseReconcile(c *gin.Context) (*service.ReconcileInput, b
 
 	m, err := grit.ParseManifest([]byte(req.GritYAML))
 	if err != nil {
-		response.BadRequest(c, "invalid grit.yaml: "+err.Error())
+		response.BadRequest(c, "invalid orbita.yaml: "+err.Error())
 		return nil, false
 	}
 	gj, err := grit.ParseGritJSON([]byte(req.GritJSON))

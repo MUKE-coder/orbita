@@ -1,6 +1,11 @@
-# Binaries (root-anchored so they don't match the cmd/grit/internal/orbita package dir)
+# Build outputs. Root-anchored so they don't match the cmd/orbita/ source tree
+# or the cmd/orbita/internal/orbita package dir.
 /orbita
 /orbita.exe
+/orbita-server
+/orbita-server.exe
+/grit
+/grit.exe
 *.exe
 *.dll
 *.so

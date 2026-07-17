@@ -1,9 +1,9 @@
-// Package grit implements Orbita's Grit-awareness layer: parsing the grit.yaml
+// Package grit implements Orbita's Grit-awareness layer: parsing the orbita.yaml
 // deploy manifest, detecting a Grit app from grit.json, deriving the service
 // map/build recipe from the architecture mode, and validating both. It is the
 // ground truth for how Orbita builds, routes, and migrates a Grit app.
 //
-// The guiding principle (from grit-knowledge/08): the user writes grit.yaml
+// The guiding principle (from grit-knowledge/08): the user writes orbita.yaml
 // once for the things only they know (repo, branch, domains, addons, env
 // source, migrate toggle); everything about *what services exist and how to
 // build them* is derived from grit.json + the repository, which Grit itself
@@ -17,7 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Manifest is the parsed grit.yaml deploy contract (project-description.md §5,
+// Manifest is the parsed orbita.yaml deploy contract (project-description.md §5,
 // reconciled with reality in grit-knowledge/08).
 type Manifest struct {
 	App    string `yaml:"app"`
@@ -46,7 +46,7 @@ type Manifest struct {
 	Env EnvSource `yaml:"env,omitempty"`
 }
 
-// ServiceOverride is an optional per-service path/port override in grit.yaml.
+// ServiceOverride is an optional per-service path/port override in orbita.yaml.
 type ServiceOverride struct {
 	Path string `yaml:"path"`
 	Port int    `yaml:"port,omitempty"`
@@ -99,7 +99,7 @@ func (m *Manifest) BranchOrDefault() string {
 	return m.Branch
 }
 
-// ParseManifest parses grit.yaml bytes into a Manifest (no validation).
+// ParseManifest parses orbita.yaml bytes into a Manifest (no validation).
 func ParseManifest(data []byte) (*Manifest, error) {
 	var m Manifest
 	if err := yaml.Unmarshal(data, &m); err != nil {

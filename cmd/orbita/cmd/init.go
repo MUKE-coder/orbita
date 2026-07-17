@@ -55,7 +55,7 @@ func initCmd() *cobra.Command {
 		Use:   "init",
 		Short: "Set up Orbita on your server — interactive by default",
 		Long: "orbita init walks you through turning a fresh Ubuntu/Debian VPS into a\n" +
-			"hardened, Grit-aware Orbita host: it secures the server (new sudo user + SSH\n" +
+			"hardened Orbita host: it secures the server (new sudo user + SSH\n" +
 			"keys, firewall, Fail2ban), installs Docker + Orbita + Traefik on an HTTPS\n" +
 			"subdomain (or the server IP if DNS isn't ready), bootstraps your admin login\n" +
 			"and an orb_ deploy token, and registers the host in ~/.orbita/hosts.yaml.\n\n" +

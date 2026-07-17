@@ -130,7 +130,7 @@ func main() {
 	// Wire env-var resolution into app deploys (secrets decrypted at deploy time)
 	appService.SetEnvResolver(envService)
 
-	// Grit-awareness: reconcile grit.yaml → apps/addons/env/domains and drive
+	// Grit-awareness: reconcile orbita.yaml → apps/addons/env/domains and drive
 	// the Grit-aware deploy (build → migrate → route → live).
 	gritService := service.NewGritService(
 		appRepo, orgRepo, projectService, appService, dbService, envService, domainService, orch, encryptionKey,

@@ -22,7 +22,7 @@ type ServicePlan struct {
 	BuildContext   string            // "" = repo root, "apps/api" = subdir
 	Port           int               // container listen port
 	BuildArgs      map[string]string // e.g. NEXT_PUBLIC_API_URL (Next.js apps)
-	Domain         string            // public hostname from grit.yaml (may be empty)
+	Domain         string            // public hostname from orbita.yaml (may be empty)
 	IsAPI          bool              // migrations run against this service; hosts dashboards
 }
 
@@ -88,7 +88,7 @@ func BuildPlan(m *grit.Manifest, g *grit.GritJSON) (*Plan, error) {
 	return plan, nil
 }
 
-// domainForRole maps a Grit service role to its grit.yaml domain. In single
+// domainForRole maps a Grit service role to its orbita.yaml domain. In single
 // mode the one container also answers on the web domain.
 func domainForRole(m *grit.Manifest, role string) string {
 	switch role {

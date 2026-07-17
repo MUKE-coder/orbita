@@ -78,7 +78,7 @@ func corsOrigins(m *grit.Manifest) string {
 }
 
 // DashboardEnv returns the Pulse/Sentinel/Studio *_ENABLED + credential env for
-// a Grit app, honoring grit.yaml toggles and generating strong passwords when
+// a Grit app, honoring orbita.yaml toggles and generating strong passwords when
 // the user didn't supply them (never ship weak/default creds to production).
 func DashboardEnv(m *grit.Manifest, userEnv map[string]string) map[string]string {
 	env := map[string]string{}

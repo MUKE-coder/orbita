@@ -17,7 +17,7 @@ import (
 	"github.com/orbita-sh/orbita/internal/repository"
 )
 
-// GritService reconciles a grit.yaml + grit.json into Orbita resources (apps,
+// GritService reconciles an orbita.yaml + grit.json into Orbita resources (apps,
 // addons, env, domains) and drives the Grit-aware deploy (build → migrate →
 // route → live). It composes the existing services rather than duplicating them.
 type GritService struct {

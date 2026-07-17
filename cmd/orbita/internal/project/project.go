@@ -1,6 +1,6 @@
 // Package project reads a Grit project from the working directory: the orbita.yaml
 // deploy manifest, the grit.json architecture marker, and the env.from file. It
-// also generates a orbita.yaml interactively when one is absent (the first-run
+// also generates an orbita.yaml interactively when one is absent (the first-run
 // wizard). It reuses Orbita's internal/grit for parsing/detection/validation.
 package project
 
@@ -94,7 +94,7 @@ func DetectGritJSON(dir string) *grit.GritJSON {
 	return gj
 }
 
-// WriteManifest writes a orbita.yaml to dir.
+// WriteManifest writes an orbita.yaml to dir.
 func WriteManifest(dir string, m *grit.Manifest) error {
 	data, err := yaml.Marshal(m)
 	if err != nil {

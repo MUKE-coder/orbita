@@ -9,7 +9,7 @@ import (
 	"github.com/orbita-sh/orbita/internal/grit"
 )
 
-// Wizard generates a orbita.yaml interactively from the detected project shape
+// Wizard generates an orbita.yaml interactively from the detected project shape
 // (the first-run experience). It reads grit.json to seed defaults and prompts
 // only for what Orbita can't infer: repo, domains, addons, env file.
 func Wizard(dir string) (*grit.Manifest, error) {

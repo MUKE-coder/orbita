@@ -19,10 +19,10 @@ type ValidationError struct {
 }
 
 func (e *ValidationError) Error() string {
-	return "invalid grit.yaml:\n  - " + strings.Join(e.Problems, "\n  - ")
+	return "invalid orbita.yaml:\n  - " + strings.Join(e.Problems, "\n  - ")
 }
 
-// ValidateManifest checks a parsed grit.yaml for structural correctness. It does
+// ValidateManifest checks a parsed orbita.yaml for structural correctness. It does
 // not touch the filesystem — repo-relative checks (service paths) happen during
 // detection against grit.json. Returns a *ValidationError with all problems.
 func ValidateManifest(m *Manifest) error {
@@ -63,7 +63,7 @@ func ValidateManifest(m *Manifest) error {
 	return nil
 }
 
-// validateHostname rejects schemes, paths, ports, and obvious junk — grit.yaml
+// validateHostname rejects schemes, paths, ports, and obvious junk — orbita.yaml
 // domains must be bare hostnames (grit-knowledge/08).
 func validateHostname(host string) error {
 	if strings.Contains(host, "://") {

@@ -3,13 +3,16 @@
 dev:
 	air
 
+# The control plane (server). Named orbita-server locally so it doesn't collide
+# with the ./orbita CLI from build-cli; the Docker image builds its own copy and
+# still calls it `orbita` inside the container.
 build:
 	cd web && npm run build
-	go build -ldflags="-s -w" -o orbita ./cmd/server/
+	go build -ldflags="-s -w" -o orbita-server ./cmd/server/
 
-# The grit CLI (grit cloud / grit deploy). Standalone binary.
+# The orbita CLI — what operators install on their own machine.
 build-cli:
-	go build -ldflags="-s -w" -o grit ./cmd/grit/
+	go build -ldflags="-s -w" -o orbita ./cmd/orbita/
 
 migrate:
 	go run ./cmd/migrate/main.go up
