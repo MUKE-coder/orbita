@@ -76,6 +76,31 @@ func CreateOrgNetwork(orgSlug string) error {
 	return nil
 }
 
+// EnsureTraefikOnOrgNetwork (re-)attaches the Traefik container to an org's
+// network. Idempotent and best-effort.
+//
+// CreateOrgNetwork attaches Traefik once, at org-creation time — but a standalone
+// Traefik container drops overlay-network attachments whenever it is recreated
+// (image update, `docker compose up`, host reboot). Nothing re-attached it, so
+// after any Traefik restart every tenant route 502'd (Traefik could no longer
+// resolve the service names). Calling this on every deploy keeps the attachment
+// live regardless of Traefik's lifecycle.
+func EnsureTraefikOnOrgNetwork(orgSlug string) error {
+	name := GetOrgNetworkName(orgSlug)
+	cli := getDefaultClient()
+	if cli == nil || cli.cli == nil {
+		return nil // dev / no Docker — nothing to attach
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := cli.connectContainerToNetwork(ctx, "orbita-traefik", name); err != nil {
+		log.Warn().Err(err).Str("network", name).
+			Msg("Could not attach Traefik to org network — routing into this org may 502 until attached")
+		return err
+	}
+	return nil
+}
+
 // DeleteOrgNetwork removes the org's network. No-op if it doesn't exist.
 func DeleteOrgNetwork(orgSlug string) error {
 	name := GetOrgNetworkName(orgSlug)

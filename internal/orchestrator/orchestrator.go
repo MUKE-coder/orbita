@@ -103,6 +103,12 @@ func (o *Orchestrator) DeployApplication(ctx context.Context, app *models.Applic
 		CgroupParent: fmt.Sprintf("orbita-org-%s", orgSlug),
 	}
 
+	// Keep Traefik attached to this org's network on every deploy. Traefik drops
+	// overlay attachments when its container is recreated (updates, reboots), and
+	// only org-creation re-attached it — so without this, routing into the org
+	// 502s after any Traefik restart. Idempotent + best-effort.
+	_ = docker.EnsureTraefikOnOrgNetwork(orgSlug)
+
 	// Apply per-container resource limits
 	if deployCfg.MemoryMB > 0 {
 		spec.MemoryLimit = int64(deployCfg.MemoryMB) * 1024 * 1024
