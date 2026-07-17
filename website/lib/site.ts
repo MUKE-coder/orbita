@@ -29,6 +29,7 @@ export const sidebar: DocSection[] = [
   {
     title: 'Get started',
     items: [
+      { title: 'Before you begin', href: '/docs/before-you-begin' },
       { title: 'Quickstart', href: '/docs/quickstart' },
       { title: 'Set up your server', href: '/docs/install' },
       { title: 'Deploy an app', href: '/docs/deploy' },

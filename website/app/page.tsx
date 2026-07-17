@@ -24,6 +24,7 @@ import { CommandCard } from '@/components/CommandCard'
 import { Section, SectionHeader } from '@/components/Section'
 import { GithubMark } from '@/components/icons/GithubMark'
 import { ArchitectureBoard } from '@/components/ArchitectureBoard'
+import { Comparison } from '@/components/Comparison'
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -171,9 +172,11 @@ export default function Home() {
 
             <motion.div variants={item} className="max-w-xl space-y-2 text-sm leading-relaxed text-zinc-300">
               <p>
-                A self-hosted, multi-tenant PaaS in a single Go binary. Go from a bare, unsecured
-                VPS to a hardened box running your app — Laravel, Django, Rails, Next.js, a static
-                site, or any Docker image. The CLI is optional.
+                A self-hosted PaaS that <span className="text-textPrimary">secures your server</span>{' '}
+                and gives <span className="text-textPrimary">every client true isolation</span> —
+                in one ~30&nbsp;MB Go binary. Deploy Laravel, Django, Rails, Next.js, a static site,
+                or any Docker image. Where Coolify and Dokploy are single-tenant panels, Orbita is
+                built for running many clients on one box.
               </p>
             </motion.div>
 
@@ -338,15 +341,30 @@ export default function Home() {
           </motion.div>
         </Section>
 
+        {/* Comparison */}
+        <Section id="compare">
+          <SectionHeader
+            title="Orbita vs Coolify vs Dokploy"
+            subtitle="Coolify and Dokploy are excellent single-tenant panels. Orbita is built for isolation and density — many clients on one box, each sealed off, on a fraction of the RAM."
+          />
+          <div className="glass glass-bevel mx-auto max-w-4xl p-2 sm:p-4">
+            <Comparison />
+          </div>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-xs text-textMuted">
+            Rows highlighted in coral are where Orbita is designed differently. Everything else the
+            three tools share — Orbita just does it in a 30&nbsp;MB binary.
+          </p>
+        </Section>
+
         {/* Closing CTA */}
         <Section>
           <div className="glass glass-bevel mx-auto max-w-3xl p-8 text-center sm:p-12">
             <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-              Secure a VPS and ship a full-stack app in two commands.
+              Secure a VPS and run many clients on it — from one binary.
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm text-textSecondary">
-              Self-hosted on a cheap box, with true isolation, migrations, and observability.
-              That’s Grit Cloud.
+              True per-tenant isolation, automatic HTTPS, migrations under a lock, and built-in
+              observability — self-hosted on a box that costs a few dollars a month.
             </p>
             <div className="mt-6 flex justify-center">
               <Link href="/docs/quickstart" className={ctaClass}>
