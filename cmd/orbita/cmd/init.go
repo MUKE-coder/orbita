@@ -13,11 +13,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/orbita-sh/orbita/cmd/grit/internal/assets"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/hosts"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/orbita"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/sshx"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/ui"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/assets"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/hosts"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/orbita"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/sshx"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/ui"
 )
 
 type initOpts struct {
@@ -49,16 +49,16 @@ type initOpts struct {
 	deployKeyPath string
 }
 
-func cloudInitCmd() *cobra.Command {
+func initCmd() *cobra.Command {
 	o := &initOpts{}
 	c := &cobra.Command{
 		Use:   "init",
 		Short: "Set up Orbita on your server — interactive by default",
-		Long: "grit cloud init walks you through turning a fresh Ubuntu/Debian VPS into a\n" +
+		Long: "orbita init walks you through turning a fresh Ubuntu/Debian VPS into a\n" +
 			"hardened, Grit-aware Orbita host: it secures the server (new sudo user + SSH\n" +
 			"keys, firewall, Fail2ban), installs Docker + Orbita + Traefik on an HTTPS\n" +
 			"subdomain (or the server IP if DNS isn't ready), bootstraps your admin login\n" +
-			"and an orb_ deploy token, and registers the host in ~/.grit/hosts.yaml.\n\n" +
+			"and an orb_ deploy token, and registers the host in ~/.orbita/hosts.yaml.\n\n" +
 			"Run it with no flags for the guided wizard, or pass flags + --yes to automate.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInit(cmd.Context(), o)
@@ -95,7 +95,7 @@ func runInit(ctx context.Context, o *initOpts) error {
 		}
 	}
 	if err := validateInit(o); err != nil {
-		ui.ErrorLine(err.Error(), "run `grit cloud init` with no flags for the guided setup")
+		ui.ErrorLine(err.Error(), "run `orbita init` with no flags for the guided setup")
 		return err
 	}
 
@@ -174,7 +174,7 @@ func runInit(ctx context.Context, o *initOpts) error {
 	if err := hosts.Set(o.name, hosts.Host{APIURL: apiURL, Token: token, SSH: sshTarget}); err != nil {
 		return err
 	}
-	ui.Step("Registered host " + ui.Value(o.name) + " in ~/.grit/hosts.yaml")
+	ui.Step("Registered host " + ui.Value(o.name) + " in ~/.orbita/hosts.yaml")
 
 	// 7. Done — print how to log in.
 	ui.Success("Orbita is live")
@@ -187,8 +187,8 @@ func runInit(ctx context.Context, o *initOpts) error {
 		ui.Field("Deploy key", ui.Value(o.deployKeyPath))
 	}
 	fmt.Println()
-	ui.Info("Next: open the dashboard and log in, or deploy a Grit app from its directory:")
-	ui.Info("  " + ui.Value("grit deploy --host "+o.name))
+	ui.Info("Next: open the dashboard and log in, or deploy an app from its directory:")
+	ui.Info("  " + ui.Value("orbita deploy --host "+o.name))
 	return nil
 }
 
@@ -198,7 +198,7 @@ func wizard(o *initOpts) error {
 
 	if o.server == "" {
 		if !ui.Confirm("Do you already have a server (a fresh Ubuntu 24.04 VPS)?", true) {
-			ui.Info("Get a fresh Ubuntu 24.04 VPS from Hetzner, DigitalOcean, or Vultr, then run `grit cloud init` again.")
+			ui.Info("Get a fresh Ubuntu 24.04 VPS from Hetzner, DigitalOcean, or Vultr, then run `orbita init` again.")
 			return errAborted
 		}
 		ip := ui.AskRequired("Server IP address")

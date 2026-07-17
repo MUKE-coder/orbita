@@ -9,20 +9,20 @@ import (
 	"github.com/orbita-sh/orbita/internal/grit"
 )
 
-// Wizard generates a grit.yaml interactively from the detected project shape
+// Wizard generates a orbita.yaml interactively from the detected project shape
 // (the first-run experience). It reads grit.json to seed defaults and prompts
 // only for what Orbita can't infer: repo, domains, addons, env file.
 func Wizard(dir string) (*grit.Manifest, error) {
 	gj := DetectGritJSON(dir)
 	if gj == nil {
-		return nil, fmt.Errorf("no grit.json in %s — grit deploy must run from a Grit app root", dir)
+		return nil, fmt.Errorf("no grit.json in %s — orbita deploy must run from a Grit app root", dir)
 	}
 	if !grit.IsVPSDeployable(gj.Architecture) {
 		return nil, fmt.Errorf("architecture %q is not VPS-deployable (mobile apps ship to app stores)", gj.Architecture)
 	}
 
 	r := bufio.NewReader(os.Stdin)
-	fmt.Println("No grit.yaml found — let's create one.")
+	fmt.Println("No orbita.yaml found — let's create one.")
 	fmt.Printf("Detected a %q Grit app.\n\n", gj.Architecture)
 
 	appName := prompt(r, "App name", defaultAppName(dir))

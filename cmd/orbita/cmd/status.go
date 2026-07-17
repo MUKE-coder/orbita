@@ -6,12 +6,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/orbita-sh/orbita/cmd/grit/internal/hosts"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/orbita"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/ui"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/hosts"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/orbita"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/ui"
 )
 
-func cloudStatusCmd() *cobra.Command {
+func statusCmd() *cobra.Command {
 	var host string
 	c := &cobra.Command{
 		Use:   "status",
@@ -19,7 +19,7 @@ func cloudStatusCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			h, err := hosts.Resolve(host)
 			if err != nil {
-				ui.ErrorLine(err.Error(), "run `grit cloud init` to register a host")
+				ui.ErrorLine(err.Error(), "run `orbita init` to register a host")
 				return err
 			}
 

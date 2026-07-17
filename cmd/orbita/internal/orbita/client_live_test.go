@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// TestBootstrapAgainstLiveOrbita exercises the exact client path `grit cloud
+// TestBootstrapAgainstLiveOrbita exercises the exact client path `orbita
 // init` uses (health → login → create orb_ key) against a running Orbita.
 // Skipped unless ORBITA_LIVE_URL + ORBITA_LIVE_EMAIL/PASSWORD are set.
 func TestBootstrapAgainstLiveOrbita(t *testing.T) {

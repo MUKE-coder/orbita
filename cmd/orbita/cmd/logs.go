@@ -10,10 +10,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 
-	"github.com/orbita-sh/orbita/cmd/grit/internal/hosts"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/orbita"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/project"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/ui"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/hosts"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/orbita"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/project"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/ui"
 )
 
 func logsCmd() *cobra.Command {
@@ -21,11 +21,11 @@ func logsCmd() *cobra.Command {
 	var follow bool
 	c := &cobra.Command{
 		Use:   "logs",
-		Short: "Stream logs from a deployed Grit app service",
+		Short: "Stream logs from a deployed app service",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			h, err := hosts.Resolve(host)
 			if err != nil {
-				ui.ErrorLine(err.Error(), "run `grit cloud init` first")
+				ui.ErrorLine(err.Error(), "run `orbita init` first")
 				return err
 			}
 			appName, orgSlug := app, org
@@ -63,7 +63,7 @@ func logsCmd() *cobra.Command {
 	f := c.Flags()
 	f.StringVar(&host, "host", "prod", "registered Orbita host name")
 	f.StringVar(&org, "org", "", "org slug (defaults to the app name)")
-	f.StringVar(&app, "app", "", "grit app name (defaults to grit.yaml app)")
+	f.StringVar(&app, "app", "", "grit app name (defaults to orbita.yaml app)")
 	f.StringVar(&role, "role", "api", "which service (api|web|admin|docs|app)")
 	f.BoolVarP(&follow, "follow", "f", true, "follow the log stream")
 	return c

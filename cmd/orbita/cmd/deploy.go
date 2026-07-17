@@ -9,11 +9,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/orbita-sh/orbita/cmd/grit/internal/github"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/hosts"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/orbita"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/project"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/ui"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/github"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/hosts"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/orbita"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/project"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/ui"
 )
 
 func deployCmd() *cobra.Command {
@@ -21,10 +21,13 @@ func deployCmd() *cobra.Command {
 	var plan, skipPush bool
 	c := &cobra.Command{
 		Use:   "deploy",
-		Short: "Deploy a Grit app to an Orbita host (build → migrate → route → live)",
-		Long: "grit deploy reads grit.yaml, ensures the GitHub repo, and drives Orbita's\n" +
-			"Grit-aware deploy: reconcile (org/project/env/app/addons/env/domains) → build →\n" +
-			"migrate under an advisory lock → cut over. Idempotent; re-run to redeploy.",
+		Short: "Deploy an app to an Orbita host (build → migrate → route → live)",
+		Long: "orbita deploy reads orbita.yaml and drives the deploy: reconcile\n" +
+			"(org/project/env/app/addons/env/domains) → build → cut over. Idempotent;\n" +
+			"re-run to redeploy.\n\n" +
+			"The build is chosen by what's in the repo: grit.json (reuse the Dockerfiles\n" +
+			"Grit ships) → Dockerfile → an explicit build in orbita.yaml → Nixpacks. Grit\n" +
+			"apps additionally run migrations under an advisory lock before cutover.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dir == "" {
 				dir, _ = os.Getwd()
@@ -54,11 +57,11 @@ func runDeploy(ctx context.Context, o deployOpts) error {
 	// 1. Resolve the host (Orbita API URL + orb_ token).
 	h, err := hosts.Resolve(o.host)
 	if err != nil {
-		ui.ErrorLine(err.Error(), "run `grit cloud init` to register a host")
+		ui.ErrorLine(err.Error(), "run `orbita init` to register a host")
 		return err
 	}
 
-	// 2. Load grit.yaml (+ grit.json + env.from), or run the first-run wizard.
+	// 2. Load orbita.yaml (+ grit.json + env.from), or run the first-run wizard.
 	proj, err := project.Load(o.dir)
 	if errors.Is(err, project.ErrNoManifest) {
 		m, werr := project.Wizard(o.dir)
@@ -69,7 +72,7 @@ func runDeploy(ctx context.Context, o deployOpts) error {
 		if werr := project.WriteManifest(o.dir, m); werr != nil {
 			return werr
 		}
-		ui.Step("Wrote grit.yaml")
+		ui.Step("Wrote orbita.yaml")
 		proj, err = project.Load(o.dir)
 	}
 	if err != nil {
@@ -106,7 +109,7 @@ func runDeploy(ctx context.Context, o deployOpts) error {
 	if !o.skipPush {
 		if err := repoStep(ctx, proj); err != nil {
 			ui.ErrorLine("repo step failed: "+err.Error(),
-				"run `grit cloud github-auth` to store a token, or pass --skip-push if already pushed")
+				"run `orbita github-auth` to store a token, or pass --skip-push if already pushed")
 			return err
 		}
 	}
@@ -140,7 +143,7 @@ func runDeploy(ctx context.Context, o deployOpts) error {
 	dep, err := client.GritDeploy(ctx, orgSlug, m.App, rec.EnvironmentID)
 	if err != nil {
 		ui.StepFail("Deploy failed")
-		ui.ErrorLine(err.Error(), "run `grit logs -f --host "+o.host+"` to see build/runtime logs")
+		ui.ErrorLine(err.Error(), "run `orbita logs -f --host "+o.host+"` to see build/runtime logs")
 		return err
 	}
 	if dep.Migrated {

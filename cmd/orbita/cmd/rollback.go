@@ -7,21 +7,21 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/orbita-sh/orbita/cmd/grit/internal/hosts"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/orbita"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/project"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/ui"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/hosts"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/orbita"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/project"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/ui"
 )
 
 func rollbackCmd() *cobra.Command {
 	var host, org, app string
 	c := &cobra.Command{
 		Use:   "rollback",
-		Short: "Revert a Grit app to its previous deploy",
+		Short: "Revert an app to its previous deploy",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			h, err := hosts.Resolve(host)
 			if err != nil {
-				ui.ErrorLine(err.Error(), "run `grit cloud init` first")
+				ui.ErrorLine(err.Error(), "run `orbita init` first")
 				return err
 			}
 			appName, orgSlug := app, org
@@ -58,6 +58,6 @@ func rollbackCmd() *cobra.Command {
 	f := c.Flags()
 	f.StringVar(&host, "host", "prod", "registered Orbita host name")
 	f.StringVar(&org, "org", "", "org slug (defaults to the app name)")
-	f.StringVar(&app, "app", "", "grit app name (defaults to grit.yaml app)")
+	f.StringVar(&app, "app", "", "grit app name (defaults to orbita.yaml app)")
 	return c
 }

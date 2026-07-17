@@ -7,15 +7,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/orbita-sh/orbita/cmd/grit/internal/hosts"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/sshx"
-	"github.com/orbita-sh/orbita/cmd/grit/internal/ui"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/hosts"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/sshx"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/ui"
 )
 
-// cloudDashboardCmd opens an SSH tunnel to the Orbita dashboard so it can be
+// dashboardCmd opens an SSH tunnel to the Orbita dashboard so it can be
 // reached privately (matching the existing blog workflow) without exposing the
 // admin panel publicly.
-func cloudDashboardCmd() *cobra.Command {
+func dashboardCmd() *cobra.Command {
 	var host string
 	var localPort, remotePort int
 	c := &cobra.Command{
@@ -24,12 +24,12 @@ func cloudDashboardCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			h, err := hosts.Resolve(host)
 			if err != nil {
-				ui.ErrorLine(err.Error(), "run `grit cloud init` first")
+				ui.ErrorLine(err.Error(), "run `orbita init` first")
 				return err
 			}
 			if h.SSH == "" {
 				ui.ErrorLine("no SSH target stored for this host",
-					"re-run `grit cloud init` or add `ssh: user@ip` under this host in ~/.grit/hosts.yaml")
+					"re-run `orbita init` or add `ssh: user@ip` under this host in ~/.orbita/hosts.yaml")
 				return fmt.Errorf("no ssh target")
 			}
 			t, err := sshx.ParseTarget(h.SSH)

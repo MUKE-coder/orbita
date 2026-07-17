@@ -1,5 +1,5 @@
 // Package sshx runs commands and uploads files on a remote server over SSH.
-// grit cloud init uses it to harden and install Orbita on a fresh VPS.
+// orbita init uses it to harden and install Orbita on a fresh VPS.
 package sshx
 
 import (

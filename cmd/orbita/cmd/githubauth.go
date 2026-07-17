@@ -9,17 +9,17 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/orbita-sh/orbita/cmd/grit/internal/ui"
+	"github.com/orbita-sh/orbita/cmd/orbita/internal/ui"
 )
 
-// cloudGithubAuthCmd stores the user's GitHub token for repo creation/push.
+// githubAuthCmd stores the user's GitHub token for repo creation/push.
 // The full repo/push flow is Phase 4; the credential store lives here so init
-// and deploy share it. The token is written to ~/.grit/github with 0600 perms.
-func cloudGithubAuthCmd() *cobra.Command {
+// and deploy share it. The token is written to ~/.orbita/github with 0600 perms.
+func githubAuthCmd() *cobra.Command {
 	var token string
 	c := &cobra.Command{
 		Use:   "github-auth",
-		Short: "Store a GitHub token for repo creation/push (used by grit deploy)",
+		Short: "Store a GitHub token for repo creation/push (used by orbita deploy)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if token == "" {
 				fmt.Print("GitHub token (repo + admin:repo_hook scope): ")
@@ -43,7 +43,7 @@ func cloudGithubAuthCmd() *cobra.Command {
 	return c
 }
 
-// gitHubTokenPath returns ~/.grit/github (honors GRIT_HOME for tests).
+// gitHubTokenPath returns ~/.orbita/github (honors GRIT_HOME for tests).
 func gitHubTokenPath() (string, error) {
 	if p := os.Getenv("GRIT_GITHUB_TOKEN_FILE"); p != "" {
 		return p, nil
@@ -52,7 +52,7 @@ func gitHubTokenPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".grit", "github"), nil
+	return filepath.Join(home, ".orbita", "github"), nil
 }
 
 func storeGitHubToken(token string) error {

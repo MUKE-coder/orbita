@@ -1,12 +1,23 @@
-# Prompt — Building Grit Cloud (for Claude Code)
+# Prompt — Building Orbita (for Claude Code)
 
-You are the engineer building **Grit Cloud**: finishing the existing **Orbita** PaaS, making it understand **Grit** apps, and adding the `grit cloud` / `grit deploy` CLI on top. Read this file first, then follow it exactly.
+You are the engineer building **Orbita**: an independent, general-purpose PaaS (a better
+Dokploy) that deploys **any** containerised app — Laravel, Django, Next.js, static HTML, raw
+Docker images, Compose, or anything Nixpacks can build — with **Grit apps as a first-class,
+zero-config fast path**. Orbita ships **its own `orbita` CLI**. Read this file first, then
+follow it exactly.
 
 ---
 
 ## Step 1 — Read these files in order, fully, before writing any code
 
-1. **`project-description.md`** — the vision, the deploy flow, the `grit.yaml` contract, what already exists in Orbita, what we're adding, and the v1 definition of done. This is the north star.
+0. **`ARCHITECTURE-CORRECTION.md`** — ⚠️ **READ FIRST. It outranks every other file here.**
+   Orbita is independent and depends on **nothing** from Grit; Grit is a first-class citizen,
+   never a prerequisite. There is **no `grit cloud` command** and there must never be one — it
+   does not exist in the real Grit CLI (`grit cloud init` → *unknown command*), and shipping a
+   second binary named `grit` shadows the framework CLI users already have installed. Wherever
+   any file below says `grit cloud …`, `grit deploy`, `grit.yaml` or `~/.grit/`, the
+   correction's `orbita …`, `orbita.yaml` and `~/.orbita/` win.
+1. **`project-description.md`** — the vision, the deploy flow, the manifest contract, what already exists in Orbita, what we're adding, and the v1 definition of done. The north star **as corrected by `ARCHITECTURE-CORRECTION.md`** (the manifest is `orbita.yaml`; Orbita never depends on Grit).
 2. **`project-phases.md`** — the ordered execution plan with checkboxes. This is your task list.
 3. **`design-style-guide.md`** — the UI/UX rules for the Orbita dashboard and CLI output. Consult it for anything visual.
 4. **`grit-knowledge/`** — the authoritative description of **what a Grit app is and how it is
@@ -16,10 +27,16 @@ You are the engineer building **Grit Cloud**: finishing the existing **Orbita** 
    the Grit app type, build recipe, addon wiring, or migration hook correctly without it.
 
 Do not skim. These files are the contract. If anything you're about to do contradicts them,
-stop and re-read. **Where `project-phases.md` and `grit-knowledge/` differ on a Grit-specific
-detail (e.g. Phase 2.3 says "generate a Dockerfile" but Grit already ships one, or the example
-`grit.yaml` paths differ from real Grit paths), `grit-knowledge/` wins** — it reflects the
-actual framework.
+stop and re-read.
+
+**Precedence when they disagree:** `ARCHITECTURE-CORRECTION.md` > `grit-knowledge/` >
+everything else.
+- On **CLI naming, positioning, the manifest, and Orbita's independence** →
+  `ARCHITECTURE-CORRECTION.md` wins (the other files predate the decision and still say
+  `grit cloud` / `grit.yaml`).
+- On any **Grit-specific detail** (e.g. Phase 2.3 says "generate a Dockerfile" but Grit already
+  ships one, or example paths differ from real Grit paths) → `grit-knowledge/` wins; it
+  reflects the actual framework.
 
 ---
 

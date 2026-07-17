@@ -43,7 +43,7 @@ func TestLoadReadsManifestAndDetects(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "grit.json"),
 		[]byte(`{"architecture":"api","version":"3.59.0","apps":{}}`), 0o644)
-	os.WriteFile(filepath.Join(dir, "grit.yaml"),
+	os.WriteFile(filepath.Join(dir, "orbita.yaml"),
 		[]byte("app: x\nrepo: o/x\naddons: [postgres]\ndomains:\n  api: api.x.com\nenv:\n  from: .env.production\n"), 0o644)
 	os.WriteFile(filepath.Join(dir, ".env.production"), []byte("JWT_SECRET=s\n"), 0o644)
 

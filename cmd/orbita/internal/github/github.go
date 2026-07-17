@@ -1,5 +1,5 @@
 // Package github ensures the target repo exists and pushes the current project,
-// using the token stored by `grit cloud github-auth`. It shells out to `git`
+// using the token stored by `orbita github-auth`. It shells out to `git`
 // for push (respecting the local repo) and uses the GitHub REST API to create
 // the repo when missing.
 package github
@@ -132,7 +132,7 @@ func ensureGitRepo(dir, branch string) error {
 	_, _ = runGit(dir, "checkout", "-B", branch)
 	_, _ = runGit(dir, "add", "-A")
 	// Commit only if there's something staged (ignore "nothing to commit").
-	_, _ = runGit(dir, "-c", "user.email=grit@deploy", "-c", "user.name=grit", "commit", "-m", "grit deploy")
+	_, _ = runGit(dir, "-c", "user.email=grit@deploy", "-c", "user.name=grit", "commit", "-m", "orbita deploy")
 	return nil
 }
 

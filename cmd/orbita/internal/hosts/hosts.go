@@ -1,6 +1,6 @@
-// Package hosts manages ~/.grit/hosts.yaml — the operator's registry mapping a
+// Package hosts manages ~/.orbita/hosts.yaml — the operator's registry mapping a
 // friendly host name (e.g. "prod") to an Orbita API URL + orb_ deploy token.
-// grit cloud init writes it; grit deploy/logs/status/rollback read it.
+// orbita init writes it; orbita deploy/logs/status/rollback read it.
 package hosts
 
 import (
@@ -20,7 +20,7 @@ type Host struct {
 	Org    string `yaml:"org,omitempty"` // default org slug for deploys
 }
 
-// File is the on-disk shape of ~/.grit/hosts.yaml.
+// File is the on-disk shape of ~/.orbita/hosts.yaml.
 type File struct {
 	Hosts map[string]Host `yaml:"hosts"`
 }
@@ -34,7 +34,7 @@ func Path() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("hosts.Path: %w", err)
 	}
-	return filepath.Join(home, ".grit", "hosts.yaml"), nil
+	return filepath.Join(home, ".orbita", "hosts.yaml"), nil
 }
 
 // Load reads the hosts file, returning an empty registry if it doesn't exist.
@@ -61,7 +61,7 @@ func Load() (*File, error) {
 }
 
 // Save writes the hosts file with 0600 perms (it holds tokens), creating
-// ~/.grit if needed.
+// ~/.orbita if needed.
 func (f *File) Save() error {
 	p, err := Path()
 	if err != nil {
@@ -116,7 +116,7 @@ func Resolve(name string) (Host, error) {
 	h, ok := f.Get(name)
 	if !ok {
 		if len(f.Hosts) == 0 {
-			return Host{}, fmt.Errorf("no hosts registered — run `grit cloud init` first")
+			return Host{}, fmt.Errorf("no hosts registered — run `orbita init` first")
 		}
 		return Host{}, fmt.Errorf("unknown host %q — registered: %v", name, f.Names())
 	}

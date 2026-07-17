@@ -1,6 +1,6 @@
-// Package project reads a Grit project from the working directory: the grit.yaml
+// Package project reads a Grit project from the working directory: the orbita.yaml
 // deploy manifest, the grit.json architecture marker, and the env.from file. It
-// also generates a grit.yaml interactively when one is absent (the first-run
+// also generates a orbita.yaml interactively when one is absent (the first-run
 // wizard). It reuses Orbita's internal/grit for parsing/detection/validation.
 package project
 
@@ -20,22 +20,22 @@ import (
 type Project struct {
 	Dir          string
 	Manifest     *grit.Manifest
-	ManifestYAML string // raw grit.yaml text (submitted to Orbita)
+	ManifestYAML string // raw orbita.yaml text (submitted to Orbita)
 	GritJSON     *grit.GritJSON
 	GritJSONText string // raw grit.json text
 	EnvValues    map[string]string
 }
 
-// Load reads grit.yaml + grit.json (+ env.from) from dir. Returns
-// ErrNoManifest if grit.yaml is absent (caller may run the wizard).
+// Load reads orbita.yaml + grit.json (+ env.from) from dir. Returns
+// ErrNoManifest if orbita.yaml is absent (caller may run the wizard).
 func Load(dir string) (*Project, error) {
-	manifestPath := filepath.Join(dir, "grit.yaml")
+	manifestPath := filepath.Join(dir, "orbita.yaml")
 	rawYAML, err := os.ReadFile(manifestPath)
 	if os.IsNotExist(err) {
 		return nil, ErrNoManifest
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read grit.yaml: %w", err)
+		return nil, fmt.Errorf("read orbita.yaml: %w", err)
 	}
 	m, err := grit.ParseManifest(rawYAML)
 	if err != nil {
@@ -77,8 +77,8 @@ func Load(dir string) (*Project, error) {
 	return p, nil
 }
 
-// ErrNoManifest signals grit.yaml is absent.
-var ErrNoManifest = fmt.Errorf("no grit.yaml found")
+// ErrNoManifest signals orbita.yaml is absent.
+var ErrNoManifest = fmt.Errorf("no orbita.yaml found")
 
 // DetectGritJSON reads grit.json from dir (used by the wizard to derive
 // defaults). Returns nil if absent.
@@ -94,13 +94,13 @@ func DetectGritJSON(dir string) *grit.GritJSON {
 	return gj
 }
 
-// WriteManifest writes a grit.yaml to dir.
+// WriteManifest writes a orbita.yaml to dir.
 func WriteManifest(dir string, m *grit.Manifest) error {
 	data, err := yaml.Marshal(m)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "grit.yaml"), data, 0o644)
+	return os.WriteFile(filepath.Join(dir, "orbita.yaml"), data, 0o644)
 }
 
 // parseDotenv reads a .env file into a map (KEY=value; # comments; quotes trimmed).
