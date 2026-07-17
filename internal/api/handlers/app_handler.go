@@ -36,6 +36,7 @@ type CreateAppRequest struct {
 	Branch          string `json:"branch"`
 	DockerfilePath  string `json:"dockerfile_path"` // default "Dockerfile"
 	BuildContext    string `json:"build_context"`   // subdirectory (optional, e.g. "backend")
+	Builder         string `json:"builder"`         // "dockerfile" (default) | "nixpacks"
 	AutoDeploy      *bool  `json:"auto_deploy"`     // default true for git apps
 
 	// runtime
@@ -93,6 +94,7 @@ func (h *AppHandler) CreateApp(c *gin.Context) {
 		Branch:         req.Branch,
 		DockerfilePath: req.DockerfilePath,
 		BuildContext:   req.BuildContext,
+		Builder:        req.Builder,
 		AutoDeploy:     req.AutoDeploy,
 	}
 	if req.GitConnectionID != "" {

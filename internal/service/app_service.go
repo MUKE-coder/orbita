@@ -139,6 +139,7 @@ type CreateAppInput struct {
 	Branch          string     `json:"branch"`
 	DockerfilePath  string     `json:"dockerfile_path"`
 	BuildContext    string     `json:"build_context"`
+	Builder         string     `json:"builder"`     // "dockerfile" (default) | "nixpacks"
 	AutoDeploy      *bool      `json:"auto_deploy"` // git apps default to true
 
 	// source_type = grit: per-service build args + grouping/role
@@ -169,6 +170,12 @@ func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input Creat
 		src["branch"] = input.Branch
 		src["dockerfile_path"] = dockerfile
 		src["build_context"] = input.BuildContext
+		// Build method: nixpacks (no Dockerfile) or dockerfile (default). Grit
+		// always uses its shipped Dockerfiles, so only a plain git source honours
+		// nixpacks.
+		if input.SourceType == models.SourceTypeGit && input.Builder == "nixpacks" {
+			src["builder"] = "nixpacks"
+		}
 		if input.SourceType == models.SourceTypeGrit {
 			if len(input.BuildArgs) > 0 {
 				src["build_args"] = input.BuildArgs

@@ -791,9 +791,10 @@ type OneOffSpec struct {
 	EnvVars     map[string]string
 	NetworkName string
 	Labels      map[string]string
-	MemoryLimit int64 // bytes, 0 = unlimited
-	CPULimit    int64 // nanoCPUs, 0 = unlimited
-	MaxLogBytes int   // cap captured logs (default 100KB)
+	MemoryLimit int64    // bytes, 0 = unlimited
+	CPULimit    int64    // nanoCPUs, 0 = unlimited
+	MaxLogBytes int      // cap captured logs (default 100KB)
+	Binds       []string // host bind mounts, e.g. "/var/run/docker.sock:/var/run/docker.sock"
 }
 
 // RunOneOffContainer creates a container, runs it to completion (or ctx
@@ -820,6 +821,9 @@ func (c *Client) RunOneOffContainer(ctx context.Context, spec OneOffSpec) (int, 
 	}
 	if spec.CPULimit > 0 {
 		hostCfg.NanoCPUs = spec.CPULimit
+	}
+	if len(spec.Binds) > 0 {
+		hostCfg.Binds = spec.Binds
 	}
 
 	created, err := c.cli.ContainerCreate(ctx, &containertypes.Config{

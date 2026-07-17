@@ -47,6 +47,10 @@ type SourceConfig struct {
 	Branch          string `json:"branch,omitempty"`
 	DockerfilePath  string `json:"dockerfile_path,omitempty"`
 	BuildContext    string `json:"build_context,omitempty"`
+	// Builder selects how a git repo is turned into an image: "dockerfile"
+	// (default) builds the repo's Dockerfile; "nixpacks" auto-detects the
+	// language and builds without one.
+	Builder string `json:"builder,omitempty"`
 
 	// grit only: build-time args baked into the image (e.g. NEXT_PUBLIC_API_URL
 	// for the Next.js services) and the service role for labeling.
@@ -161,9 +165,15 @@ func (o *Orchestrator) resolveImage(ctx context.Context, app *models.Application
 		return srcCfg.Image, nil
 
 	case models.SourceTypeGit, models.SourceTypeGrit:
-		// Grit services build exactly like a git source — a remote git context
-		// with a specific Dockerfile, build context, and (for Next.js apps)
-		// build args. The recipe is derived from grit.json (see internal/grit).
+		// Nixpacks: auto-detect the language and build without a Dockerfile.
+		// Grit always uses its shipped Dockerfiles, so this only applies to a
+		// plain git source that opted into nixpacks.
+		if app.SourceType == models.SourceTypeGit && srcCfg.Builder == "nixpacks" {
+			return o.buildWithNixpacks(ctx, app, deployment, srcCfg, orgSlug)
+		}
+		// Otherwise a remote git context with a specific Dockerfile, build
+		// context, and (for Next.js apps) build args. The Grit recipe is derived
+		// from grit.json (see internal/grit).
 		return o.buildFromGit(ctx, app, deployment, srcCfg, orgSlug)
 
 	default:
