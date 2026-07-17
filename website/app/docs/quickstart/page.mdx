@@ -148,19 +148,37 @@ chmod +x vps-harden.sh
 sudo ./vps-harden.sh --no-dokploy
 ```
 
-It asks a few plain questions: a username for your everyday account (type `deploy`), an SSH port
-(press Enter to keep the default), and your SSH key. If you made a key in Step 3, paste the public
-line; if you didn't, **leave it blank and press Enter** and the script generates one for you and
-tells you where it saved it.
+It asks a few plain questions:
 
-When it finishes you have a `deploy` user with passwordless sudo and your key installed, root and
-password logins disabled, a firewall (UFW + ufw-docker), Fail2ban, kernel hardening, and a
-**0–100 security score**.
+- **A username** for your everyday account — type `deploy`.
+- **An SSH port** — press Enter to keep the default.
+- **Your SSH key** — if you made one in Step 3, paste the public line; if you didn't, **leave it
+  blank and press Enter** and the script generates one for you and tells you where it saved it.
+- **A password for the account** — leave it blank and the script generates a strong one and
+  **prints it once at the end**. Save that password.
 
-<Callout type="danger" title="Confirm you can still log in before you disconnect">
-This disables root SSH. **Open a second terminal** and check that
-`ssh deploy@YOUR_SERVER_IP` works before you close the first one. If the script generated a key
-for you, save it to your machine first — it's now your only way in.
+When it finishes you have a `deploy` user with **its own password** *and* passwordless `sudo`,
+your key installed, root and password SSH logins disabled, a firewall (UFW + ufw-docker),
+Fail2ban, kernel hardening, and a **0–100 security score**.
+
+<Callout type="tip" title="Two credentials, two jobs">
+The `deploy` account has both a **key** and a **password** — on purpose:
+
+- **The SSH key** is how you log in day to day. SSH is **key-only**; the password is *not*
+  accepted over SSH.
+- **The password** is your recovery route. If you ever lose the key, you can still log in through
+  your provider's **web console** with it, then add a new key. Without a password that door is
+  shut and you'd need the provider's rescue mode.
+
+`sudo` is passwordless so the installer and the optional CLI can run unattended — the account's
+own login stays protected by the key.
+</Callout>
+
+<Callout type="danger" title="Save the password, and confirm you can still log in before you disconnect">
+This disables root SSH. When the script finishes it prints the `deploy` password — **copy it
+somewhere safe.** Then **open a second terminal** and check that `ssh deploy@YOUR_SERVER_IP`
+works before you close the first one. If the script generated an SSH key for you, save that too —
+it's your day-to-day way in.
 </Callout>
 
 `--no-dokploy` matters: the script can also install Dokploy, and **Orbita replaces Dokploy**.
