@@ -43,9 +43,9 @@ func githubAuthCmd() *cobra.Command {
 	return c
 }
 
-// gitHubTokenPath returns ~/.orbita/github (honors GRIT_HOME for tests).
+// gitHubTokenPath returns ~/.orbita/github (honors ORBITA_GITHUB_TOKEN_FILE for tests).
 func gitHubTokenPath() (string, error) {
-	if p := os.Getenv("GRIT_GITHUB_TOKEN_FILE"); p != "" {
+	if p := os.Getenv("ORBITA_GITHUB_TOKEN_FILE"); p != "" {
 		return p, nil
 	}
 	home, err := os.UserHomeDir()

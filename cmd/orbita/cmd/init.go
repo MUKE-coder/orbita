@@ -24,7 +24,7 @@ type initOpts struct {
 	// Connection to the fresh server (root by default).
 	server   string // user@ip[:port]; wizard builds root@<ip>
 	sshKey   string // private key for the initial connect
-	password string // root password for the initial connect (wizard/env only)
+	password string // root password; from the wizard prompt or ORBITA_SSH_PASSWORD (never a flag)
 
 	// What to build.
 	name       string // friendly host name to register (e.g. "prod")
@@ -83,6 +83,13 @@ func initCmd() *cobra.Command {
 func runInit(ctx context.Context, o *initOpts) error {
 	if ctx == nil {
 		ctx = context.Background()
+	}
+
+	// Root password via env, never a flag: flags land in shell history and in
+	// `ps` output for every user on the machine. This is also the only way to
+	// drive a password-auth box non-interactively (--yes), e.g. from CI.
+	if o.password == "" {
+		o.password = os.Getenv("ORBITA_SSH_PASSWORD")
 	}
 
 	// Interactive wizard unless --yes (or all required flags supplied).
@@ -194,7 +201,7 @@ func runInit(ctx context.Context, o *initOpts) error {
 
 // wizard fills the options interactively (only asks for what's missing).
 func wizard(o *initOpts) error {
-	ui.Header("Grit Cloud — set up Orbita on your server")
+	ui.Header("Orbita — set up your server")
 
 	if o.server == "" {
 		if !ui.Confirm("Do you already have a server (a fresh Ubuntu 24.04 VPS)?", true) {
@@ -440,7 +447,7 @@ func bootstrapStep(ctx context.Context, apiURL string, o *initOpts) (string, str
 	}
 	ui.Step("Orbita is healthy")
 
-	password := os.Getenv("GRIT_ADMIN_PASSWORD")
+	password := os.Getenv("ORBITA_ADMIN_PASSWORD")
 	generated := ""
 	if password == "" {
 		b := make([]byte, 12)
@@ -454,7 +461,7 @@ func bootstrapStep(ctx context.Context, apiURL string, o *initOpts) (string, str
 		access, err = client.Login(ctx, o.adminEmail, password)
 		if err != nil {
 			ui.StepFail("Could not create or log into the admin account")
-			ui.ErrorLine(err.Error(), "if the account exists with a different password, set GRIT_ADMIN_PASSWORD and re-run with --skip-harden")
+			ui.ErrorLine(err.Error(), "if the account exists with a different password, set ORBITA_ADMIN_PASSWORD and re-run with --skip-harden")
 			return "", "", err
 		}
 		ui.Step("Logged into the existing admin account")

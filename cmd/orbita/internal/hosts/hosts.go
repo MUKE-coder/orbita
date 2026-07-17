@@ -25,9 +25,9 @@ type File struct {
 	Hosts map[string]Host `yaml:"hosts"`
 }
 
-// Path returns the hosts file path (honors GRIT_HOSTS_FILE for tests).
+// Path returns the hosts file path (honors ORBITA_HOSTS_FILE for tests).
 func Path() (string, error) {
-	if p := os.Getenv("GRIT_HOSTS_FILE"); p != "" {
+	if p := os.Getenv("ORBITA_HOSTS_FILE"); p != "" {
 		return p, nil
 	}
 	home, err := os.UserHomeDir()

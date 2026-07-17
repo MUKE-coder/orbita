@@ -10,7 +10,7 @@ import (
 func TestHostsRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hosts.yaml")
-	t.Setenv("GRIT_HOSTS_FILE", path)
+	t.Setenv("ORBITA_HOSTS_FILE", path)
 
 	// Empty registry when file is absent.
 	f, err := Load()
@@ -60,7 +60,7 @@ func TestHostsRoundTrip(t *testing.T) {
 
 func TestResolveUnknownHost(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("GRIT_HOSTS_FILE", filepath.Join(dir, "hosts.yaml"))
+	t.Setenv("ORBITA_HOSTS_FILE", filepath.Join(dir, "hosts.yaml"))
 
 	// No hosts registered.
 	if _, err := Resolve("prod"); err == nil {
