@@ -116,3 +116,31 @@ func (c *Client) EnsureOrg(ctx context.Context, name, slug string) (string, erro
 	}
 	return slug, nil
 }
+
+// EnsureGitConnection makes sure the org has a git connection for the given
+// provider and returns its ID. Orbita's server-side build clones the repo
+// itself, so a PRIVATE repo needs a stored, per-org token to authenticate —
+// the CLI's local push token never reaches the builder. Idempotent: reuses the
+// first existing connection for the provider, otherwise creates one.
+func (c *Client) EnsureGitConnection(ctx context.Context, org, provider, accessToken string) (string, error) {
+	var existing []struct {
+		ID       string `json:"id"`
+		Provider string `json:"provider"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/api/v1/orgs/"+org+"/git-connections", nil, &existing); err == nil {
+		for _, gc := range existing {
+			if gc.Provider == provider && gc.ID != "" {
+				return gc.ID, nil
+			}
+		}
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	err := c.do(ctx, http.MethodPost, "/api/v1/orgs/"+org+"/git-connections",
+		map[string]string{"provider": provider, "access_token": accessToken}, &created)
+	if err != nil {
+		return "", err
+	}
+	return created.ID, nil
+}

@@ -100,12 +100,29 @@ func runDeploy(ctx context.Context, o deployOpts) error {
 		return err
 	}
 
-	// 4. --plan: dry run and stop.
-	if o.plan {
-		return runPlan(ctx, client, orgSlug, proj)
+	// 4. Ensure a git connection so Orbita's builder can clone the repo.
+	//
+	// The builder clones server-side; the token the CLI uses locally to push
+	// never reaches it. Without a stored per-org token, a private repo fails the
+	// build with "could not read Username for 'https://github.com'". If we have a
+	// GitHub token locally, register it once (idempotent) and pass its ID
+	// through; public repos work without one, so a missing token is not fatal.
+	gitConnID := ""
+	if ght := LoadGitHubToken(); ght != "" {
+		if id, err := client.EnsureGitConnection(ctx, orgSlug, "github", ght); err != nil {
+			ui.WarnLine("could not register the GitHub token with Orbita: "+err.Error(),
+				"a private repo will fail to build; public repos are fine")
+		} else {
+			gitConnID = id
+		}
 	}
 
-	// 5. Ensure the GitHub repo exists + push (so Orbita can build from it).
+	// 5. --plan: dry run and stop.
+	if o.plan {
+		return runPlan(ctx, client, orgSlug, proj, gitConnID)
+	}
+
+	// 6. Ensure the GitHub repo exists + push (so Orbita can build from it).
 	if !o.skipPush {
 		if err := repoStep(ctx, proj); err != nil {
 			ui.ErrorLine("repo step failed: "+err.Error(),
@@ -114,12 +131,13 @@ func runDeploy(ctx context.Context, o deployOpts) error {
 		}
 	}
 
-	// 6. Reconcile (idempotent): org/project/env/app/addons/env/domains.
+	// 7. Reconcile (idempotent): org/project/env/app/addons/env/domains.
 	ui.StepActive("Reconciling with Orbita…")
 	rec, err := client.GritReconcile(ctx, orgSlug, orbita.GritReconcileRequest{
-		GritYAML:  proj.ManifestYAML,
-		GritJSON:  proj.GritJSONText,
-		EnvValues: proj.EnvValues,
+		GritYAML:        proj.ManifestYAML,
+		GritJSON:        proj.GritJSONText,
+		EnvValues:       proj.EnvValues,
+		GitConnectionID: gitConnID,
 	})
 	if err != nil {
 		ui.StepFail("Reconcile failed")
@@ -159,11 +177,12 @@ func runDeploy(ctx context.Context, o deployOpts) error {
 	return nil
 }
 
-func runPlan(ctx context.Context, client *orbita.Client, org string, proj *project.Project) error {
+func runPlan(ctx context.Context, client *orbita.Client, org string, proj *project.Project, gitConnID string) error {
 	ui.Header("Plan (dry run — nothing will be changed)")
 	res, err := client.GritPlan(ctx, org, orbita.GritReconcileRequest{
-		GritYAML: proj.ManifestYAML,
-		GritJSON: proj.GritJSONText,
+		GritYAML:        proj.ManifestYAML,
+		GritJSON:        proj.GritJSONText,
+		GitConnectionID: gitConnID,
 	})
 	if err != nil {
 		ui.ErrorLine(err.Error(), "")

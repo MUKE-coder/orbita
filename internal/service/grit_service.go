@@ -180,7 +180,7 @@ func (s *GritService) upsertServiceApp(ctx context.Context, in ReconcileInput, e
 		if existing[i].GritRole != nil && *existing[i].GritRole == sp.Role {
 			app := &existing[i]
 			// Keep build recipe + auto-deploy in sync on re-reconcile.
-			app.SourceConfig = s.gritSourceConfig(m, sp)
+			app.SourceConfig = s.gritSourceConfig(m, sp, in.GitConnID)
 			port := sp.Port
 			app.Port = &port
 			if err := s.appRepo.Update(ctx, app); err != nil {
@@ -216,7 +216,13 @@ func (s *GritService) upsertServiceApp(ctx context.Context, in ReconcileInput, e
 
 // gritSourceConfig rebuilds an app's source_config JSON from the plan (used on
 // re-reconcile to pick up recipe changes).
-func (s *GritService) gritSourceConfig(m *grit.Manifest, sp gritbuild.ServicePlan) []byte {
+//
+// gitConnID must be threaded through here, not just set at create time: the
+// re-reconcile path overwrites SourceConfig wholesale, so leaving the connection
+// out silently dropped it on the second deploy. A private repo then built once
+// (create) and failed on every subsequent deploy with "could not read Username
+// for 'https://github.com'".
+func (s *GritService) gritSourceConfig(m *grit.Manifest, sp gritbuild.ServicePlan, gitConnID *uuid.UUID) []byte {
 	repoURL := m.RepoURL
 	if repoURL == "" {
 		if owner, name, ok := m.RepoOwnerName(); ok {
@@ -230,6 +236,9 @@ func (s *GritService) gritSourceConfig(m *grit.Manifest, sp gritbuild.ServicePla
 		"dockerfile_path": sp.DockerfilePath,
 		"build_context":   sp.BuildContext,
 		"grit_role":       sp.Role,
+	}
+	if gitConnID != nil {
+		cfg["git_connection_id"] = gitConnID.String()
 	}
 	if len(sp.BuildArgs) > 0 {
 		cfg["build_args"] = sp.BuildArgs
