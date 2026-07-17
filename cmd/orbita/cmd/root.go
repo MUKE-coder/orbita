@@ -22,6 +22,7 @@ func Root() *cobra.Command {
 	}
 	// Provision + manage a host.
 	root.AddCommand(initCmd())
+	root.AddCommand(loginCmd())
 	root.AddCommand(statusCmd())
 	root.AddCommand(dashboardCmd())
 	root.AddCommand(hostsCmd())
