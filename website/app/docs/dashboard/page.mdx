@@ -22,16 +22,24 @@ registers first, they own your server.
 ### Close registration after setup (recommended)
 
 By default, registration stays **open** — later visitors can still create (non-admin) accounts.
-Once your admin account exists and you don't need public sign-up, close it: add this line to
-`/opt/orbita/.env` on the server and restart Orbita.
+Once your admin account exists and you don't need public sign-up, close it. Run this on the
+server; it adds the setting to Orbita's container and restarts it:
 
 ```bash title="Server terminal (SSH)"
-echo 'ORBITA_DISABLE_REGISTRATION=true' | sudo tee -a /opt/orbita/.env
-cd /opt/orbita && sudo docker compose up -d orbita
+cd /opt/orbita
+grep -q ORBITA_DISABLE_REGISTRATION docker-compose.yml \
+  || sudo sed -i '/- IS_PRODUCTION=true/a\      - ORBITA_DISABLE_REGISTRATION=true' docker-compose.yml
+sudo docker compose up -d --force-recreate orbita
 ```
 
-Now `/register` is closed to everyone except the very first account (so a fresh install can still
-be bootstrapped). New teammates join by **invitation** instead — see [step 8](#8-invite-your-team).
+Now `/register` returns **403** for everyone except the very first account (so a fresh install can
+still be bootstrapped). New teammates join by **invitation** instead — see
+[step 8](#8-invite-your-team).
+
+<Callout type="tip" title="Verify it">
+Try registering a second account from a private browser window — you should be turned away with
+“Registration is disabled”.
+</Callout>
 
 ## 2. Create an organisation
 

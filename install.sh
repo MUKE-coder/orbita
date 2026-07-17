@@ -457,6 +457,9 @@ services:
       - DOCKER_SOCKET=/var/run/docker.sock
       - IS_PRODUCTION=true
       - CGROUP_ROOT=/sys/fs/cgroup
+      # Optional. Set ORBITA_DISABLE_REGISTRATION=true in .env to close public
+      # sign-up after the first admin; forwarded here so the container sees it.
+      - ORBITA_DISABLE_REGISTRATION=\${ORBITA_DISABLE_REGISTRATION:-false}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - traefik_dynamic:/etc/orbita/traefik
