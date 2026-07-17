@@ -26,7 +26,7 @@ Let's Encrypt limits failed issuances. Fix DNS/firewall **first**, then restart 
 don't loop restarts, or you'll hit the rate limit and wait an hour.
 </Callout>
 
-## `grit cloud init` can't connect
+## `orbita init` can't connect
 
 ```text title="Output"
 ✖ Server is not reachable on 22
@@ -60,7 +60,7 @@ over to a schema-mismatched image.
   Commit `go.sum`.
 - **Advisory lock held** — a previous migrate crashed. It auto-releases on connection close; if
   stuck, check for a hung one-off container: `docker ps -a | grep migrate`.
-- Inspect: `grit logs --host prod --service migrate`.
+- Inspect: `orbita logs --host prod --service migrate`.
 
 ## Orbita container won't start
 
@@ -82,12 +82,12 @@ curl -s http://localhost:8080/health     # ok → Orbita is fine
 docker logs traefik | tail -30            # look for router/service errors
 ```
 
-Usually a domain typo in `grit.yaml` (must be a **bare hostname** — no scheme/port/path) or DNS
+Usually a domain typo in `orbita.yaml` (must be a **bare hostname** — no scheme/port/path) or DNS
 not yet propagated.
 
 ## `git push` doesn't auto-deploy
 
-- The webhook needs `admin:repo_hook` scope — re-run `grit cloud github-auth` with a token that
+- The webhook needs `admin:repo_hook` scope — re-run `orbita github-auth` with a token that
   has it.
 - Check the repo's **Settings → Webhooks** for a delivery to your Orbita URL with a 2xx response.
 
@@ -105,4 +105,4 @@ curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
 ## Still stuck?
 
 Open an issue with `docker compose logs orbita`, `docker logs traefik`, and the output of
-`grit cloud status --host prod`.
+`orbita status --host prod`.

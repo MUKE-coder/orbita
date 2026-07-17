@@ -1,0 +1,94 @@
+export const metadata = { title: 'orbita.yaml spec' }
+
+# `orbita.yaml` spec
+
+`orbita.yaml` is the deploy manifest at your project root. It's optional — the dashboard does
+everything without it — but it's what [`orbita deploy`](/docs/cli) reads, and it keeps your
+deploy config in version control.
+
+It works for **any** app. Nothing in it is framework-specific.
+
+## Minimal
+
+```yaml title="orbita.yaml"
+app: my-shop
+repo: acme/my-shop
+domains:
+  web: shop.example.com
+```
+
+## Full example
+
+```yaml title="orbita.yaml"
+app: my-shop                     # required — app name (also the default project name)
+repo: acme/my-shop               # required — GitHub owner/name
+branch: main                     # default: main
+
+# Optional — override the clone URL. Normally derived from `repo`.
+repo_url: ""
+
+# Omit the build and Orbita detects it — see "How the build is chosen" below.
+addons:                          # subset of {postgres, redis, minio}; provisioned in the
+  - postgres                     #   org's isolated network, URLs injected into the app env
+  - redis
+
+domains:                         # bare hostnames — no scheme, port, or path
+  web: shop.example.com
+
+env:
+  from: .env.production          # local file; values encrypted into Orbita, never committed
+```
+
+## How the build is chosen
+
+Orbita picks in this order — first match wins:
+
+| Order | If the repo has… | Orbita does |
+|---|---|---|
+| 1 | `grit.json` | The [Grit fast path](/docs/grit-apps) — reuse the Dockerfiles Grit ships, correct build contexts, migrations under a lock |
+| 2 | `Dockerfile` | Builds it. No guessing. |
+| 3 | an explicit build in `orbita.yaml` | Exactly what you specified |
+| 4 | none of the above | **Nixpacks** — detects Laravel, Django, Rails, Node, Go, static… and builds it anyway |
+
+<Callout type="tip" title="You usually write almost nothing">
+Most apps need only `app`, `repo` and `domains`. Ports, build contexts, and addon environment
+variables (`DATABASE_URL`, `REDIS_URL`, `STORAGE_DRIVER` / `MINIO_*`) are derived for you.
+</Callout>
+
+## Defaults
+
+| Field | Default |
+|---|---|
+| `branch` | `main` |
+| `repo_url` | derived from `repo` |
+| `addons` | none |
+| `env.from` | none |
+
+## Validation rules
+
+<Callout type="warning">
+- `app` and `repo` are required; `repo` must be `owner/name`.
+- `domains.*` must be **bare hostnames** — no `https://`, no `:port`, no `/path`, and FQDN.
+- `addons` ⊆ `{postgres, redis, minio}`.
+</Callout>
+
+## Grit-specific fields
+
+These extra keys apply only if your repo has a `grit.json`. Everyone else can ignore them — see
+[Deploying Grit apps](/docs/grit-apps).
+
+```yaml title="orbita.yaml (a Grit app)"
+migrate: true                    # default true — run cmd/migrate under an advisory lock
+observability: true              # Pulse       (default on)
+security: true                   # Sentinel    (default on)
+studio: false                    # GORM Studio (default off — it edits live data)
+domains:
+  web:   rental.example.com
+  admin: admin.rental.example.com
+  api:   api.rental.example.com
+```
+
+## Next
+
+- [Deploy an app](/docs/deploy)
+- [CLI reference](/docs/cli)

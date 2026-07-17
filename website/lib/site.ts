@@ -15,6 +15,8 @@ export const nav = [
 export type DocLink = { title: string; href: string }
 export type DocSection = { title: string; items: DocLink[] }
 
+// Order matters: it drives the sidebar and prev/next. The general case leads —
+// Grit is a showcase guide, never a prerequisite.
 export const sidebar: DocSection[] = [
   {
     title: 'Introduction',
@@ -28,14 +30,18 @@ export const sidebar: DocSection[] = [
     title: 'Get started',
     items: [
       { title: 'Quickstart', href: '/docs/quickstart' },
-      { title: 'Install on a fresh server', href: '/docs/install' },
-      { title: 'Deploy a Grit app', href: '/docs/deploy' },
+      { title: 'Set up your server', href: '/docs/install' },
+      { title: 'Deploy an app', href: '/docs/deploy' },
     ],
+  },
+  {
+    title: 'Guides',
+    items: [{ title: 'Deploying Grit apps', href: '/docs/grit-apps' }],
   },
   {
     title: 'Reference',
     items: [
-      { title: 'grit.yaml spec', href: '/docs/grit-yaml' },
+      { title: 'orbita.yaml spec', href: '/docs/orbita-yaml' },
       { title: 'CLI reference', href: '/docs/cli' },
       { title: 'Troubleshooting', href: '/docs/troubleshooting' },
     ],

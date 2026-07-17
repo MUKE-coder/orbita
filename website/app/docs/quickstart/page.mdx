@@ -2,98 +2,230 @@ export const metadata = { title: 'Quickstart' }
 
 # Quickstart
 
-From a fresh Ubuntu 24.04 VPS to a live, migrated, HTTPS Grit app — **two commands**.
+Fresh VPS → **hardened server** → **Orbita running** → **your app live**. Every step works with
+or without the CLI, and with or without an existing SSH key. Pick what matches you.
 
-## Prerequisites
+## Choose how you want to set up
 
-- A fresh **Ubuntu 24.04** VPS with a public IP (Hetzner CX22 is plenty).
-- A domain you control. Point A-records at the VPS IP and wait for DNS to resolve.
-- The `grit` CLI on your laptop, and SSH access.
+Both paths give you the same result: a hardened box running Orbita. Nothing is locked in — the
+CLI just does the two steps for you.
 
-<Callout type="warning" title="DNS must resolve first">
-`dig orbita.example.com +short` must return your server IP before you start — Let's Encrypt
-can't issue a certificate until it does. (If it's not ready, the wizard installs on the IP and
-you add the domain later.)
+<Cards>
+  <Card title="Without the CLI" badge="No install" icon="browser" href="#step-1--harden-the-server">
+    Two `curl` commands over SSH, then use the dashboard in your browser. Nothing to install on
+    your machine. **Start here if you're not sure.**
+  </Card>
+  <Card title="With the CLI" icon="terminal" href="#one-command-with-the-cli">
+    One command from your own machine does hardening *and* install. Optional — like the Vercel
+    CLI. Needs Go to build today.
+  </Card>
+</Cards>
+
+<Callout type="tip" title="No Grit required">
+Orbita is a standalone PaaS. You don't need the Grit framework to install it or to deploy
+Laravel, Django, Rails, Node, a static site, or a Docker image.
 </Callout>
 
-## Command 1 — provision the host
+## Step 1 — Harden the server
 
-Just run it — the wizard asks a few questions and does everything else:
+Never skip this. Log into a **fresh Ubuntu 22.04/24.04 VPS** as root:
 
 ```bash title="Local terminal (your PC)"
-grit cloud init
+ssh root@YOUR_SERVER_IP
 ```
 
-```
-▸ Grit Cloud — set up Orbita on your server
-? Do you already have a server (a fresh Ubuntu 24.04 VPS)?  [Y/n] y
-? Server IP address  203.0.113.10
-  ✔ Server is reachable
-? How do you log into the server right now?
-  › 1) I have a root password (from my hosting provider)
-    2) I added an SSH key when I created the VPS
-? Root password:  ••••••••
-? Create a secure deploy user named  [deploy]
-? SSH key for the deploy user:
-  › 1) Generate a new key for me (recommended)
-    2) Paste an existing public key
-? Domain for the Orbita dashboard (blank = use the server IP)  orbita.example.com
-  ✔ DNS points here — we'll set up HTTPS at https://orbita.example.com
-? Email for Let's Encrypt (TLS certificates)  [admin@orbita.example.com]
-? Your email for the Orbita admin login  you@example.com
-? Proceed?  [Y/n] y
-```
-
-It updates the server, **hardens it** (new sudo `deploy` user, generates an SSH key, disables
-root + password login, UFW, Fail2ban, security score), installs Docker + Orbita + Traefik on your
-HTTPS subdomain (or the server IP if DNS isn't pointed yet), creates your admin login + an `orb_`
-deploy token, and registers the host in `~/.grit/hosts.yaml`.
-
-<Callout type="tip" title="Automate it">
-For CI/scripts, pass flags + `--yes` to skip the wizard:
-`grit cloud init --server root@IP --domain orbita.example.com --acme-email you@example.com --admin-email admin@example.com --yes`
+<Callout type="warning" title="From here to the end of step 2, you're on the server">
+Look for the amber “Server terminal” label on each block.
 </Callout>
 
-```bash title="Local terminal (your PC)"
-grit cloud status --host prod        # ● ok, version
+Get the hardening script:
+
+```bash title="Server terminal (SSH)"
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/vps-harden/main/vps-harden.sh -o vps-harden.sh
+chmod +x vps-harden.sh
 ```
 
-## Command 2 — deploy your Grit app
+### Do you already have an SSH key?
 
-From your Grit project directory (it has a `grit.json`):
+<Cards>
+  <Card title="I have an SSH key" icon="key">
+    You'll paste your **public** key when asked. Find it with `cat ~/.ssh/id_ed25519.pub` on
+    your own machine — it starts with `ssh-ed25519`.
+  </Card>
+  <Card title="I don't have one" badge="It makes one" icon="lock">
+    Leave the key prompt **blank** and the script generates a keypair for you, then prints where
+    it saved it. Copy it to your machine before you log out.
+  </Card>
+</Cards>
 
-```bash title="Local terminal (your PC)"
-grit cloud github-auth               # once: store a GitHub token (repo + admin:repo_hook)
-grit deploy --host prod
+Now run it. Interactive mode asks for the deploy user and your key, and handles both cases
+above:
+
+```bash title="Server terminal (SSH)"
+sudo ./vps-harden.sh --no-dokploy
 ```
 
-If there's no `grit.yaml`, a first-run wizard creates one. Then `grit deploy` ensures the repo,
-reconciles infrastructure, builds, migrates under an advisory lock, and cuts over:
-
-```
-✔ Live
-  App:       https://rental.example.com
-  API:       https://api.rental.example.com
-  Pulse:     https://api.rental.example.com/pulse/ui
-  Sentinel:  https://api.rental.example.com/sentinel/ui
-  Auto-deploy is on: future `git push` to main redeploys via webhook.
-```
-
-## After that
-
-<Callout type="tip" title="You're done — it keeps deploying">
-Every `git push` to your branch auto-deploys via webhook. The CLI is now optional.
+<Callout type="danger" title="Confirm you can still log in before disconnecting">
+This disables root SSH and password auth. Open a **second** terminal and check
+`ssh deploy@YOUR_SERVER_IP` works before you close this one. If the script generated a key, save
+it first — that key is now your only way in.
 </Callout>
 
-```bash title="Local terminal (your PC)"
-grit deploy --plan --host prod    # preview changes without applying
-grit logs -f --host prod          # stream logs
-grit rollback --host prod         # revert to the previous deploy
-grit cloud dashboard --host prod  # private SSH tunnel to the Orbita panel
+`--no-dokploy` matters: the script can install Dokploy, and **Orbita replaces Dokploy**. Running
+both fights over ports 80/443.
+
+<details>
+<summary>Non-interactive (scripted) version</summary>
+
+```bash title="Server terminal (SSH)"
+sudo NEW_USER=deploy SSH_PUBKEY="ssh-ed25519 AAAA... you@laptop" \
+  ./vps-harden.sh --no-dokploy --yes
 ```
 
-## Next
+Only use this if you already have a key — `--yes` won't stop to ask.
 
-- [Install on a fresh server](/docs/install) — the manual path, step by step.
-- [Deploy a Grit app](/docs/deploy) — the full deploy flow explained.
-- [grit.yaml spec](/docs/grit-yaml) — the deploy manifest.
+</details>
+
+You get a sudo `deploy` user, your key installed, root + password SSH disabled, UFW, Fail2ban,
+and a **0–100 security score**.
+
+## Step 2 — Install Orbita
+
+The installer brings its own Docker, Swarm, Postgres, Redis and Traefik — install nothing first.
+
+### Do you have a domain pointed at the server?
+
+<Cards>
+  <Card title="No domain yet" badge="Fastest" icon="browser">
+    Orbita comes up on `http://YOUR_SERVER_IP:8080` with no TLS. Perfect to prove it works — you
+    can add a domain later from the dashboard.
+  </Card>
+  <Card title="I have a domain" icon="lock">
+    Point an **A record** at the server and check `dig orbita.example.com +short` returns its IP
+    **first** — Let's Encrypt can't issue a certificate until it does.
+  </Card>
+</Cards>
+
+<Tabs labels={["IP mode (no domain)", "With a domain (HTTPS)"]}>
+<TabItem>
+
+```bash title="Server terminal (SSH)"
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | sudo bash -s -- --yes
+```
+
+</TabItem>
+<TabItem>
+
+```bash title="Server terminal (SSH)"
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | sudo ORBITA_DOMAIN=orbita.example.com ORBITA_ACME_EMAIL=you@example.com bash -s -- --yes
+```
+
+Traefik requests the certificate on the first request to your domain.
+
+</TabItem>
+</Tabs>
+
+<Callout type="warning" title="Hardening left only SSH open">
+If the installer can't bind the ports it needs:
+
+```bash title="Server terminal (SSH)"
+sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw allow 8080/tcp
+```
+</Callout>
+
+Check it came up:
+
+```bash title="Server terminal (SSH)"
+curl -s http://localhost:8080/health
+```
+
+Expect `{"status":"ok", ...}`.
+
+<Callout type="danger" title="Back up /opt/orbita/.env now">
+It holds `ENCRYPTION_MASTER_KEY`, from which every organisation's encryption key is derived.
+Lose it and every stored secret is unrecoverable.
+</Callout>
+
+## One command, with the CLI
+
+Prefer not to do steps 1 and 2 by hand? The optional CLI does both from your own machine —
+hardening, install, admin account, and host registration:
+
+```bash title="Local terminal (your PC)"
+orbita init
+```
+
+It asks for the IP, how you log in today (**password or key — both work**), a deploy user name,
+whether to **generate an SSH key or use yours**, and a domain (blank = use the IP).
+
+<Callout type="note" title="You need to build the CLI first">
+There's no one-line installer yet — see [Install the CLI](/docs/cli#install). This is why the
+no-CLI path above is the default recommendation.
+</Callout>
+
+## Step 3 — Deploy an app
+
+Open the dashboard — `http://YOUR_SERVER_IP:8080`, or `https://your-domain` — and **register the
+first user**. That account becomes super-admin, so do it right away: registration is open until
+the first account exists. Create an organisation, then ship something:
+
+<Tabs labels={["A Docker image", "A Git repo", "Any language (Nixpacks)"]}>
+<TabItem>
+
+```text title="Orbita dashboard"
+Apps → Create App → Source: Docker Image
+  Image: nginx:alpine
+  Port:  80
+→ Deploy
+```
+
+The fastest way to prove the platform works end to end.
+
+</TabItem>
+<TabItem>
+
+```text title="Orbita dashboard"
+Settings → Git Connections → add a token (scopes: repo + admin:repo_hook)
+Apps → Create App → Source: Git Repository
+  Pick the repo + branch
+  Build: Dockerfile (used automatically if your repo has one)
+→ Deploy
+```
+
+Every future `git push` redeploys automatically via webhook.
+
+</TabItem>
+<TabItem>
+
+```text title="Orbita dashboard"
+Apps → Create App → Source: Git Repository
+  Pick the repo + branch
+  Build: Nixpacks        ← no Dockerfile needed
+→ Deploy
+```
+
+Nixpacks detects the language and builds it — Laravel, Django, Rails, Node, Go, static sites.
+
+</TabItem>
+</Tabs>
+
+Add a domain, a Postgres addon, or environment variables from the app's page. Done.
+
+## Where to go next
+
+<Cards>
+  <Card title="Set up your server" icon="lock" href="/docs/install">
+    Both paths in full, with HTTPS, backup, update and reset.
+  </Card>
+  <Card title="Deploy an app" icon="browser" href="/docs/deploy">
+    Every source type, addons, domains and environment variables.
+  </Card>
+  <Card title="Deploying Grit apps" icon="terminal" href="/docs/grit-apps">
+    If you use Grit, deploys are zero-config — Orbita reads your app's shape.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/docs/cli">
+    The optional terminal workflow, every command and flag.
+  </Card>
+</Cards>

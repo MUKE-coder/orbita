@@ -1,60 +1,127 @@
-export const metadata = { title: 'Install on a fresh server' }
+export const metadata = { title: 'Set up your server' }
 
-# Install on a fresh server
+# Set up your server
 
-The fastest path is `grit cloud init` (the [Quickstart](/docs/quickstart)). This page is the
-**manual, step-by-step install** for a fresh **Ubuntu 24.04** VPS, so you know exactly what
-happens.
+Two things have to happen before you deploy anything: **harden the server**, then **install
+Orbita**. This page does both, in that order.
 
-## 0. Prerequisites
-
-- Ports **80, 443, 8080** open. 2 vCPU / 4 GB RAM recommended.
-- A domain with DNS pointed at the server (an `A` record for `orbita.example.com`, plus a
-  wildcard or per-app records).
-
-<Callout type="warning" title="Verify DNS first">
-`dig orbita.example.com +short` must return your server IP. Let's Encrypt cannot issue a
-certificate until it does.
+<Callout type="tip" title="No Grit, no Go, no clone required">
+Orbita is a standalone PaaS. Nothing here needs the Grit framework. The `orbita` CLI is
+**optional** — like the Vercel CLI, it's a convenience, not a requirement. Pick a path below.
 </Callout>
 
-## 1. Connect and update
+## Pick your path
 
-First, from your own machine, open a session on the server:
+<Tabs labels={["One command (with the CLI)", "Manual (no CLI)"]}>
+<TabItem>
+
+The CLI does the whole job from your own machine — hardens the box, installs Orbita, creates
+your admin login, and registers the host:
+
+```bash title="Local terminal (your PC)"
+orbita init
+```
+
+It's an interactive wizard: it asks for the IP, how you log in today, a deploy user name, and a
+domain (blank = use the IP). [Install the CLI first](/docs/cli#install) if you don't have it,
+or use the manual path instead — the result is the same.
+
+Skip to [Step 3](#step-3--create-your-admin-account) once it finishes.
+
+</TabItem>
+<TabItem>
+
+Two scripts, run on the server, in order. That's **Step 1** and **Step 2** below.
+
+No CLI, no Go — just SSH and `curl`.
+
+</TabItem>
+</Tabs>
+
+## What you need
+
+- A **fresh Ubuntu 22.04 or 24.04 VPS** with a public IP, and **root** access.
+- **2 GB RAM minimum**, 4 GB recommended (builds are the hungry part).
+- Ports **80**, **443** and **8080** free.
+- Optional: a domain, if you want HTTPS instead of a bare IP.
+
+<Callout type="danger" title="Use a fresh box">
+Orbita's Traefik must own ports 80/443. If `nginx`, `apache2`, `caddy` or `lighttpd` holds one,
+the installer **stops and uninstalls it** — and with `--yes` it does so **without asking**. Don't
+run this on a server that already serves sites.
+</Callout>
+
+### Point DNS first (skip for IP mode)
+
+Only if you want HTTPS. Create an **A record** for your dashboard hostname pointing at the
+server's IP, and confirm it resolves **before** installing — Let's Encrypt can't issue a
+certificate until it does:
+
+```bash title="Local terminal (your PC)"
+dig orbita.example.com +short
+```
+
+It must print your server's IP. No domain yet? Use IP mode; Orbita installs on
+`http://YOUR_IP:8080` and you can add a domain later.
+
+## Step 1 — Harden the server
+
+Log in as root:
 
 ```bash title="Local terminal (your PC)"
 ssh root@YOUR_SERVER_IP
 ```
 
-<Callout type="note" title="Everything below runs on the server">
-From here to the end of this page, every command runs **inside that SSH session**
-— look for the amber “Server terminal” label on each block.
+<Callout type="warning" title="Steps 1 and 2 run on the server">
+Everything below runs **inside that SSH session** — look for the amber “Server terminal” label.
 </Callout>
 
-```bash title="Server terminal (SSH)"
-apt update && apt upgrade -y
-apt install -y curl git ufw
-```
-
-## 2. Firewall
+Download the hardening script and read it before running it (it changes how you log in):
 
 ```bash title="Server terminal (SSH)"
-ufw allow OpenSSH
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw enable
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/vps-harden/main/vps-harden.sh -o vps-harden.sh
+chmod +x vps-harden.sh
+less vps-harden.sh
 ```
 
-## 3. Docker + Swarm
+Run it interactively — it will ask for a deploy user and your public key:
 
 ```bash title="Server terminal (SSH)"
-curl -fsSL https://get.docker.com | sh
-docker --version          # 24+ expected
-docker swarm init         # required — Orbita runs workloads as Swarm services
+sudo ./vps-harden.sh --no-dokploy
 ```
 
-## 4. Install Orbita
+<Callout type="danger" title="This locks down root SSH — don't get locked out">
+The script creates a sudo user, installs your public key, then **disables root login and
+password auth**. Before you disconnect, open a *second* terminal and confirm
+`ssh deploy@YOUR_SERVER_IP` works. If you have no key, let the script generate one and save it
+— it prints the path.
+</Callout>
 
-<Tabs labels={["One-line (recommended)", "Docker Compose", "Build from source"]}>
+`--no-dokploy` matters: the script can install Dokploy, and **Orbita replaces Dokploy**. Never
+install both — they both want ports 80/443.
+
+To script it instead of answering prompts:
+
+```bash title="Server terminal (SSH)"
+sudo NEW_USER=deploy SSH_PUBKEY="ssh-ed25519 AAAA... you@laptop" \
+  ./vps-harden.sh --no-dokploy --yes
+```
+
+What it does: creates the sudo user, installs your key, disables root + password SSH, enables
+UFW and Fail2ban, applies kernel hardening, and prints a **0–100 security score**.
+
+Just want the score without changing anything?
+
+```bash title="Server terminal (SSH)"
+sudo ./vps-harden.sh --audit-only
+```
+
+## Step 2 — Install Orbita
+
+The installer brings its own **Docker, Swarm, Postgres, Redis and Traefik** — install nothing
+first.
+
+<Tabs labels={["With a domain (HTTPS)", "IP mode (no domain)"]}>
 <TabItem>
 
 ```bash title="Server terminal (SSH)"
@@ -62,54 +129,71 @@ curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
   | sudo ORBITA_DOMAIN=orbita.example.com ORBITA_ACME_EMAIL=you@example.com bash -s -- --yes
 ```
 
-</TabItem>
-<TabItem>
-
-```bash title="Server terminal (SSH)"
-mkdir -p /opt/orbita && cd /opt/orbita
-curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/docker/docker-compose.prod.yml -o docker-compose.yml
-cat > .env <<EOF
-DB_PASSWORD=$(openssl rand -hex 16)
-JWT_SECRET=$(openssl rand -hex 32)
-JWT_REFRESH_SECRET=$(openssl rand -hex 32)
-ENCRYPTION_MASTER_KEY=$(openssl rand -hex 32)
-ORBITA_HOST=orbita.example.com
-APP_BASE_URL=https://orbita.example.com
-ACME_EMAIL=you@example.com
-EOF
-docker compose up -d
-```
+Traefik requests a Let's Encrypt certificate on the first request to your domain.
 
 </TabItem>
 <TabItem>
 
 ```bash title="Server terminal (SSH)"
-git clone https://github.com/MUKE-coder/orbita.git && cd orbita
-docker build -t orbita:local .
-ORBITA_IMAGE=orbita:local bash <(curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh)
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | sudo bash -s -- --yes
 ```
+
+Orbita comes up on `http://YOUR_SERVER_IP:8080`, no TLS. Add a domain later for HTTPS.
 
 </TabItem>
 </Tabs>
 
-The installer generates secrets, writes `docker-compose.yml` + `.env`, and starts **Orbita +
-PostgreSQL + Redis + Traefik**. Traefik requests a Let's Encrypt certificate on first request.
-
-<Callout type="danger" title="ENCRYPTION_MASTER_KEY">
-Generate a **32-byte** key (`openssl rand -hex 32`). It derives every org's encryption key — a
-weak or missing value silently weakens all tenant secrets. Orbita refuses to start without it.
-</Callout>
-
-## 5. Verify
+<Callout type="note" title="Hardening opens only SSH — Orbita's installer needs 80/443/8080">
+UFW is enabled in step 1 with SSH allowed. If the installer can't reach the ports it needs,
+open them explicitly:
 
 ```bash title="Server terminal (SSH)"
-curl -s http://localhost:8080/health          # {"status":"ok","version":"0.1.0"}
-cd /opt/orbita && docker compose ps            # orbita, postgres, redis, traefik → Up
-curl -I https://orbita.example.com             # 200 from the outside world
+sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw allow 8080/tcp
+```
+</Callout>
+
+### What the installer does, in order
+
+1. Installs **Docker** if missing and enables the daemon.
+2. Initialises **Docker Swarm** if it isn't active.
+3. Checks ports **80 / 443 / 8080** are free (see the warning above).
+4. Generates secrets, writes `/opt/orbita/.env` and `/opt/orbita/docker-compose.yml`.
+5. Pulls `ghcr.io/muke-coder/orbita:latest`.
+6. Starts **Orbita + PostgreSQL + Redis + Traefik**.
+7. Waits up to **2 minutes** for `/health` to report ok, then prints the dashboard URL.
+
+<Callout type="danger" title="Back up /opt/orbita/.env">
+It holds `ENCRYPTION_MASTER_KEY`. Every organisation's encryption key is derived from it —
+**lose that file and every stored secret is unrecoverable.** Copy it somewhere safe before you
+put real data in.
+</Callout>
+
+### Verify it's up
+
+```bash title="Server terminal (SSH)"
+curl -s http://localhost:8080/health
+cd /opt/orbita && docker compose ps
 ```
 
-Open `https://orbita.example.com`, **register the first user** (they become super-admin), and
-create your first organization.
+Expect `{"status":"ok", ...}` and `orbita`, `orbita-postgres`, `orbita-redis`, `orbita-traefik`
+all **Up**. Then confirm it answers from outside — on your own machine:
+
+```bash title="Local terminal (your PC)"
+curl -I https://orbita.example.com
+```
+
+## Step 3 — Create your admin account
+
+Open the dashboard:
+
+- **Domain mode:** `https://orbita.example.com`
+- **IP mode:** `http://YOUR_SERVER_IP:8080`
+
+**Register the first user** — that account becomes the super-admin. Do it immediately:
+registration is open until the first account exists. Then create your first organisation.
+
+Done. [Deploy an app](/docs/deploy) — the dashboard is enough; no CLI required.
 
 ## Managing the install
 
@@ -119,34 +203,45 @@ create your first organization.
 ```bash title="Server terminal (SSH)"
 cd /opt/orbita
 docker compose pull orbita
-docker compose up -d orbita     # migrations run automatically on startup
+docker compose up -d orbita
 ```
+
+Migrations run automatically on startup.
 
 </TabItem>
 <TabItem>
 
 ```bash title="Server terminal (SSH)"
 docker exec orbita-postgres pg_dump -U orbita orbita | gzip > orbita-$(date +%F).sql.gz
+cp /opt/orbita/.env orbita-env-$(date +%F).backup
 ```
+
+Back up **both** — the dump is useless without the key in `.env`.
 
 </TabItem>
 <TabItem>
 
 ```bash title="Server terminal (SSH)"
-cd /opt/orbita && docker compose down     # keeps data
+cd /opt/orbita && docker compose down
 ```
+
+Stops everything; data volumes are kept.
 
 </TabItem>
 <TabItem>
 
 ```bash title="Server terminal (SSH)"
-curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh | sudo bash -s -- --force-reset
+curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
+  | sudo bash -s -- --force-reset --yes
 ```
+
+**Destroys all data** — containers, volumes, database, and `.env`.
 
 </TabItem>
 </Tabs>
 
 ## Next
 
-- [Deploy a Grit app](/docs/deploy)
-- [Troubleshooting](/docs/troubleshooting) if anything above didn't go clean.
+- [Deploy an app](/docs/deploy) — from the dashboard, no CLI needed.
+- [CLI reference](/docs/cli) — optional; deploy from your terminal instead.
+- [Troubleshooting](/docs/troubleshooting) — if a step above didn't go clean.

@@ -10,24 +10,30 @@ import { Check, Copy } from 'lucide-react'
 
 type Method = { value: string; label: string; hint: string; code: string }
 
+// Every command here must be real and copy-pasteable — these are the URLs the
+// docs use, not placeholders.
 const METHODS: Method[] = [
   {
-    value: 'interactive',
-    label: 'Interactive',
-    hint: 'The wizard asks a few questions and does the rest',
-    code: 'grit cloud init',
+    value: 'harden',
+    label: '1. Harden',
+    hint: 'Run on your server over SSH — deploy user, keys, UFW, Fail2ban',
+    code:
+      'curl -sSL https://raw.githubusercontent.com/MUKE-coder/vps-harden/main/vps-harden.sh -o h.sh \\\n' +
+      '  && sudo bash h.sh --no-dokploy',
   },
   {
-    value: 'flags',
-    label: 'Scripted',
-    hint: 'Pass flags + --yes for CI',
-    code: 'grit cloud init --server root@IP \\\n  --domain orbita.example.com --yes',
+    value: 'install',
+    label: '2. Install',
+    hint: 'Brings its own Docker, Swarm, Postgres, Redis and Traefik',
+    code:
+      'curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \\\n' +
+      '  | sudo bash -s -- --yes',
   },
   {
-    value: 'curl',
-    label: 'curl',
-    hint: 'Install Orbita directly on a server you already have',
-    code: 'curl -sSL https://get.orbita.sh | sudo bash',
+    value: 'cli',
+    label: 'Or: one command',
+    hint: 'Optional CLI — does both of the above from your own machine',
+    code: 'orbita init',
   },
 ]
 

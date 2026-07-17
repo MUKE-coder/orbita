@@ -2,85 +2,134 @@ export const metadata = { title: 'CLI reference' }
 
 # CLI reference
 
-Every command is subcommand of `grit`. Host-targeting commands take `--host <name>` (defaults to
-the host marked default in `~/.grit/hosts.yaml`).
+The `orbita` CLI is **optional**. Like the Vercel CLI, it's a convenience for people who prefer
+the terminal — everything it does for apps can also be done from the dashboard or by pushing to
+git. You never need it to run Orbita.
 
-## `grit cloud init`
+What it's genuinely good at: **`orbita init`**, which collapses hardening + install + admin
+account + host registration into one command from your own machine.
 
-Provision a fresh Ubuntu VPS: secure it, install Docker + Orbita + Traefik, create your admin
-login and an `orb_` deploy token, and register the host. **Interactive by default** — run it with
-no flags and answer the wizard.
+## Install
+
+<Callout type="warning" title="Today the CLI is built from source — a one-line installer is not shipped yet">
+There is no `curl … | sh` or `npm i -g` for the CLI yet, and `go install` does not work either
+(the module path in `go.mod` is `github.com/orbita-sh/orbita`, which doesn't exist — the repo
+lives at `github.com/MUKE-coder/orbita`). Building from the clone is the **only** path that
+works right now. Nothing else on this site needs it.
+</Callout>
+
+Requires **Go 1.25+**:
 
 ```bash title="Local terminal (your PC)"
-grit cloud init
+git clone https://github.com/MUKE-coder/orbita.git
+cd orbita
+make build-cli
 ```
+
+That produces `./orbita`. Put it on your PATH:
+
+```bash title="Local terminal (your PC)"
+sudo mv ./orbita /usr/local/bin/orbita
+orbita --help
+```
+
+<Callout type="note" title="It won't clash with the Grit framework CLI">
+If you also use Grit, its CLI is a different binary (`grit`) from a different repo. `orbita`
+installs alongside it and neither shadows the other.
+</Callout>
+
+## `orbita init` — provision a server
+
+Hardens the box, installs Orbita, creates your admin login, and registers the host.
+**Interactive by default** — run it with no flags and answer the wizard.
+
+```bash title="Local terminal (your PC)"
+orbita init
+```
+
+It asks: server IP → how you log in today (password or key) → deploy user name → deploy SSH key
+(generate or paste) → domain (blank = use the IP) → your admin email → confirm.
 
 | Flag | Meaning |
 |---|---|
-| `--server user@ip[:port]` | Server to connect to (skips the "IP" prompt) |
+| `--server user@ip[:port]` | Target server (skips the IP prompt) |
 | `--ssh-key <path>` | Private key for the initial connection |
 | `--domain <host>` | Dashboard domain (blank → install on the IP) |
 | `--acme-email <email>` | Let's Encrypt contact for TLS |
 | `--admin-email <email>` | Orbita super-admin login |
 | `--deploy-user <name>` | Sudo user to create (default `deploy`) |
-| `--gen-key` | Generate a new SSH key for the deploy user |
-| `--deploy-pubkey <path>` | Use an existing public key instead |
-| `--skip-harden` | Skip the hardening script |
+| `--deploy-pubkey <path>` | Use an existing public key instead of generating one |
+| `--skip-harden` | Skip hardening (server already hardened) |
+| `--forget-host-key` | Drop a stale `known_hosts` entry for this IP (`ssh-keygen -R`) |
 | `--name <host>` | Name to register the host under (default `prod`) |
 | `--yes` | Non-interactive — use flags + defaults, no prompts |
 
-<Callout type="tip" title="Interactive by default, scriptable with flags">
-Provide every required value plus `--yes` for CI. Anything you omit in interactive mode is asked;
-anything you pass is used as the default.
+### Environment variables
+
+| Variable | Purpose |
+|---|---|
+| `ORBITA_SSH_PASSWORD` | Root password for the initial connect. **The only way to use password auth with `--yes`** — it's env-only on purpose, so it stays out of shell history and `ps`. |
+| `ORBITA_ADMIN_PASSWORD` | Set the admin password instead of generating one. |
+| `ORBITA_HOSTS_FILE` | Override `~/.orbita/hosts.yaml` (tests). |
+
+Scripted example:
+
+```bash title="Local terminal (your PC)"
+export ORBITA_SSH_PASSWORD='…'
+orbita init --server root@203.0.113.10 \
+  --domain orbita.example.com --acme-email you@example.com \
+  --admin-email you@example.com --yes
+```
+
+<Callout type="danger" title="init locks down root SSH">
+It creates the deploy user, installs the key, then disables root login and password auth —
+exactly what the manual [hardening step](/docs/install#step-1--harden-the-server) does. Make
+sure you can log in as the deploy user before you rely on it.
 </Callout>
 
-## `grit cloud` — host management
+## Host management
 
 | Command | Does |
 |---|---|
-| `grit cloud status` | Platform health + version + metrics |
-| `grit cloud github-auth` | Store a GitHub token (repo + admin:repo_hook) for repo push |
-| `grit cloud dashboard` | Open a private SSH tunnel to the Orbita panel |
-| `grit cloud hosts` | List registered hosts |
-| `grit cloud use <name>` | Set the default host |
-| `grit cloud login` | Re-authenticate / refresh the `orb_` token |
+| `orbita status --host prod` | Platform health, version, metrics |
+| `orbita hosts` | List registered hosts |
+| `orbita dashboard --host prod` | Open a private SSH tunnel to the dashboard |
+| `orbita github-auth` | Store a GitHub token (`repo` + `admin:repo_hook`) for repo push |
 
-## `grit deploy`
+## `orbita deploy`
 
-Deploy the Grit app in the current directory.
+Deploys the app in the current directory, reading [`orbita.yaml`](/docs/orbita-yaml).
 
 ```bash title="Local terminal (your PC)"
-grit deploy [--host prod] [--plan] [--no-migrate] [--branch main]
+orbita deploy --host prod
 ```
 
 | Flag | Meaning |
 |---|---|
 | `--host <name>` | Target host |
 | `--plan` | Dry run — print the plan, change nothing |
-| `--no-migrate` | Skip migrations (overrides `grit.yaml`) |
-| `--branch <name>` | Branch to build (default from `grit.yaml`) |
-| `--yes` | Skip the first-run `grit.yaml` wizard confirmation |
+| `--org <name>` | Target organisation |
+| `--dir <path>` | Project directory (default: cwd) |
+| `--skip-push` | Don't push to git first |
 
-## Operations
+## Operating an app
 
 | Command | Does |
 |---|---|
-| `grit logs [-f]` | Tail (or stream) app logs over WebSocket |
-| `grit rollback` | Revert to the previous deploy |
-| `grit ps` | List running services + health |
-| `grit env pull` / `env push` | Sync encrypted env with Orbita |
-| `grit exec -- <cmd>` | Run a one-off command in the app container |
+| `orbita logs -f --host prod` | Stream logs over WebSocket |
+| `orbita rollback --host prod` | Revert to the previous deploy |
 
-## Config files
+## Files it touches
 
 | Path | Purpose |
 |---|---|
-| `~/.grit/hosts.yaml` | Registered hosts: API URL, `orb_` token, default flag |
-| `./grit.yaml` | Per-app deploy manifest ([spec](/docs/grit-yaml)) |
-| `./grit.json` | Grit's app descriptor — read, never written by Orbita |
-| `~/.ssh/<deploy-key>` | Generated deploy key (private stays on your laptop) |
+| `~/.orbita/hosts.yaml` | Registered hosts: API URL, `orb_` token, default flag (0600) |
+| `~/.orbita/github` | Stored GitHub token (0600) |
+| `./orbita.yaml` | Per-app deploy manifest ([spec](/docs/orbita-yaml)) |
+| `~/.ssh/<deploy-key>` | Generated deploy key — the private half never leaves your machine |
 
 ## Next
 
-- [Deploy a Grit app](/docs/deploy)
+- [Deploy an app](/docs/deploy)
+- [orbita.yaml spec](/docs/orbita-yaml)
 - [Troubleshooting](/docs/troubleshooting)

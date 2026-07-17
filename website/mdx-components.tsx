@@ -2,6 +2,7 @@ import type { MDXComponents } from 'mdx/types'
 import Link from 'next/link'
 import { Callout } from '@/components/Callout'
 import { Tabs, TabItem } from '@/components/Tabs'
+import { Cards, Card } from '@/components/Cards'
 import { CodeFigure } from '@/components/CodeFigure'
 
 // Global MDX component map. Custom components (Callout, Tabs, TabItem) are also
@@ -24,6 +25,8 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     Callout,
     Tabs,
     TabItem,
+    Cards,
+    Card,
     ...components,
   }
 }

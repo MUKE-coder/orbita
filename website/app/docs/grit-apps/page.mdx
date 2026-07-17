@@ -1,0 +1,127 @@
+export const metadata = { title: 'Deploying Grit apps' }
+
+# Deploying Grit apps
+
+<Callout type="note" title="This page is optional reading">
+Orbita is a general-purpose PaaS and needs no framework. This page is for people using the
+[Grit](https://github.com/MUKE-coder/grit) framework — because we own Grit too, Orbita
+recognises those apps and gives them a zero-config fast path. It's the same idea as Nixpacks
+being a fast path for Rails: a recognised app type, not a requirement.
+</Callout>
+
+## Why Grit apps are special
+
+A Grit app has a **known shape**, declared in `grit.json` at the repo root. Orbita reads it and
+derives everything else: how many services, what to build, from which context, on which port,
+which database, and when to migrate. You write no Dockerfile and no build config.
+
+Everything below is derived — you never type it:
+
+| From `grit.json` | Orbita derives |
+|---|---|
+| `architecture: single` | 1 container — one Go binary with the SPA embedded, on `:8080` |
+| `architecture: api` | 1 container — the Go API on `:8080` |
+| `architecture: double` | 2 containers — `api` + `web` |
+| `architecture: triple` | 3 containers — `api` + `web` + `admin` (+ `docs` if present) |
+
+`mobile` is rejected; `expo` and `desktop` are never deployed.
+
+<Callout type="tip" title="Orbita reuses the Dockerfiles Grit already ships">
+It does **not** generate a Dockerfile and does **not** fall back to Nixpacks for Grit apps. Grit
+ships correct, multi-stage Dockerfiles; Orbita builds those with the right contexts (the API
+from `apps/api`, Next.js apps from the repo root with `NEXT_PUBLIC_API_URL` baked from your API
+domain).
+</Callout>
+
+## The manifest
+
+You write this once. See the [full spec](/docs/orbita-yaml).
+
+```yaml title="orbita.yaml"
+app: rental
+repo: MUKE-coder/rental
+branch: main
+addons: [postgres, redis]
+domains:
+  web:   rental.example.com
+  admin: admin.rental.example.com
+  api:   api.rental.example.com
+migrate: true
+env:
+  from: .env.production   # encrypted into Orbita, never committed
+```
+
+## Deploy it
+
+From the project directory (the one with `grit.json`):
+
+```bash title="Local terminal (your PC)"
+orbita github-auth          # once — store a GitHub token (repo + admin:repo_hook)
+orbita deploy --host prod
+```
+
+No `orbita.yaml` yet? A first-run wizard generates one from the detected app shape.
+
+Preview without changing anything:
+
+```bash title="Local terminal (your PC)"
+orbita deploy --plan --host prod
+```
+
+```text title="Output"
+▸ Plan (dry run — nothing will be changed)
+  App:       rental
+  Mode:      triple
+  Migrate:   true
+  Addons:    postgres, redis
+
+  create  rental-api    → api.rental.example.com
+  create  rental-web    → rental.example.com
+  create  rental-admin  → admin.rental.example.com
+```
+
+## What happens, in order
+
+1. **Detect** — `grit.json` at the repo root marks it a Grit app; `architecture` picks the strategy.
+2. **Resolve the host** — API URL + `orb_` token from `~/.orbita/hosts.yaml`.
+3. **Ensure the repo** — create it private if missing, then push.
+4. **Reconcile** — org, project, environment, addons, env + secrets, domains. Idempotent.
+5. **Build** — each service from the Dockerfiles Grit ships.
+6. **Migrate** — `cmd/migrate` in a one-off container, under a **Postgres advisory lock**.
+7. **Cut over** — only if the migration succeeded. Previous images are kept for rollback.
+
+## Migrations gate the cutover
+
+<Callout type="danger" title="A failed migration aborts the deploy">
+Orbita runs migrations **before** cutover, under an advisory lock so two concurrent deploys
+can't race. Non-zero exit = deploy stops and the previous version keeps serving. You never cut
+over to a schema-mismatched image.
+</Callout>
+
+The most common failure: **`go.sum` isn't committed**, so `go run ./cmd/migrate` can't resolve
+modules. Commit it — real Grit apps ship it.
+
+```bash title="Local terminal (your PC)"
+orbita logs --host prod --service migrate
+```
+
+## Batteries included
+
+Mounted on the API by default:
+
+- **Pulse** — latency, SQL, errors → `https://api.rental.example.com/pulse/ui`
+- **Sentinel** — WAF, rate limiting, anomalies → `https://api.rental.example.com/sentinel/ui`
+- **GORM Studio** — off by default; it edits live data. Enable with `studio: true`.
+
+## Not using Grit?
+
+Everything still works — Orbita just takes a different path:
+
+<Cards>
+  <Card title="Deploy any app" icon="browser" href="/docs/deploy">
+    Docker image, Compose, a Dockerfile repo, or Nixpacks for Laravel/Django/Rails/Node/static.
+  </Card>
+  <Card title="orbita.yaml spec" icon="terminal" href="/docs/orbita-yaml">
+    The manifest, and exactly how the build path is chosen.
+  </Card>
+</Cards>

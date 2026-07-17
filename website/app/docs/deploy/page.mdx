@@ -1,125 +1,144 @@
-export const metadata = { title: 'Deploy a Grit app' }
+export const metadata = { title: 'Deploy an app' }
 
-# Deploy a Grit app
+# Deploy an app
 
-`grit deploy` takes local Grit code to a live, migrated, HTTPS app through Orbita — no
-hand-written Dockerfile, no touching the dashboard.
+Orbita deploys **any containerisable app**: a Docker image, a Compose file, a repo with a
+Dockerfile, or a repo with nothing at all (Nixpacks figures it out). You can do all of it from
+the dashboard — the CLI is optional.
 
-## What happens, in order
-
-1. **Resolve the host** — Orbita API URL + `orb_` token from `~/.grit/hosts.yaml`.
-2. **Load `grit.yaml`** (+ `grit.json` + the `env.from` file), or run the **first-run wizard** to
-   generate `grit.yaml` from the detected app shape.
-3. **Ensure the GitHub repo** exists (create private if missing) and push your code.
-4. **Reconcile** — org/project/environment, addons (Postgres/Redis/MinIO), env + secrets, domains
-   — idempotent.
-5. **Build → migrate → cut over** — build each service from the shipped Dockerfiles, run
-   migrations under a Postgres advisory lock, then cut over. Previous images are kept for rollback.
-
-## One-time setup
-
-```bash title="Local terminal (your PC)"
-grit cloud github-auth      # store a GitHub token (repo + admin:repo_hook scope)
-```
-
-## Deploy
-
-```bash title="Local terminal (your PC)"
-cd my-grit-app
-grit deploy --host prod
-```
-
-Preview first with a dry run:
-
-```bash title="Local terminal (your PC)"
-grit deploy --plan --host prod
-```
-
-```text title="Output"
-▸ Plan (dry run — nothing will be changed)
-  App:       rental
-  Mode:      triple
-  Migrate:   true
-  Addons:    postgres, redis
-
-  create  rental-api    → api.rental.example.com
-  create  rental-web    → rental.example.com
-  create  rental-admin  → admin.rental.example.com
-```
-
-## The `grit.yaml` manifest
-
-You write this once; everything else is inferred from `grit.json` + the repo. See the full
-[grit.yaml spec](/docs/grit-yaml).
-
-```yaml title="grit.yaml"
-app: rental
-repo: MUKE-coder/rental
-branch: main
-addons: [postgres, redis]
-domains:
-  web: rental.example.com
-  admin: admin.rental.example.com
-  api: api.rental.example.com
-migrate: true
-env:
-  from: .env.production   # values encrypted into Orbita, never committed
-```
-
-<Callout type="tip" title="What's derived (you don't write it)">
-Services, build contexts, ports, and the `NEXT_PUBLIC_API_URL` build arg all come from
-`grit.json` + the mode. Orbita reuses the Dockerfiles Grit ships — it never generates one or
-guesses with Nixpacks.
+<Callout type="tip" title="No framework required">
+Laravel, Django, Rails, Next.js, Go, a static HTML site — all first-class. If you happen to use
+Grit, see [Deploying Grit apps](/docs/grit-apps) for the zero-config path.
 </Callout>
 
-## Migrations gate cutover
+## Pick your source
 
-<Callout type="warning" title="A failed migration aborts the deploy">
-Orbita runs `cmd/migrate` in a one-off container **under a Postgres advisory lock** before
-cutover. If it exits non-zero, the deploy stops — you never cut over to a schema-mismatched
-image. The previous version keeps serving.
-</Callout>
+<Cards>
+  <Card title="Docker image" badge="Fastest" icon="browser" href="#docker-image">
+    Anything already on a registry. Nothing to build.
+  </Card>
+  <Card title="Git repo with a Dockerfile" icon="terminal" href="#git-repository">
+    Orbita builds your Dockerfile. No guessing.
+  </Card>
+  <Card title="Git repo, no Dockerfile" icon="browser" href="#nixpacks-any-language">
+    Nixpacks detects the language and builds it for you.
+  </Card>
+  <Card title="Docker Compose" icon="terminal" href="#docker-compose">
+    Bring a multi-service stack as-is.
+  </Card>
+</Cards>
 
-Common migration failure: the app's `go.sum` isn't committed, so `go run ./cmd/migrate` can't
-resolve modules. Commit `go.sum` (real Grit apps ship it).
-
-## After deploy
-
-```bash title="Local terminal (your PC)"
-grit logs -f --host prod          # stream logs (WebSocket)
-grit rollback --host prod         # revert to the previous deploy
-grit cloud status --host prod     # health + platform metrics
-```
-
-Every future `git push` to your branch auto-deploys via webhook.
-
-## Deploy a non-Grit app
-
-Orbita also deploys any Docker image or Git repo through the dashboard:
-
-<Tabs labels={["Docker image", "Git repository"]}>
-<TabItem>
+## Docker image
 
 ```text title="Orbita dashboard"
 Apps → Create App → Source: Docker Image
-  Image: nginx:alpine   Port: 80   → Deploy
+  Image: nginx:alpine
+  Port:  80
+→ Deploy
 ```
 
-</TabItem>
-<TabItem>
+Private registry? Add credentials under **Settings → Registries** first.
+
+## Git repository
+
+Connect GitHub once:
 
 ```text title="Orbita dashboard"
-Settings → Git Connections → add a token (repo + admin:repo_hook)
-Apps → Create App → Source: Git Repository
-  Pick repo + branch → build via Dockerfile or Nixpacks → Deploy
-  (every push auto-deploys via webhook)
+Settings → Git Connections → add a token
+  Scopes: repo + admin:repo_hook
 ```
 
-</TabItem>
-</Tabs>
+Then:
+
+```text title="Orbita dashboard"
+Apps → Create App → Source: Git Repository
+  Pick the repo + branch
+  Build: Dockerfile          ← used automatically when your repo has one
+→ Deploy
+```
+
+Orbita registers a webhook, so **every push to that branch redeploys**.
+
+## Nixpacks (any language)
+
+No Dockerfile? Pick **Nixpacks** as the build method and Orbita detects the language from your
+repo and builds a production image — Laravel, Django, Rails, Node, Go, static sites.
+
+```text title="Orbita dashboard"
+Apps → Create App → Source: Git Repository
+  Pick the repo + branch
+  Build: Nixpacks
+→ Deploy
+```
+
+<Callout type="note" title="Nixpacks vs a Dockerfile">
+If your repo has a `Dockerfile`, prefer it — it's explicit and reproducible. Nixpacks exists so
+apps **without** one still deploy with zero config.
+</Callout>
+
+## Docker Compose
+
+```text title="Orbita dashboard"
+Apps → Create App → Source: Docker Compose
+  Paste or point at your compose file
+→ Deploy
+```
+
+## Add a database
+
+Orbita provisions managed addons into your organisation's isolated network and injects the
+connection URLs into your app's environment:
+
+```text title="Orbita dashboard"
+App → Addons → Add
+  Postgres  → injects DATABASE_URL
+  Redis     → injects REDIS_URL
+  MinIO     → injects STORAGE_DRIVER + MINIO_*
+```
+
+Nothing is exposed publicly — addons are reachable only from inside the org network.
+
+## Domains and HTTPS
+
+```text title="Orbita dashboard"
+App → Domains → Add
+  shop.example.com
+```
+
+Point an **A record** at your server first. Traefik requests a Let's Encrypt certificate on the
+first request — if the certificate never issues, DNS or the firewall is the usual cause; see
+[Troubleshooting](/docs/troubleshooting).
+
+## Environment variables
+
+```text title="Orbita dashboard"
+App → Environment → Add / Import .env
+```
+
+Values are encrypted at rest with a key derived per organisation. Mark a variable as a **secret**
+and it's write-only — visible to the container, never re-displayed in the UI.
+
+## Roll back
+
+```text title="Orbita dashboard"
+App → Deployments → pick a previous deploy → Rollback
+```
+
+Previous images are retained, so rollback is an image swap, not a rebuild.
+
+## Doing it from the terminal instead
+
+Optional. With the [CLI](/docs/cli) and an [`orbita.yaml`](/docs/orbita-yaml) in your project:
+
+```bash title="Local terminal (your PC)"
+orbita deploy --plan --host prod    # preview — changes nothing
+orbita deploy --host prod
+orbita logs -f --host prod
+orbita rollback --host prod
+```
 
 ## Next
 
-- [grit.yaml spec](/docs/grit-yaml)
-- [CLI reference](/docs/cli)
+- [orbita.yaml spec](/docs/orbita-yaml)
+- [Deploying Grit apps](/docs/grit-apps)
 - [Troubleshooting](/docs/troubleshooting)

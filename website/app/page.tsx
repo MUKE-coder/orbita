@@ -47,12 +47,12 @@ const highlights = [
   {
     icon: ShieldCheck,
     title: 'Secure by the first command',
-    body: 'grit cloud init hardens the server — deploy user, SSH keys, locked-down root, UFW, Fail2ban — then installs Orbita on your HTTPS subdomain.',
+    body: 'orbita init hardens the server — deploy user, SSH keys, locked-down root, UFW, Fail2ban — then installs Orbita on your HTTPS subdomain.',
   },
   {
     icon: Layers,
-    title: 'Grit-aware, zero-config',
-    body: 'A Grit app has a known shape. Orbita builds each service from the Dockerfiles Grit ships, provisions Postgres/Redis/MinIO, and wires domains.',
+    title: 'Any app, no Dockerfile',
+    body: 'Dockerfile, Compose, a raw image, or Nixpacks for Laravel/Django/Rails/Node/static. Grit apps get a zero-config fast path on top.',
   },
   {
     icon: GitBranch,
@@ -70,12 +70,12 @@ const features = [
   {
     icon: Globe,
     title: 'HTTPS by default',
-    body: 'Traefik v3 with automatic Let’s Encrypt, HTTP→HTTPS redirect, and per-app routing generated from grit.yaml. Only the proxy binds the public host.',
+    body: 'Traefik v3 with automatic Let’s Encrypt, HTTP→HTTPS redirect, and per-app routing generated from orbita.yaml. Only the proxy binds the public host.',
   },
   {
     icon: Activity,
     title: 'Observable from day one',
-    body: 'Pulse (latency/SQL/errors) and Sentinel (WAF/rate-limit/anomaly) mount on every Grit app by default. Live logs, metrics, in-browser terminal.',
+    body: 'Live logs, metrics and an in-browser terminal for every app. Grit apps additionally get Pulse and Sentinel mounted automatically.',
   },
   {
     icon: Zap,
@@ -89,8 +89,8 @@ const features = [
   },
   {
     icon: Feather,
-    title: 'Beginner-first CLI',
-    body: 'Interactive by default: the wizard asks what it needs and does the rest. Flags stay available for CI and scripting when you want them.',
+    title: 'The CLI is optional',
+    body: 'Deploy from the dashboard or by pushing to git — no install needed. Prefer a terminal? The optional orbita CLI does it all from your machine.',
   },
 ]
 
@@ -164,16 +164,16 @@ export default function Home() {
               variants={item}
               className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl"
             >
-              <span className="text-primary">Secure a server,</span>
+              <span className="text-primary">Harden a server,</span>
               <br />
-              <span className="font-medium text-textPrimary">deploy in two commands</span>
+              <span className="font-medium text-textPrimary">then deploy anything</span>
             </motion.h1>
 
             <motion.div variants={item} className="max-w-xl space-y-2 text-sm leading-relaxed text-zinc-300">
               <p>
-                A self-hosted, multi-tenant PaaS in a single Go binary — and the control plane for
-                Grit Cloud. Go from a bare, unsecured VPS to a hardened box running a live, migrated,
-                HTTPS app.
+                A self-hosted, multi-tenant PaaS in a single Go binary. Go from a bare, unsecured
+                VPS to a hardened box running your app — Laravel, Django, Rails, Next.js, a static
+                site, or any Docker image. The CLI is optional.
               </p>
             </motion.div>
 
@@ -204,7 +204,7 @@ export default function Home() {
         <Section id="two-commands" noBorder>
           <SectionHeader
             title="Two commands, zero config"
-            subtitle="grit cloud init secures the box and installs Orbita. grit deploy ships your app — built, migrated, live over HTTPS."
+            subtitle="Harden the box, install Orbita, then ship any containerised app — from the dashboard or the terminal, whichever you prefer."
             spacing="tight"
           />
 
@@ -225,7 +225,7 @@ export default function Home() {
               <CodePanel label="Provision" file="on your laptop">
                 <code>
                   <span className="select-none text-primary">$ </span>
-                  <span className="text-textPrimary">grit cloud init</span>
+                  <span className="text-textPrimary">orbita init</span>
                   {'\n'}
                   <span className="text-success">  ✔ Server hardened (score 94/100)</span>
                   {'\n'}
@@ -236,7 +236,7 @@ export default function Home() {
               <CodePanel label="Deploy" file="in your Grit app">
                 <code>
                   <span className="select-none text-primary">$ </span>
-                  <span className="text-textPrimary">grit deploy --host prod</span>
+                  <span className="text-textPrimary">orbita deploy --host prod</span>
                   {'\n'}
                   <span className="text-success">  ✔ Migrations applied (advisory lock)</span>
                   {'\n'}
