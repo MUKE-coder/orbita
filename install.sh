@@ -546,6 +546,40 @@ docker compose up -d
 # routing config here later.
 docker exec orbita-traefik mkdir -p /etc/orbita/traefik/dynamic 2>/dev/null || true
 
+# --- Open the firewall for the ports Orbita actually serves on ---------------
+#
+# If this box was hardened first (vps-harden.sh), ufw-docker is installed and it
+# REFUSES every published container port by default. A plain `ufw allow` does not
+# help — Docker traffic is forwarded, not INPUT, so it needs a `ufw route` rule.
+# Without this, a hardened IP-mode install comes up healthy on localhost but the
+# dashboard on :8080 is unreachable from the internet, which looks like a broken
+# install. Reconcile the exact ports we serve on.
+#
+# Verified on a real box: with ufw-docker active, `ufw route allow ... port 8080`
+# is what makes http://<ip>:8080 answer again (plain allow leaves it dead).
+open_firewall_ports() {
+  command -v ufw >/dev/null 2>&1 || return 0
+  ufw status 2>/dev/null | grep -qi '^Status: active' || return 0
+
+  local ports
+  if [ "$TLS_ENABLED" = true ]; then
+    ports="80 443"          # Traefik terminates TLS; ACME needs 80
+  else
+    ports="8080"            # IP mode: the dashboard is published directly
+  fi
+
+  local p
+  for p in $ports; do
+    # `ufw route allow` is the rule ufw-docker honours. It is also harmless when
+    # ufw-docker is NOT installed (an unused forward rule), so this one branch is
+    # correct either way.
+    ufw route allow proto tcp from any to any port "$p" >/dev/null 2>&1 || true
+  done
+  ufw reload >/dev/null 2>&1 || true
+  echo -e "${GREEN}  Firewall: opened ${ports// /, } for Orbita${NC}"
+}
+open_firewall_ports
+
 echo -e "${GREEN}[7/7]${NC} Waiting for services to become healthy..."
 # Retry health check for up to 2 minutes
 ATTEMPTS=60

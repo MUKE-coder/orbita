@@ -156,11 +156,18 @@ func runInit(ctx context.Context, o *initOpts) error {
 		if err := hardenStep(client, o); err != nil {
 			return err
 		}
-		// Passwordless sudo for the deploy user (so re-runs / later ops work),
-		// and open the ports Orbita needs (harden's UFW only opened SSH).
+		// Passwordless sudo for the deploy user so re-runs and later ops work.
+		//
+		// The current vps-harden.sh already grants this, but older pinned copies
+		// don't, so keep it — it's idempotent.
+		//
+		// We deliberately do NOT open web ports here. Recent vps-harden installs
+		// ufw-docker, under which a plain `ufw allow 8080` does nothing for a
+		// container port (forwarded traffic needs `ufw route allow`). install.sh
+		// opens exactly the ports Orbita serves on — 80/443 in domain mode, 8080
+		// in IP mode — using the correct rule, so port-opening lives there.
 		post := fmt.Sprintf(
-			"echo '%s ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-orbita && chmod 440 /etc/sudoers.d/90-orbita; "+
-				"ufw allow 80/tcp >/dev/null 2>&1; ufw allow 443/tcp >/dev/null 2>&1; ufw allow 8080/tcp >/dev/null 2>&1; ufw reload >/dev/null 2>&1 || true",
+			"echo '%s ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-orbita && chmod 440 /etc/sudoers.d/90-orbita",
 			o.deployUser)
 		_ = client.Run(post, indent(), indent())
 	}
