@@ -83,13 +83,13 @@ orbita init --server root@203.0.113.10 \
 
 <Callout type="danger" title="init locks down root SSH">
 It creates the deploy user, installs the key, then disables root login and password auth —
-exactly what the manual [hardening step](/docs/install#step-1--harden-the-server) does. Make
+exactly what the manual [hardening step](/docs/quickstart#step-4--harden-the-server) does. Make
 sure you can log in as the deploy user before you rely on it.
 </Callout>
 
 ## `orbita login` — connect the CLI to an existing server
 
-Installed with the [one-line installer](/docs/install#step-2--install-orbita) or set Orbita up
+Installed with the [one-line installer](/docs/quickstart#step-5--install-orbita) or set Orbita up
 from the dashboard? You have a running server but the CLI doesn't know about it yet. `orbita
 login` fixes that — it authenticates, mints a deploy token, and registers the host:
 
@@ -155,6 +155,6 @@ orbita deploy --host prod
 
 ## Next
 
-- [Deploy an app](/docs/deploy)
+- [Deploy an app](/docs/quickstart#step-7--deploy-your-first-app)
 - [orbita.yaml spec](/docs/orbita-yaml)
 - [Troubleshooting](/docs/troubleshooting)
