@@ -21,7 +21,7 @@ locally so the whole cycle runs offline:
 cd testdata && git init grit-sample && (cd grit-sample && git add -A && git commit -m init)
 git daemon --base-path=$PWD --export-all --listen=0.0.0.0 --port=9418
 
-# 2. reconcile an api-mode grit.yaml (postgres addon, api domain, migrate: true)
+# 2. reconcile an api-mode orbita.yaml (postgres addon, api domain, migrate: true)
 POST /api/v1/orgs/:org/grit/reconcile   # creates project/env, provisions postgres, creates the
                                         # grit api app, injects env, attaches the domain
 
@@ -48,7 +48,7 @@ POST /api/v1/orgs/:org/grit/deploy  {"grit_app":"gritsample"}
 ## Notes
 
 - The real private app `github.com/MUKE-coder/stoka-app` (triple mode) can be deployed once a
-  GitHub token is stored (the `grit cloud github-auth` flow in Phase 4) so Orbita can clone it;
+  GitHub token is stored (the `orbita github-auth` flow in Phase 4) so Orbita can clone it;
   detection/plan were verified against its shape. A full triple build (Go + 3 Next.js
   pnpm-workspace images) is heavier but exercises the same code paths proven here.
 - Swarm ingress publishing is unreachable from the Windows host loopback (a Docker

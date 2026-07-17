@@ -46,8 +46,8 @@ hand-configuration. Two commands take you from a bare, unsecured server to a har
 a live, migrated, HTTPS app:
 
 ```bash
-grit cloud init      # interactive: secures the server + installs Orbita on a subdomain
-grit deploy          # build → migrate (advisory lock) → route → live
+orbita init      # interactive: secures the server + installs Orbita on a subdomain
+orbita deploy          # build → migrate (advisory lock) → route → live
 ```
 
 After the first deploy, every `git push` auto-deploys via webhook.
@@ -134,10 +134,10 @@ JWT · Resend · React 19 + Vite + Tailwind v4 + shadcn/ui · xterm.js.
 The whole point: a beginner shouldn't run a dozen commands. Install the `grit` CLI on your
 laptop, then:
 
-### Command 1 — `grit cloud init` (interactive)
+### Command 1 — `orbita init` (interactive)
 
 ```bash
-grit cloud init
+orbita init
 ```
 
 It **asks you a few questions** and does everything else:
@@ -165,23 +165,23 @@ It **asks you a few questions** and does everything else:
 Under the hood it: updates the server → **hardens it** (new sudo `deploy` user, generates an SSH
 key, disables root + password login, UFW, Fail2ban, prints a security score) → installs Docker +
 Orbita + Traefik on your **HTTPS subdomain** (or the server IP if DNS isn't pointed yet) →
-creates your admin login + an `orb_` deploy token → registers the host in `~/.grit/hosts.yaml`.
+creates your admin login + an `orb_` deploy token → registers the host in `~/.orbita/hosts.yaml`.
 
 When it finishes it prints your dashboard URL, login, and the deploy key path.
 
-> **Automate it** with flags + `--yes` (for CI/scripts): `grit cloud init --server root@IP
+> **Automate it** with flags + `--yes` (for CI/scripts): `orbita init --server root@IP
 > --domain orbita.example.com --acme-email you@example.com --admin-email admin@example.com --yes`.
 
-### Command 2 — `grit deploy`
+### Command 2 — `orbita deploy`
 
 From your Grit project directory (it has a `grit.json`):
 
 ```bash
-grit cloud github-auth      # once: store a GitHub token (repo + admin:repo_hook)
-grit deploy --host prod
+orbita github-auth      # once: store a GitHub token (repo + admin:repo_hook)
+orbita deploy --host prod
 ```
 
-If there's no `grit.yaml`, a first-run wizard creates one. Then `grit deploy` ensures the repo,
+If there's no `orbita.yaml`, a first-run wizard creates one. Then `orbita deploy` ensures the repo,
 reconciles infrastructure (org/project/env, **Postgres/Redis/MinIO** addons, env + secrets,
 domains), builds each service from the Dockerfiles Grit ships, runs migrations **under a Postgres
 advisory lock** (aborting if they fail), and cuts over:
@@ -195,10 +195,10 @@ advisory lock** (aborting if they fail), and cuts over:
   Auto-deploy is on: future `git push` to main redeploys via webhook.
 ```
 
-Supporting commands: `grit deploy --plan` (dry run), `grit logs -f`, `grit rollback`,
-`grit cloud status`, `grit cloud dashboard` (private SSH tunnel).
+Supporting commands: `orbita deploy --plan` (dry run), `orbita logs -f`, `orbita rollback`,
+`orbita status`, `orbita dashboard` (private SSH tunnel).
 
-### `grit.yaml` — the deploy manifest
+### `orbita.yaml` — the deploy manifest
 
 You write this once; everything else is inferred from `grit.json` + the repo.
 
@@ -304,7 +304,7 @@ cd /opt/orbita && docker compose logs traefik --tail 50 | grep -iE "acme|certifi
 </details>
 
 <details>
-<summary><strong><code>grit cloud init</code>: can't connect / hardening locked me out</strong></summary>
+<summary><strong><code>orbita init</code>: can't connect / hardening locked me out</strong></summary>
 
 - **Can't connect initially:** double-check the IP, and that you picked the right auth (root
   password vs. an SSH key you actually added at VPS creation).
@@ -324,7 +324,7 @@ Orbita removes the volume on delete. For an old orphan:
 <details>
 <summary><strong>Grit deploy: migrations failed, deploy aborted</strong></summary>
 
-**By design** — Orbita won't cut over to a schema-mismatched image. `grit logs -f --host prod` to
+**By design** — Orbita won't cut over to a schema-mismatched image. `orbita logs -f --host prod` to
 see the migrator; fix and redeploy. Common cause: the app's `go.sum` isn't committed.
 </details>
 
@@ -336,7 +336,7 @@ Full guide: **[docs/TLS-TROUBLESHOOTING.md](docs/TLS-TROUBLESHOOTING.md)** and t
 ## Documentation
 
 - **Website + full docs:** the [`website/`](website/) directory (VitePress landing page + docs).
-- **[Quickstart](docs/QUICKSTART.md)** · **[grit.yaml spec](docs/GRIT-YAML.md)** · **[grit cloud CLI](docs/GRIT-CLOUD-CLI.md)** · **[Grit Cloud API](docs/GRIT-API.md)**
+- **[Quickstart](docs/QUICKSTART.md)** · **[orbita.yaml spec](docs/GRIT-YAML.md)** · **[orbita CLI](docs/GRIT-CLOUD-CLI.md)** · **[Grit Cloud API](docs/GRIT-API.md)**
 
 ---
 
@@ -357,7 +357,7 @@ make test        # go test ./... -race
 | Path | What |
 |---|---|
 | `cmd/server` | control-plane entry point |
-| `cmd/grit` | the `grit` CLI (cloud + deploy) |
+| `cmd/orbita` | the `grit` CLI (cloud + deploy) |
 | `internal/{api,service,repository,orchestrator}` | layered core |
 | `internal/grit` | Grit-awareness (detect / build recipe / plan) |
 | `migrations/` | numbered SQL migrations (source of truth for schema) |

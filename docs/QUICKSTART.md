@@ -15,7 +15,7 @@ a database and dashboards — two commands, no hand-written Dockerfile, no click
 ## Command 1 — provision the host
 
 ```bash
-grit cloud init \
+orbita init \
   --server root@<vps-ip> \
   --name prod \
   --domain orbita.example.com \
@@ -25,11 +25,11 @@ grit cloud init \
 
 This hardens the server (security score printed), installs Docker + Orbita + Traefik with
 automatic Let's Encrypt, creates your super-admin + an `orb_` deploy token, and registers the
-host in `~/.grit/hosts.yaml`. When it finishes, `https://orbita.example.com` is live.
+host in `~/.orbita/hosts.yaml`. When it finishes, `https://orbita.example.com` is live.
 
 Verify:
 ```bash
-grit cloud status --host prod        # ● ok, version
+orbita status --host prod        # ● ok, version
 ```
 
 ## Command 2 — deploy your Grit app
@@ -37,12 +37,12 @@ grit cloud status --host prod        # ● ok, version
 From your Grit project directory (it has a `grit.json`):
 
 ```bash
-grit cloud github-auth               # once: store a GitHub token (repo + admin:repo_hook)
-grit deploy --host prod
+orbita github-auth               # once: store a GitHub token (repo + admin:repo_hook)
+orbita deploy --host prod
 ```
 
-If there's no `grit.yaml`, the first-run wizard creates one from the detected app shape. Then
-`grit deploy`:
+If there's no `orbita.yaml`, the first-run wizard creates one from the detected app shape. Then
+`orbita deploy`:
 1. ensures the GitHub repo exists and pushes your code,
 2. reconciles org/project/env, provisions Postgres/Redis/MinIO addons, injects env + secrets,
    sets domains,
@@ -62,10 +62,10 @@ If there's no `grit.yaml`, the first-run wizard creates one from the detected ap
 ## After that
 
 - **`git push`** to your branch auto-deploys (webhook registered on the app).
-- `grit deploy --plan` — preview changes without applying.
-- `grit logs -f --host prod` — stream logs.
-- `grit rollback --host prod` — revert to the previous deploy.
-- `grit cloud dashboard --host prod` — private SSH tunnel to the Orbita panel.
+- `orbita deploy --plan` — preview changes without applying.
+- `orbita logs -f --host prod` — stream logs.
+- `orbita rollback --host prod` — revert to the previous deploy.
+- `orbita dashboard --host prod` — private SSH tunnel to the Orbita panel.
 
 ## Try it locally first
 
@@ -73,7 +73,7 @@ No VPS handy? `testdata/grit-sample/` is a runnable `api`-mode Grit app. See
 `docs/PHASE4-E2E.md` for the fully local run (serve it over git, deploy through a local Orbita)
 that exercises the entire build → migrate → route → live cycle.
 
-## The `grit.yaml` contract
+## The `orbita.yaml` contract
 
 See `docs/GRIT-YAML.md` for the full spec, and
 `docs/grit-cloud/grit-knowledge/08-grit-yaml-and-detection.md` for the ground truth. Minimal:

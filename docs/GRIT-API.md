@@ -1,11 +1,11 @@
 # Grit Cloud API (Orbita Grit-awareness endpoints)
 
-These are the endpoints the `grit deploy` / `grit cloud` CLI calls. All are under
+These are the endpoints the `orbita deploy` / `orbita` CLI calls. All are under
 `/api/v1/orgs/:orgSlug/grit/...`, authenticate with a JWT **or** an `orb_` API key
 (`Authorization: Bearer <token>`), and are org-scoped by RBAC.
 
-The CLI reads `grit.yaml` (the deploy manifest) and the repo's `grit.json` (the architecture
-marker), plus the local `.env.production` referenced by `grit.yaml`'s `env.from`, and submits
+The CLI reads `orbita.yaml` (the deploy manifest) and the repo's `grit.json` (the architecture
+marker), plus the local `.env.production` referenced by `orbita.yaml`'s `env.from`, and submits
 them. Orbita derives the service map, build recipe, addons, routing, and migrations from those
 — the user never hand-configures a Dockerfile or the UI.
 
@@ -23,12 +23,12 @@ them. Orbita derives the service map, build recipe, addons, routing, and migrati
 ## POST `/grit/plan` — dry run (viewer+)
 
 Validates the manifest + grit.json and returns the full plan **without mutating anything**.
-Backs `grit deploy --plan`.
+Backs `orbita deploy --plan`.
 
 Request:
 ```json
 {
-  "grit_yaml": "<contents of grit.yaml>",
+  "grit_yaml": "<contents of orbita.yaml>",
   "grit_json": "<contents of grit.json>",
   "env_values": { "JWT_SECRET": "...", "RESEND_API_KEY": "..." },
   "git_connection_id": "<uuid, optional>"
@@ -108,7 +108,7 @@ are additive, so older code tolerates the newer schema (grit-knowledge/06). Opti
 Create an `orb_` key (`POST /me/api-keys`, scope `deploy`) and pass it as the bearer token.
 `deploy` scope permits reconcile/deploy/rollback; `read` permits plan/status only.
 
-## grit.yaml contract
+## orbita.yaml contract
 
 See `docs/grit-cloud/grit-knowledge/08-grit-yaml-and-detection.md`. Minimal example:
 ```yaml

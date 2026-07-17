@@ -21,7 +21,7 @@ Show: it's a blank box. Nothing installed.
 ## Beat 2 — Command 1: harden + install + register (2–3 min, fast-forward the build)
 
 ```bash
-grit cloud init \
+orbita init \
   --server root@<ip> \
   --name prod \
   --domain orbita.example.com \
@@ -31,11 +31,11 @@ grit cloud init \
 Narrate the steps as they stream:
 - **Hardening** — SSH lockdown, UFW, Fail2ban, auto-updates, **security score (aim ≥ 90)**.
 - **Install** — Docker + Swarm + Orbita + Traefik, Let's Encrypt cert issued.
-- **Bootstrap** — super-admin + `orb_` deploy token, host written to `~/.grit/hosts.yaml`.
+- **Bootstrap** — super-admin + `orb_` deploy token, host written to `~/.orbita/hosts.yaml`.
 
 Then:
 ```bash
-grit cloud status --host prod          # ● ok
+orbita status --host prod          # ● ok
 open https://orbita.example.com        # the dashboard is live with a valid cert
 ```
 
@@ -43,9 +43,9 @@ open https://orbita.example.com        # the dashboard is live with a valid cert
 
 ```bash
 cd stoka-app
-grit cloud github-auth                 # paste token (once)
-grit deploy --host prod --plan         # show the dry run: services, addons, domains, migrate
-grit deploy --host prod
+orbita github-auth                 # paste token (once)
+orbita deploy --host prod --plan         # show the dry run: services, addons, domains, migrate
+orbita deploy --host prod
 ```
 Narrate:
 - ensure repo + push,
@@ -69,9 +69,9 @@ open https://api.stoka.example.com/sentinel/ui # security
 # make a trivial change, commit, push
 git commit -am "tweak" && git push
 ```
-Show the webhook auto-deploy fire in `grit logs -f --host prod`. Then:
+Show the webhook auto-deploy fire in `orbita logs -f --host prod`. Then:
 ```bash
-grit rollback --host prod              # instant revert to the previous deploy
+orbita rollback --host prod              # instant revert to the previous deploy
 ```
 
 ## Close

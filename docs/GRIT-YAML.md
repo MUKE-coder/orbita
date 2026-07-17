@@ -1,6 +1,6 @@
-# The `grit.yaml` spec
+# The `orbita.yaml` spec
 
-`grit.yaml` is the single deploy manifest at your Grit project root. You write it once;
+`orbita.yaml` is the single deploy manifest at your Grit project root. You write it once;
 everything about *what services exist and how to build them* is derived from `grit.json` + the
 repository. Parsed and validated by `internal/grit` (shared by Orbita and the CLI).
 

@@ -18,23 +18,23 @@ Grit Cloud v1 shipped. Tag `grit-cloud-v1.0.0` (commit after `51404ac`). All 6 t
 **Definition of done — status.** On a fresh Ubuntu 24.04 VPS the two-command path is
 implemented and each piece verified; the full on-VPS run is a documented manual step (no VPS in
 this environment). What's proven automatically end-to-end: the entire
-detect→build→migrate→route→live cycle and the `grit deploy` CLI flow against a local Orbita +
-git-served Grit sample (`docs/PHASE4-E2E.md`), and the `grit cloud init` bootstrap client path
-against live Orbita. GHCR image publish + on-VPS `grit cloud init` need a real box / push access.
+detect→build→migrate→route→live cycle and the `orbita deploy` CLI flow against a local Orbita +
+git-served Grit sample (`docs/PHASE4-E2E.md`), and the `orbita init` bootstrap client path
+against live Orbita. GHCR image publish + on-VPS `orbita init` need a real box / push access.
 
 ---
 
-## 2026-07-15 — Session 5: Phase 4 (grit deploy) — COMPLETE
+## 2026-07-15 — Session 5: Phase 4 (orbita deploy) — COMPLETE
 
 The magic command works: local Grit code → live, migrated, HTTPS app in one line, verified
 end-to-end through the CLI. All 12 tasks done. Commit `f081c7f`; Phase 4 complete: `f081c7f`.
 
-- **`grit deploy`**: resolve host → load grit.yaml (or first-run wizard) → ensure org → ensure
+- **`orbita deploy`**: resolve host → load orbita.yaml (or first-run wizard) → ensure org → ensure
   GitHub repo + push (github-auth token) → reconcile via the Grit API → build → migrate under
   advisory lock → cut over → print live URL + Pulse/Sentinel links + webhook note.
-- **`grit deploy --plan`** (dry run), **`grit logs -f`** (WebSocket stream), **`grit rollback`**.
+- **`orbita deploy --plan`** (dry run), **`orbita logs -f`** (WebSocket stream), **`orbita rollback`**.
 - CLI internals: Grit API client (plan/reconcile/deploy/status/rollback + EnsureOrg), project
-  loader + dotenv + first-run wizard, GitHub ensure-repo+push. Optional `repo_url` in grit.yaml
+  loader + dotenv + first-run wizard, GitHub ensure-repo+push. Optional `repo_url` in orbita.yaml
   for self-hosted git.
 - **Verified E2E via the CLI**: `--plan` dry run; reconcile (idempotent) → build from git →
   migrate under advisory lock → live; `/api/health` db-ok + real `POST/GET /api/notes` round-trip
@@ -47,37 +47,37 @@ over TCP (app crash-looped). Fixed `RemoveDatabase` (removes the volume) + `Prov
 (clears an orphaned volume of its deterministic name before create).
 
 **Next:** Phase 5 — polish, docs, demo: sample repo (have `testdata/grit-sample`), error-UX
-pass, `grit cloud`/`grit deploy` reference + grit.yaml spec + quickstart, README Grit Cloud
+pass, `orbita`/`orbita deploy` reference + orbita.yaml spec + quickstart, README Grit Cloud
 section, tag `grit-cloud v1.0.0`.
 
 ---
 
-## 2026-07-15 — Session 4: Phase 3 (grit cloud init installer) — COMPLETE
+## 2026-07-15 — Session 4: Phase 3 (orbita init installer) — COMPLETE
 
-The `grit cloud` CLI now provisions a fresh VPS into a hardened Orbita host and registers it
+The `orbita` CLI now provisions a fresh VPS into a hardened Orbita host and registers it
 locally. All 9 tasks done. Commit `778bab0`; Phase 3 complete: `778bab0`.
 
-Built as a standalone Cobra binary at `cmd/grit/` inside the Orbita module so it reuses
+Built as a standalone Cobra binary at `cmd/orbita/` inside the Orbita module so it reuses
 `internal/grit` (Phase 2's schema/detection). `make build-cli` → `./grit`.
 
-- **`grit cloud init`** (SSH-driven): harden (vendored `vps-harden.sh --no-dokploy`, preserves
+- **`orbita init`** (SSH-driven): harden (vendored `vps-harden.sh --no-dokploy`, preserves
   the 0–100 score) → install Docker+Swarm+Orbita (reuses `install.sh`) → wait healthy →
   register the first user (super admin) + create an `orb_` deploy key → write
-  `~/.grit/hosts.yaml`. Required flags reported together; `--yes`/`--skip-harden`;
+  `~/.orbita/hosts.yaml`. Required flags reported together; `--yes`/`--skip-harden`;
   `GRIT_ADMIN_PASSWORD`.
-- **`grit cloud status/dashboard/hosts/github-auth`**: health+metrics summary; SSH `-L`
+- **`orbita status/dashboard/hosts/github-auth`**: health+metrics summary; SSH `-L`
   dashboard tunnel; multi-host registry (0600); GitHub token store for Phase 4.
 - Packages: `internal/orbita` (API client), `internal/sshx` (x/crypto/ssh exec+upload),
   `internal/hosts`, `internal/ui` (design-guide §9 colors/step timeline), `internal/assets`
   (embedded harden script).
 
 **Verified:** CLI builds + help + flag validation; hosts round-trip + SSH-target parsing (unit);
-`grit cloud status` against live Orbita with an `orb_` key; and **the exact init bootstrap path**
+`orbita status` against live Orbita with an `orb_` key; and **the exact init bootstrap path**
 (health → login → create `orb_` key → the key authenticates) live against Orbita. The
 SSH-driven harden/install run real remote commands — covered by the fresh-VPS manual steps in
 `docs/GRIT-CLOUD-CLI.md` (P3.9; needs a real box + DNS).
 
-**Next:** Phase 4 — `grit deploy`: read grit.yaml, ensure the GitHub repo, commit the build
+**Next:** Phase 4 — `orbita deploy`: read orbita.yaml, ensure the GitHub repo, commit the build
 recipe, push, then reconcile+deploy via the Orbita Grit API (Phase 2 endpoints), stream logs,
 `--plan`, rollback. The Phase-2 reconcile/deploy engine + Phase-3 hosts/client/github-auth are
 the foundation.
@@ -93,7 +93,7 @@ Phase 2 complete: `e352d83`.
 **Ground truth first:** read all of `grit-knowledge/` and cross-checked against the real
 `stoka` app on disk — detection/build recipe match its `docker-compose.prod.yml` exactly.
 
-- **P2.1 detection/schema** (`internal/grit`): parse grit.yaml + grit.json; derive the service
+- **P2.1 detection/schema** (`internal/grit`): parse orbita.yaml + grit.json; derive the service
   map + build recipe from the architecture mode (single/api/double/triple, +docs); reject
   mobile; validate. `grit.json` + filesystem is the source of truth, not hand-written paths.
 - **P2.2 Grit source type**: `source_type=grit`; each deployable service is one application row
@@ -120,12 +120,12 @@ Phase 2 complete: `e352d83`.
   reused unchanged (no rewrite).
 - Migrator image is `golang:1.25-alpine` (covers Grit deps needing a newer toolchain than the
   1.24 the Dockerfiles pin).
-- Real private `stoka-app` deploy is token-gated (needs `grit cloud github-auth`, Phase 4);
+- Real private `stoka-app` deploy is token-gated (needs `orbita github-auth`, Phase 4);
   detection/plan verified against its shape. Swarm ingress unreachable from Windows host
   loopback → liveness verified in-container (what Traefik/health use).
 
-**Next:** Phase 3 — `grit cloud init` installer (Cobra subcommands, vps-harden, install Orbita,
-`orb_` token bootstrap, `~/.grit/hosts.yaml`).
+**Next:** Phase 3 — `orbita init` installer (Cobra subcommands, vps-harden, install Orbita,
+`orb_` token bootstrap, `~/.orbita/hosts.yaml`).
 
 ---
 
