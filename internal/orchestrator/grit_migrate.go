@@ -3,19 +3,24 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/orbita-sh/orbita/internal/docker"
 )
 
 // GritMigrateSpec configures the Grit migration hook.
 type GritMigrateSpec struct {
-	OrgSlug     string            // org network to attach to
-	RepoURL     string            // clone URL (may embed a token)
-	Branch      string            // branch to migrate from
-	APIContext  string            // API build context, e.g. "apps/api" ("" = repo root for single)
-	DatabaseURL string            // target DB connection string (reachable in-network)
-	Env         map[string]string // full production env for the migrator
+	OrgSlug         string            // org network to attach to
+	RepoURL         string            // clone URL (a token is embedded below if needed)
+	Branch          string            // branch to migrate from
+	APIContext      string            // API build context, e.g. "apps/api" ("" = repo root for single)
+	DatabaseURL     string            // target DB connection string (reachable in-network)
+	Env             map[string]string // full production env for the migrator
+	GitConnectionID string            // org git connection, for private-repo clone auth
+	OrgID           string            // owning org (uuid) — needed to resolve the token
 }
 
 // RunGritMigrations runs a Grit app's migrator once, before cutover, holding a
@@ -35,13 +40,30 @@ func (o *Orchestrator) RunGritMigrations(ctx context.Context, spec GritMigrateSp
 		apiDir = "/src/" + strings.TrimLeft(spec.APIContext, "/")
 	}
 
+	// Embed the git token so the migrator can clone a PRIVATE repo, exactly as
+	// buildFromGit does for the image build. Without this the clone on the next
+	// line fails with "could not read Username for 'https://github.com'" (git
+	// exit 128) and the deploy aborts before cutover — the build would have
+	// succeeded but migrations could not fetch the same source.
+	cloneURL := spec.RepoURL
+	if o.tokenFetcher != nil && spec.GitConnectionID != "" && spec.OrgID != "" {
+		if _, token, _, err := o.tokenFetcher.ResolveGitToken(ctx, spec.GitConnectionID, spec.OrgID); err != nil {
+			log.Warn().Err(err).Msg("RunGritMigrations: token resolve failed; attempting public clone")
+		} else if token != "" {
+			if parsed, perr := url.Parse(cloneURL); perr == nil {
+				parsed.User = url.UserPassword("x-access-token", token)
+				cloneURL = parsed.String()
+			}
+		}
+	}
+
 	// One psql session holds the advisory lock while `\!` runs the migrator, so
 	// exactly one migrate runs at a time per DB. A sentinel file surfaces the
 	// migrator's exit code (psql's \! status isn't propagated reliably).
 	script := strings.Join([]string{
 		"set -e",
 		"apk add --no-cache git postgresql-client >/dev/null 2>&1",
-		fmt.Sprintf("git clone --depth 1 --branch %q %q /src >/dev/null 2>&1", spec.Branch, spec.RepoURL),
+		fmt.Sprintf("git clone --depth 1 --branch %q %q /src >/dev/null 2>&1", spec.Branch, cloneURL),
 		fmt.Sprintf("cd %q", apiDir),
 		"rm -f /tmp/migrate.ok",
 		// -q quiet; hold session-level advisory lock, then run migrator via \!.

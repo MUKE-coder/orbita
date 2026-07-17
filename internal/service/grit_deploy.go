@@ -127,12 +127,14 @@ func (s *GritService) runMigrations(ctx context.Context, orgID uuid.UUID, orgSlu
 	}
 
 	logs, err := s.orch.RunGritMigrations(ctx, orchestrator.GritMigrateSpec{
-		OrgSlug:     orgSlug,
-		RepoURL:     repoURL,
-		Branch:      src.Branch,
-		APIContext:  src.BuildContext,
-		DatabaseURL: dbURL,
-		Env:         env,
+		OrgSlug:         orgSlug,
+		RepoURL:         repoURL,
+		Branch:          src.Branch,
+		APIContext:      src.BuildContext,
+		DatabaseURL:     dbURL,
+		Env:             env,
+		GitConnectionID: src.GitConnectionID,
+		OrgID:           orgID.String(),
 	})
 	if err != nil {
 		return err
