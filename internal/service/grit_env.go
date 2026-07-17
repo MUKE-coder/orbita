@@ -41,6 +41,22 @@ func ComputeGritAPIEnv(m *grit.Manifest, userEnv, addonEnv map[string]string) ma
 
 	// 4. Platform overrides (highest precedence).
 	env["APP_ENV"] = "production"
+
+	// Auth secrets a Grit app requires to boot. grit-knowledge/05 lists these as
+	// REQUIRED, and the user "never pastes secrets" — Orbita generates a strong
+	// per-environment JWT_SECRET, the same way it generates dashboard passwords.
+	// Without this the API crashes immediately with "JWT_SECRET is required" and
+	// the Swarm service never converges. Only generated when absent, so a value
+	// supplied via env.from (or a prior deploy) is preserved across redeploys.
+	if env["JWT_SECRET"] == "" {
+		env["JWT_SECRET"] = randomPassword(32) // 64 hex chars
+	}
+	if env["JWT_ACCESS_EXPIRY"] == "" {
+		env["JWT_ACCESS_EXPIRY"] = "15m"
+	}
+	if env["JWT_REFRESH_EXPIRY"] == "" {
+		env["JWT_REFRESH_EXPIRY"] = "168h"
+	}
 	// Marker so the deploy engine knows whether to run the migration hook.
 	if m.MigrateEnabled() {
 		env["ORBITA_GRIT_MIGRATE"] = "true"
