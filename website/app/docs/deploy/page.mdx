@@ -18,24 +18,24 @@ hand-written Dockerfile, no touching the dashboard.
 
 ## One-time setup
 
-```bash
+```bash title="Local terminal (your PC)"
 grit cloud github-auth      # store a GitHub token (repo + admin:repo_hook scope)
 ```
 
 ## Deploy
 
-```bash
+```bash title="Local terminal (your PC)"
 cd my-grit-app
 grit deploy --host prod
 ```
 
 Preview first with a dry run:
 
-```bash
+```bash title="Local terminal (your PC)"
 grit deploy --plan --host prod
 ```
 
-```
+```text title="Output"
 ▸ Plan (dry run — nothing will be changed)
   App:       rental
   Mode:      triple
@@ -52,7 +52,7 @@ grit deploy --plan --host prod
 You write this once; everything else is inferred from `grit.json` + the repo. See the full
 [grit.yaml spec](/docs/grit-yaml).
 
-```yaml
+```yaml title="grit.yaml"
 app: rental
 repo: MUKE-coder/rental
 branch: main
@@ -85,7 +85,7 @@ resolve modules. Commit `go.sum` (real Grit apps ship it).
 
 ## After deploy
 
-```bash
+```bash title="Local terminal (your PC)"
 grit logs -f --host prod          # stream logs (WebSocket)
 grit rollback --host prod         # revert to the previous deploy
 grit cloud status --host prod     # health + platform metrics
@@ -100,7 +100,7 @@ Orbita also deploys any Docker image or Git repo through the dashboard:
 <Tabs labels={["Docker image", "Git repository"]}>
 <TabItem>
 
-```text
+```text title="Orbita dashboard"
 Apps → Create App → Source: Docker Image
   Image: nginx:alpine   Port: 80   → Deploy
 ```
@@ -108,7 +108,7 @@ Apps → Create App → Source: Docker Image
 </TabItem>
 <TabItem>
 
-```text
+```text title="Orbita dashboard"
 Settings → Git Connections → add a token (repo + admin:repo_hook)
 Apps → Create App → Source: Git Repository
   Pick repo + branch → build via Dockerfile or Nixpacks → Deploy

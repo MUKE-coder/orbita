@@ -20,7 +20,7 @@ you add the domain later.)
 
 Just run it — the wizard asks a few questions and does everything else:
 
-```bash
+```bash title="Local terminal (your PC)"
 grit cloud init
 ```
 
@@ -54,7 +54,7 @@ For CI/scripts, pass flags + `--yes` to skip the wizard:
 `grit cloud init --server root@IP --domain orbita.example.com --acme-email you@example.com --admin-email admin@example.com --yes`
 </Callout>
 
-```bash
+```bash title="Local terminal (your PC)"
 grit cloud status --host prod        # ● ok, version
 ```
 
@@ -62,7 +62,7 @@ grit cloud status --host prod        # ● ok, version
 
 From your Grit project directory (it has a `grit.json`):
 
-```bash
+```bash title="Local terminal (your PC)"
 grit cloud github-auth               # once: store a GitHub token (repo + admin:repo_hook)
 grit deploy --host prod
 ```
@@ -85,7 +85,7 @@ reconciles infrastructure, builds, migrates under an advisory lock, and cuts ove
 Every `git push` to your branch auto-deploys via webhook. The CLI is now optional.
 </Callout>
 
-```bash
+```bash title="Local terminal (your PC)"
 grit deploy --plan --host prod    # preview changes without applying
 grit logs -f --host prod          # stream logs
 grit rollback --host prod         # revert to the previous deploy

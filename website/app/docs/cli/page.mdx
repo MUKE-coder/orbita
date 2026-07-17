@@ -11,7 +11,7 @@ Provision a fresh Ubuntu VPS: secure it, install Docker + Orbita + Traefik, crea
 login and an `orb_` deploy token, and register the host. **Interactive by default** — run it with
 no flags and answer the wizard.
 
-```bash
+```bash title="Local terminal (your PC)"
 grit cloud init
 ```
 
@@ -49,7 +49,7 @@ anything you pass is used as the default.
 
 Deploy the Grit app in the current directory.
 
-```bash
+```bash title="Local terminal (your PC)"
 grit deploy [--host prod] [--plan] [--no-migrate] [--branch main]
 ```
 

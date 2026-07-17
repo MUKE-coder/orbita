@@ -58,19 +58,30 @@ body {
 
 /* --- Docs prose --------------------------------------------------------- */
 .prose-orbita {
-  @apply text-[15px] leading-7 text-textPrimary;
+  @apply text-[15px] leading-[1.75] text-textPrimary;
 }
 .prose-orbita h1 {
-  @apply text-3xl font-semibold tracking-tight mt-2 mb-4 text-white;
+  @apply text-[2rem] font-bold tracking-tight mt-1 mb-5 leading-tight text-white;
 }
+/* Generous breathing room above each section, with a hairline rule so long
+   pages read as distinct chunks rather than one wall of text. */
 .prose-orbita h2 {
-  @apply text-xl font-semibold tracking-tight mt-10 mb-3 pt-2 scroll-mt-24 text-white;
+  @apply text-xl font-semibold tracking-tight mt-14 mb-4 pt-8 scroll-mt-24 text-white;
+  border-top: 1px solid rgba(42, 44, 47, 0.6);
+}
+/* The first h2 sits right under the intro — no rule needed there. */
+.prose-orbita > h2:first-of-type {
+  @apply mt-10 pt-0;
+  border-top: 0;
 }
 .prose-orbita h3 {
-  @apply text-base font-semibold mt-8 mb-2 scroll-mt-24 text-textPrimary;
+  @apply text-[15px] font-semibold mt-9 mb-2 scroll-mt-24 text-textPrimary;
 }
 .prose-orbita p {
   @apply my-4 text-textSecondary;
+}
+.prose-orbita h1 + p {
+  @apply text-base text-textSecondary;
 }
 .prose-orbita a {
   @apply text-primary underline-offset-2 hover:underline;
@@ -99,16 +110,23 @@ body {
   color: #f6836f;
 }
 
-/* Code blocks (rehype-pretty-code) */
+/* Code blocks (rehype-pretty-code).
+   The <figure> card (see CodeFigure) owns the border, surface, and rounding —
+   the <pre> is only the scroll container. */
 .prose-orbita pre {
-  @apply my-5 overflow-x-auto rounded-xl border border-hair/60 bg-surfaceElevated p-4 text-[13.5px] leading-6;
+  @apply m-0 overflow-x-auto bg-transparent px-4 py-3.5 text-[13.5px] leading-[1.7];
 }
 .prose-orbita pre code {
   @apply font-mono;
-  counter-reset: line;
+  display: grid; /* one row per line, so long lines scroll instead of wrapping */
 }
-[data-rehype-pretty-code-figure] {
-  @apply my-5;
+.prose-orbita pre code span[data-line] {
+  @apply px-0;
+}
+/* Code inside a figure must not inherit the inline-code pill styling. */
+.prose-orbita pre code::before,
+.prose-orbita pre code::after {
+  content: none;
 }
 
 /* Tables: dense, hairline, tabular numbers */

@@ -19,15 +19,25 @@ certificate until it does.
 
 ## 1. Connect and update
 
-```bash
+First, from your own machine, open a session on the server:
+
+```bash title="Local terminal (your PC)"
 ssh root@YOUR_SERVER_IP
+```
+
+<Callout type="note" title="Everything below runs on the server">
+From here to the end of this page, every command runs **inside that SSH session**
+— look for the amber “Server terminal” label on each block.
+</Callout>
+
+```bash title="Server terminal (SSH)"
 apt update && apt upgrade -y
 apt install -y curl git ufw
 ```
 
 ## 2. Firewall
 
-```bash
+```bash title="Server terminal (SSH)"
 ufw allow OpenSSH
 ufw allow 80/tcp
 ufw allow 443/tcp
@@ -36,7 +46,7 @@ ufw enable
 
 ## 3. Docker + Swarm
 
-```bash
+```bash title="Server terminal (SSH)"
 curl -fsSL https://get.docker.com | sh
 docker --version          # 24+ expected
 docker swarm init         # required — Orbita runs workloads as Swarm services
@@ -47,7 +57,7 @@ docker swarm init         # required — Orbita runs workloads as Swarm services
 <Tabs labels={["One-line (recommended)", "Docker Compose", "Build from source"]}>
 <TabItem>
 
-```bash
+```bash title="Server terminal (SSH)"
 curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
   | sudo ORBITA_DOMAIN=orbita.example.com ORBITA_ACME_EMAIL=you@example.com bash -s -- --yes
 ```
@@ -55,7 +65,7 @@ curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
 </TabItem>
 <TabItem>
 
-```bash
+```bash title="Server terminal (SSH)"
 mkdir -p /opt/orbita && cd /opt/orbita
 curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/docker/docker-compose.prod.yml -o docker-compose.yml
 cat > .env <<EOF
@@ -73,7 +83,7 @@ docker compose up -d
 </TabItem>
 <TabItem>
 
-```bash
+```bash title="Server terminal (SSH)"
 git clone https://github.com/MUKE-coder/orbita.git && cd orbita
 docker build -t orbita:local .
 ORBITA_IMAGE=orbita:local bash <(curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh)
@@ -92,7 +102,7 @@ weak or missing value silently weakens all tenant secrets. Orbita refuses to sta
 
 ## 5. Verify
 
-```bash
+```bash title="Server terminal (SSH)"
 curl -s http://localhost:8080/health          # {"status":"ok","version":"0.1.0"}
 cd /opt/orbita && docker compose ps            # orbita, postgres, redis, traefik → Up
 curl -I https://orbita.example.com             # 200 from the outside world
@@ -106,7 +116,7 @@ create your first organization.
 <Tabs labels={["Update", "Back up", "Stop", "Full reset"]}>
 <TabItem>
 
-```bash
+```bash title="Server terminal (SSH)"
 cd /opt/orbita
 docker compose pull orbita
 docker compose up -d orbita     # migrations run automatically on startup
@@ -115,21 +125,21 @@ docker compose up -d orbita     # migrations run automatically on startup
 </TabItem>
 <TabItem>
 
-```bash
+```bash title="Server terminal (SSH)"
 docker exec orbita-postgres pg_dump -U orbita orbita | gzip > orbita-$(date +%F).sql.gz
 ```
 
 </TabItem>
 <TabItem>
 
-```bash
+```bash title="Server terminal (SSH)"
 cd /opt/orbita && docker compose down     # keeps data
 ```
 
 </TabItem>
 <TabItem>
 
-```bash
+```bash title="Server terminal (SSH)"
 curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh | sudo bash -s -- --force-reset
 ```
 

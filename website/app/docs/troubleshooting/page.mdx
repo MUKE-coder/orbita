@@ -8,8 +8,15 @@ The failures you're most likely to hit, and the exact fix.
 
 Traefik can't get a Let's Encrypt cert until DNS resolves **and** ports 80/443 are open.
 
-```bash
+Check DNS from your own machine:
+
+```bash title="Local terminal (your PC)"
 dig orbita.example.com +short        # must print your server IP
+```
+
+Then check the firewall and Traefik on the box itself:
+
+```bash title="Server terminal (SSH)"
 sudo ufw status                       # 80/tcp and 443/tcp must be ALLOW
 docker logs traefik 2>&1 | grep -i acme
 ```
@@ -21,7 +28,7 @@ don't loop restarts, or you'll hit the rate limit and wait an hour.
 
 ## `grit cloud init` can't connect
 
-```
+```text title="Output"
 ✖ Server is not reachable on 22
 ```
 
@@ -34,13 +41,13 @@ don't loop restarts, or you'll hit the rate limit and wait an hour.
 Hardening resets UFW. Orbita's init re-opens 80/443/8080 after — if you ran a **custom** harden
 step, re-open them:
 
-```bash
+```bash title="Server terminal (SSH)"
 sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw allow 8080/tcp
 ```
 
 ## Deploy fails at the migration step
 
-```
+```text title="Output"
 ✖ migrate: exit code 1
 ```
 
@@ -57,7 +64,7 @@ over to a schema-mismatched image.
 
 ## Orbita container won't start
 
-```bash
+```bash title="Server terminal (SSH)"
 cd /opt/orbita && docker compose logs orbita | tail -50
 ```
 
@@ -70,7 +77,7 @@ cd /opt/orbita && docker compose logs orbita | tail -50
 
 The app is up; the proxy can't route.
 
-```bash
+```bash title="Server terminal (SSH)"
 curl -s http://localhost:8080/health     # ok → Orbita is fine
 docker logs traefik | tail -30            # look for router/service errors
 ```
@@ -90,7 +97,7 @@ not yet propagated.
 This wipes containers, volumes, and the database.
 </Callout>
 
-```bash
+```bash title="Server terminal (SSH)"
 curl -sSL https://raw.githubusercontent.com/MUKE-coder/orbita/main/install.sh \
   | sudo bash -s -- --force-reset
 ```

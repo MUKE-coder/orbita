@@ -26,7 +26,10 @@ export function Tabs({ labels, children }: { labels: string[]; children: React.R
           </button>
         ))}
       </div>
-      <div className="[&_pre]:my-0 [&_pre]:rounded-none [&_pre]:border-0">{panels[active]}</div>
+      {/* The code figure brings its own card chrome — flatten it inside a tab. */}
+      <div className="[&_figure]:my-0 [&_figure]:rounded-none [&_figure]:border-0 [&_figure]:bg-transparent">
+        {panels[active]}
+      </div>
     </div>
   )
 }

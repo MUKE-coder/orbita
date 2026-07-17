@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { motion, Variants } from 'framer-motion'
 import {
@@ -16,6 +17,8 @@ import {
   Server,
   Terminal,
   Database,
+  Check,
+  Copy,
 } from 'lucide-react'
 import { CommandCard } from '@/components/CommandCard'
 import { Section, SectionHeader } from '@/components/Section'
@@ -93,13 +96,38 @@ const features = [
 
 // Small glass code panel used in the "two commands" section.
 function CodePanel({ label, file, children }: { label: string; file?: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLPreElement>(null)
+  const [copied, setCopied] = useState(false)
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(ref.current?.textContent ?? '')
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      /* clipboard can be blocked — the snippet stays selectable */
+    }
+  }
+
   return (
     <div className="glass glass-bevel">
       <div className="flex items-center justify-between gap-2 border-b border-hair/40 px-4 py-2 text-[11px] uppercase tracking-wide text-textSecondary">
         <span>{label}</span>
-        {file ? <span className="truncate text-textMuted">{file}</span> : null}
+        <div className="flex items-center gap-2">
+          {file ? <span className="truncate text-textMuted">{file}</span> : null}
+          <button
+            type="button"
+            onClick={copy}
+            aria-label={copied ? 'Copied' : 'Copy code'}
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-textSecondary ring-1 ring-inset ring-transparent transition-colors hover:bg-white/[0.06] hover:text-textPrimary hover:ring-hair/60"
+          >
+            {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+          </button>
+        </div>
       </div>
-      <pre className="overflow-x-auto px-4 py-3.5 font-mono text-[13px] leading-6">{children}</pre>
+      <pre ref={ref} className="overflow-x-auto px-4 py-3.5 font-mono text-[13px] leading-6">
+        {children}
+      </pre>
     </div>
   )
 }
