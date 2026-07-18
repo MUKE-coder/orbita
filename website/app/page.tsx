@@ -23,7 +23,7 @@ import {
 import { CommandCard } from '@/components/CommandCard'
 import { Section, SectionHeader } from '@/components/Section'
 import { GithubMark } from '@/components/icons/GithubMark'
-import { ArchitectureBoard } from '@/components/ArchitectureBoard'
+import { ArchitectureDiagram } from '@/components/ArchitectureDiagram'
 import { Comparison } from '@/components/Comparison'
 
 const container: Variants = {
@@ -275,8 +275,8 @@ export default function Home() {
             spacing="tight"
           />
 
-          <div className="glass glass-bevel mx-auto max-w-4xl p-2 sm:p-4">
-            <ArchitectureBoard />
+          <div className="mx-auto max-w-4xl">
+            <ArchitectureDiagram />
           </div>
 
           <div className="mt-8 grid gap-6 sm:grid-cols-3">
@@ -308,6 +308,74 @@ export default function Home() {
                 <p className="text-xs leading-relaxed text-textSecondary">{body}</p>
               </div>
             ))}
+          </div>
+        </Section>
+
+        {/* How it works */}
+        <Section id="how-it-works">
+          <SectionHeader
+            title="How it works"
+            subtitle="From a bare VPS to a live app on HTTPS in five steps — the same flow whether you use the dashboard or the CLI."
+            spacing="tight"
+          />
+
+          <ol className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                icon: ShieldCheck,
+                title: 'Harden + install',
+                body: 'One command provisions a deploy user, SSH keys, UFW, and Fail2ban, then installs Orbita on your HTTPS subdomain.',
+              },
+              {
+                icon: GitBranch,
+                title: 'Connect your source',
+                body: 'Point Orbita at a Git repo (GitHub token) or a Docker image. Grit apps are detected automatically from grit.json.',
+              },
+              {
+                icon: Boxes,
+                title: 'Orbita builds it',
+                body: 'Nixpacks auto-detects the language — no Dockerfile needed — or Orbita builds the Dockerfile you already ship. The image lands on Docker Swarm.',
+              },
+              {
+                icon: Globe,
+                title: 'Traefik routes + TLS',
+                body: 'Add a domain and Traefik fetches a Let’s Encrypt certificate on first request. Your app is live over HTTPS.',
+              },
+              {
+                icon: Zap,
+                title: 'Push to deploy',
+                body: 'Every git push redeploys via webhook with a health-checked, zero-downtime rollout. A bad deploy rolls back to the previous image instantly.',
+              },
+              {
+                icon: Activity,
+                title: 'Watch it run',
+                body: 'Live logs, CPU/memory metrics, and an in-browser terminal per app — each org fully isolated on its own network and quota.',
+              },
+            ].map(({ icon: Icon, title, body }, i) => (
+              <li key={title} className="glass glass-bevel relative flex flex-col gap-3 p-5">
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex size-9 items-center justify-center rounded-lg border border-primary/20 bg-gradient-to-b from-primary/15 to-primary/5 text-primary">
+                    <Icon size={18} />
+                  </div>
+                  <span className="text-xs font-semibold text-textMuted">
+                    Step {String(i + 1).padStart(2, '0')}
+                  </span>
+                </div>
+                <h3 className="text-sm font-semibold text-textPrimary">{title}</h3>
+                <p className="text-xs leading-relaxed text-textSecondary">{body}</p>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link href="/docs/quickstart" className={ctaClass}>
+              <span aria-hidden className="pointer-events-none absolute inset-x-5 top-px h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+              Start the walkthrough
+              <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+            </Link>
+            <Link href="/docs/architecture" className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-textPrimary transition-colors hover:text-primary">
+              See the architecture
+            </Link>
           </div>
         </Section>
 

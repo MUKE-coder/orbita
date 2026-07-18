@@ -1,3 +1,5 @@
+import { ArchitectureDiagram } from '@/components/ArchitectureDiagram'
+
 export const metadata = { title: 'Architecture' }
 
 # Architecture
@@ -7,20 +9,11 @@ Traefik on the host.
 
 ## The big picture
 
-```
-   grit CLI  ──HTTPS/orb_──▶  Orbita binary (~30 MB)
-   browser   ──HTTPS──────▶    Gin router → Handlers → Services
-                                    │            │
-                              Middleware   Orchestrator (Docker SDK)
-                              (auth/RBAC)       │        │
-                                    │      Traefik writer  cgroup mgr
-                              Repositories (GORM, org-scoped)
-                              Embedded React SPA (//go:embed)
-                                    │           │           │
-                              PostgreSQL      Redis    Docker Engine + Swarm
-                              (metadata)   (cache/RL)        │
-                                                          Traefik (TLS + proxy)
-```
+Everything below runs on a single VPS. Traffic enters through Traefik, which terminates TLS and
+routes to Orbita — one Go binary that runs the API, serves the dashboard, and orchestrates every
+tenant app on Docker Swarm.
+
+<ArchitectureDiagram />
 
 ## Layered by design
 
