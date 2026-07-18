@@ -78,18 +78,19 @@ Builds your code into an image on every push.
    webhooks.
 2. Back in **Create App**, choose **Source: Git Repository**, pick the connection, repo, and
    branch.
-3. Set the **Dockerfile path** (default `Dockerfile`) and a **build context** if your Dockerfile
-   isn't at the repo root.
+3. Choose a **build method**:
+   - **Nixpacks** — Orbita auto-detects the language (Laravel, Django, Rails, Node, Go, static
+     sites and more) and builds it with **no Dockerfile**.
+   - **Dockerfile** — Orbita builds the Dockerfile in your repo. Set the **Dockerfile path**
+     (default `Dockerfile`) and a **build context** if it isn't at the repo root.
 
-Orbita builds the image with Docker's BuildKit and deploys it. Every future `git push` to that
-branch redeploys automatically.
+Orbita builds the image and deploys it. Every future `git push` to that branch redeploys
+automatically.
 
-<Callout type="warning" title="Git builds need a Dockerfile — today">
-The Git source builds from a **Dockerfile** in your repo. If your project doesn't have one, add a
-small Dockerfile for now. **Docker Compose as an app source, and Nixpacks auto-build (no
-Dockerfile), are on the roadmap but not available yet** — don't rely on them from the dashboard.
-For a framework that already ships Dockerfiles, see [Deploying Grit apps](/docs/grit-apps), which
-is fully zero-config.
+<Callout type="note" title="Docker Compose is still on the way">
+Deploying a multi-service **Docker Compose** stack from the dashboard is planned but not
+available yet. For a single service, use **Nixpacks** (no Dockerfile) or a **Dockerfile**. For a
+framework with zero config, see [Deploying Grit apps](/docs/grit-apps).
 </Callout>
 
 ## 5. Configure the app
@@ -150,11 +151,11 @@ accept — have them register while it's briefly open, or keep sign-up open for 
 
 To set expectations honestly:
 
-- **Docker Compose** as an app source — planned, not yet available.
-- **Nixpacks** (auto-build a repo with no Dockerfile) — planned, not yet available.
+- **Docker Compose** as an app source (multi-service stacks) — planned, not yet available.
 
-Today: **Docker images** and **Git repos with a Dockerfile** both work end to end, and **Grit
-apps** deploy zero-config. For anything else, add a Dockerfile.
+Today, all of these work end to end: **Docker images**, **Git repos with Nixpacks** (no
+Dockerfile), **Git repos with a Dockerfile**, and **Grit apps** (zero-config). For a multi-service
+stack, deploy each service as its own app for now.
 
 ## Next
 

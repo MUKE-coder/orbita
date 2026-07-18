@@ -53,7 +53,7 @@ const highlights = [
   {
     icon: Layers,
     title: 'Any app, no Dockerfile',
-    body: 'Dockerfile, Compose, a raw image, or Nixpacks for Laravel/Django/Rails/Node/static. Grit apps get a zero-config fast path on top.',
+    body: 'Nixpacks builds Laravel/Django/Rails/Node/static with no Dockerfile — or bring your own Dockerfile or a raw image. Grit apps get a zero-config fast path on top.',
   },
   {
     icon: GitBranch,

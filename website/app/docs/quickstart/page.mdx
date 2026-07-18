@@ -272,24 +272,28 @@ Create App → Source: Docker Image
 → Create
 ```
 
-### A Git repository (with a Dockerfile)
+### A Git repository
 
 Connect GitHub once under **Settings → Git Connections** (a token with `repo` +
-`admin:repo_hook`), then:
+`admin:repo_hook`), then create the app and choose a **build method**:
 
 ```text title="Orbita dashboard"
 Create App → Source: Git Repository
   Pick the connection, repo + branch
-  Dockerfile path: Dockerfile
+  Build method:
+    • Dockerfile — builds the Dockerfile in your repo
+    • Nixpacks   — auto-detects the language, no Dockerfile needed
 → Create
 ```
 
-Orbita builds the image and registers a webhook, so every future `git push` redeploys.
+**Nixpacks** builds Laravel, Django, Rails, Node, Go, static sites and more with **no
+Dockerfile** — Orbita detects the language for you. **Dockerfile** builds the one in your repo.
+Either way Orbita registers a webhook, so every future `git push` redeploys.
 
-<Callout type="note" title="Your repo needs a Dockerfile — for now">
-Git builds from a **Dockerfile**. Docker Compose as a source, and Nixpacks (auto-build with no
-Dockerfile), are planned but **not available yet** — add a small Dockerfile in the meantime. Grit
-apps are the exception: they deploy [zero-config](/docs/grit-apps).
+<Callout type="note" title="Docker Compose is still on the way">
+Deploying a multi-service **Docker Compose** stack from the dashboard is planned but not
+available yet. For a single service, use Nixpacks or a Dockerfile. Grit apps deploy
+[zero-config](/docs/grit-apps).
 </Callout>
 
 ### Then add a domain, env vars, and a database

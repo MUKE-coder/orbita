@@ -55,6 +55,7 @@ const gitSchema = z.object({
   git_connection_id: z.string().min(1, "Select a git connection"),
   repo_full_name: z.string().min(1, "Select a repository"),
   branch: z.string().min(1, "Select a branch"),
+  builder: z.enum(["dockerfile", "nixpacks"]),
   dockerfile_path: z.string(),
   build_context: z.string(),
 });
@@ -391,6 +392,7 @@ function GitSourceForm({
       replicas: 1,
       memory_mb: 0,
       cpu_shares: 0,
+      builder: "dockerfile",
       dockerfile_path: "Dockerfile",
       build_context: "",
       environment_id: lockedEnvId || "",
@@ -527,19 +529,37 @@ function GitSourceForm({
           {errors.branch && <Err msg={errors.branch.message} />}
         </div>
 
+        <div className="space-y-1.5">
+          <Label htmlFor="builder">Build method</Label>
+          <select
+            id="builder"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            {...register("builder")}
+          >
+            <option value="dockerfile">Dockerfile — build the Dockerfile in your repo</option>
+            <option value="nixpacks">Nixpacks — auto-detect the language, no Dockerfile</option>
+          </select>
+          <p className="text-[11px] text-muted-foreground">
+            Nixpacks detects Node, Python, Go, Ruby, PHP, static sites and more — no Dockerfile
+            needed.
+          </p>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="dockerfile_path">Dockerfile path</Label>
-            <Input
-              id="dockerfile_path"
-              placeholder="Dockerfile"
-              className="font-mono"
-              {...register("dockerfile_path")}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Relative to repo root or build context.
-            </p>
-          </div>
+          {watch("builder") !== "nixpacks" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="dockerfile_path">Dockerfile path</Label>
+              <Input
+                id="dockerfile_path"
+                placeholder="Dockerfile"
+                className="font-mono"
+                {...register("dockerfile_path")}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Relative to repo root or build context.
+              </p>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="build_context">Build context</Label>
             <Input
