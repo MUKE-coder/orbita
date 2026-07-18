@@ -281,6 +281,31 @@ func (c *Client) ScaleService(ctx context.Context, serviceID string, replicas in
 	return nil
 }
 
+// ForceUpdateService restarts a service's tasks without changing its spec, by
+// bumping ForceUpdate (the SDK equivalent of `docker service update --force`).
+//
+// This is how you restart a service you don't own the replica count of: scaling
+// to 0 and back would lose whatever count it was actually running, which
+// matters for Compose stacks where each service sets its own `deploy.replicas`.
+func (c *Client) ForceUpdateService(ctx context.Context, serviceID string) error {
+	if c.cli == nil {
+		return fmt.Errorf("ForceUpdateService: client not initialized")
+	}
+
+	current, _, err := c.cli.ServiceInspectWithRaw(ctx, serviceID, dockertypes.ServiceInspectOptions{})
+	if err != nil {
+		return fmt.Errorf("ForceUpdateService: inspect: %w", err)
+	}
+
+	current.Spec.TaskTemplate.ForceUpdate++
+
+	if _, err := c.cli.ServiceUpdate(ctx, serviceID, current.Version, current.Spec, dockertypes.ServiceUpdateOptions{}); err != nil {
+		return fmt.Errorf("ForceUpdateService: %w", err)
+	}
+	log.Info().Str("service_id", serviceID).Msg("Force-restarted service")
+	return nil
+}
+
 // GetServiceLogs streams logs from all tasks of a service. If tail < 0, returns
 // all logs; otherwise last N lines. Caller must Close() the reader.
 func (c *Client) GetServiceLogs(ctx context.Context, serviceID string, tail int) (io.ReadCloser, error) {

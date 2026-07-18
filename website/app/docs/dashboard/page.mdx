@@ -97,6 +97,11 @@ Orbita deploys the file to Docker Swarm as a stack. The web service gets your do
 the rest stay private to the stack and reach each other by compose service name, exactly as they
 do locally. Stopping, starting, or deleting the app applies to every service in the stack.
 
+Your **Environment** variables are injected into *every* service in the stack, so a worker gets
+`DATABASE_URL` just like the web tier does. A service's own `environment:` block still wins if it
+sets the same key. The **port** you set is the port your web service listens on — it's required
+for Compose, since that's what domains route to.
+
 <Callout type="note" title="Compose limits worth knowing">
 - `build:` works only when the compose file comes from a **Git repo** — pasted YAML has no source
   tree to build from. Pasted files must reference prebuilt images.
@@ -104,6 +109,10 @@ do locally. Stopping, starting, or deleting the app applies to every service in 
   to. Redeploy the previous commit instead.
 - Only the web service is routable. Give another service its own domain by splitting it into its
   own app.
+- The app's **memory/CPU limits apply to the web service**. Size other services with
+  `deploy.resources` in the compose file, which can set them per service.
+- Multi-line env values (a PEM key, for example) can't be passed to a Compose stack and are
+  skipped with a warning in the deploy log.
 </Callout>
 
 ## 5. Configure the app

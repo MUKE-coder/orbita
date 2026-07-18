@@ -299,12 +299,15 @@ Compose**:
 Create App → Source: Docker Compose
   Compose file: from your Git repo, or pasted inline
   Web service:  the service name that serves HTTP (e.g. web)
+  Port:         the port that service listens on (e.g. 3000)
 → Create
 ```
 
 Orbita deploys the whole file to Docker Swarm as a stack. Your **web service** is the one domains
 route to; every other service stays private to the stack, reachable by its compose service name
 just like on your laptop.
+
+Your environment variables reach every service in the stack, so workers get `DATABASE_URL` too.
 
 <Callout type="note" title="Two things to know about Compose">
 Services that use `build:` only work when the compose file comes **from a Git repo** — a pasted

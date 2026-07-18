@@ -73,6 +73,9 @@ const composeSchema = z
     compose_path: z.string(),
     compose_content: z.string(),
     compose_service: z.string().min(1, "Name the service that serves web traffic"),
+    // Required (unlike other sources): domains route to <web service>:<port>,
+    // so without it any domain you add would silently 502.
+    port: z.number({ message: "Port is required" }).int().min(1).max(65535),
   })
   .superRefine((v, ctx) => {
     if (v.compose_source === "git") {

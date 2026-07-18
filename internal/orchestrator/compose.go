@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -44,7 +46,7 @@ func stackName(app *models.Application) string {
 //  2. The override attaches the web service to the org's overlay network with
 //     the DNS alias `orbita-<app8>` — exactly the name Traefik already routes
 //     to for single-service apps. So domains, TLS and routing need no changes.
-func (o *Orchestrator) deployCompose(ctx context.Context, app *models.Application, deployment *models.Deployment, srcCfg *SourceConfig, orgSlug string, envVars map[string]string) error {
+func (o *Orchestrator) deployCompose(ctx context.Context, app *models.Application, deployment *models.Deployment, srcCfg *SourceConfig, deployCfg DeployConfig, orgSlug string, envVars map[string]string) error {
 	web := strings.TrimSpace(srcCfg.ComposeService)
 	if web == "" {
 		return fmt.Errorf("deployCompose: no web service selected (source_config.compose_service)")
@@ -63,8 +65,9 @@ func (o *Orchestrator) deployCompose(ctx context.Context, app *models.Applicatio
 	params := composeScriptParams{
 		Stack:       stack,
 		ComposePath: strings.TrimSpace(srcCfg.ComposePath),
-		Override:    buildComposeOverride(web, orgNet, alias),
+		Override:    buildComposeOverride(web, orgNet, alias, deployCfg),
 		DotEnv:      renderDotEnv(envVars),
+		AppEnv:      renderEnvFile(envVars),
 	}
 	if srcCfg.ComposeContent != "" {
 		// Inline compose pasted into the dashboard — no clone needed.
@@ -117,14 +120,52 @@ func (o *Orchestrator) deployCompose(ctx context.Context, app *models.Applicatio
 	}
 	app.DockerServiceID = &svcID
 
-	if err := o.dockerClient.WaitForServiceConverged(ctx, svcID, 5*time.Minute); err != nil {
-		return fmt.Errorf("deployCompose: %s: %w", target, err)
+	// Wait on every service, not just the web one. `stack deploy --detach`
+	// returns as soon as Swarm accepts the specs, so without this a crashlooping
+	// worker or database would be reported as a successful deploy.
+	if err := o.waitForStackConverged(ctx, app, 5*time.Minute); err != nil {
+		return fmt.Errorf("deployCompose: %w", err)
 	}
 
 	deployment.ImageRef = "compose:" + stack
 	app.Status = models.AppStatusRunning
 	log.Info().Str("app", app.Name).Str("stack", stack).Msg("Compose stack deployed")
 	return nil
+}
+
+// waitForStackConverged blocks until every service in the stack has converged,
+// reporting the specific service that failed. The deadline is shared across all
+// services so a stack can't stall for timeout × N.
+func (o *Orchestrator) waitForStackConverged(ctx context.Context, app *models.Application, timeout time.Duration) error {
+	services, err := o.composeStackServices(ctx, app)
+	if err != nil {
+		return fmt.Errorf("list stack services: %w", err)
+	}
+	if len(services) == 0 {
+		return fmt.Errorf("stack %s has no services", stackName(app))
+	}
+
+	deadline, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	for _, svc := range services {
+		remaining := time.Until(mustDeadline(deadline, timeout))
+		if remaining <= 0 {
+			return fmt.Errorf("timed out waiting for stack %s to converge", stackName(app))
+		}
+		if err := o.dockerClient.WaitForServiceConverged(deadline, svc.ID, remaining); err != nil {
+			return fmt.Errorf("service %s did not start: %w", svc.Name, err)
+		}
+	}
+	return nil
+}
+
+// mustDeadline returns ctx's deadline, or now+fallback if it has none.
+func mustDeadline(ctx context.Context, fallback time.Duration) time.Time {
+	if d, ok := ctx.Deadline(); ok {
+		return d
+	}
+	return time.Now().Add(fallback)
 }
 
 // composeScriptParams is everything the builder script needs. Kept separate
@@ -136,8 +177,13 @@ type composeScriptParams struct {
 	CloneURL    string // authenticated git URL (mutually exclusive with InlineYAML)
 	Branch      string
 	DotEnv      string // rendered .env for ${VAR} interpolation
-	Override    string // the network/alias merge layer
+	AppEnv      string // env_file injected into the running services
+	Override    string // the network/alias/resources merge layer
 }
+
+// appEnvPath is where the app's env vars land inside the builder. Kept outside
+// the project dir so a repo can never shadow it.
+const appEnvPath = "/orbita-app.env"
 
 // renderDotEnv turns the app's env vars into .env lines.
 func renderDotEnv(envVars map[string]string) string {
@@ -197,27 +243,51 @@ func composeScript(p composeScriptParams) string {
 
 	steps = append(steps, writeFileStep("/orbita-override.yml", p.Override))
 
-	// Build from source only when the compose file actually declares a build —
-	// installing the Compose plugin costs a download, so skip it otherwise.
-	//
+	// docker:cli ships the Compose plugin, but don't bet the deploy on it — fall
+	// back to a pinned download if a future base image drops it.
+	pluginURL := fmt.Sprintf("https://github.com/docker/compose/releases/download/v%s/docker-compose-linux-$(uname -m)", composePluginVersion)
+	steps = append(steps,
+		"if ! docker compose version >/dev/null 2>&1; then",
+		"  echo '[orbita] installing the compose plugin'",
+		"  mkdir -p /usr/local/lib/docker/cli-plugins",
+		fmt.Sprintf("  curl -fsSL %s -o /usr/local/lib/docker/cli-plugins/docker-compose", shellQuote(pluginURL)),
+		"  chmod +x /usr/local/lib/docker/cli-plugins/docker-compose",
+		"fi",
+		fmt.Sprintf("SERVICES=$(docker compose -p %s -f %s config --services)", shellQuote(p.Stack), shellQuote(base)),
+	)
+
+	// Orbita's env vars have to reach the running containers, not just
+	// interpolate the compose file. env_file is applied to *every* service (a
+	// worker needs DATABASE_URL as much as the web tier does); a service's own
+	// `environment:` still wins, since Compose gives it precedence over env_file.
+	envArg := ""
+	if p.AppEnv != "" {
+		steps = append(steps,
+			writeFileStep(appEnvPath, p.AppEnv),
+			"echo 'services:' > /orbita-env.yml",
+			"for s in $SERVICES; do",
+			"  echo \"  $s:\" >> /orbita-env.yml",
+			"  echo '    env_file:' >> /orbita-env.yml",
+			"  echo '      - "+appEnvPath+"' >> /orbita-env.yml",
+			"done",
+		)
+		envArg = " -c /orbita-env.yml"
+	}
+
 	// `docker stack deploy` ignores build: entirely and rejects any service
 	// without an image ("no image specified"), which is how most compose files
-	// in the wild are written. So after building we emit a third compose file
+	// in the wild are written. So after building we emit another compose file
 	// pinning each built service to the tag Compose produced
 	// (<project>-<service>) and merge it in. Services that declare their own
 	// image: aren't tagged that way, so the inspect skips them and their own
 	// declaration wins.
-	pluginURL := fmt.Sprintf("https://github.com/docker/compose/releases/download/v%s/docker-compose-linux-x86_64", composePluginVersion)
 	steps = append(steps,
 		"IMAGES_ARG=''",
 		fmt.Sprintf("if grep -qE '^[[:space:]]+build:' %s; then", shellQuote(base)),
 		"  echo '[orbita] compose file declares build: building images from source'",
-		"  mkdir -p /usr/local/lib/docker/cli-plugins",
-		fmt.Sprintf("  curl -fsSL %s -o /usr/local/lib/docker/cli-plugins/docker-compose", shellQuote(pluginURL)),
-		"  chmod +x /usr/local/lib/docker/cli-plugins/docker-compose",
 		fmt.Sprintf("  cd %s && docker compose -p %s -f %s build", projectDir, shellQuote(p.Stack), shellQuote(base)),
 		"  echo 'services:' > /orbita-images.yml",
-		fmt.Sprintf("  for s in $(docker compose -p %s -f %s config --services); do", shellQuote(p.Stack), shellQuote(base)),
+		"  for s in $SERVICES; do",
 		fmt.Sprintf("    if docker image inspect \"%s-$s:latest\" >/dev/null 2>&1; then", p.Stack),
 		// Two echos rather than one printf: no backslash escaping to get wrong
 		// between Go, the shell, and the container.
@@ -227,8 +297,8 @@ func composeScript(p composeScriptParams) string {
 		"  done",
 		"  IMAGES_ARG='-c /orbita-images.yml'",
 		"fi",
-		fmt.Sprintf("cd %s && docker stack deploy --detach=true --prune --with-registry-auth -c %s $IMAGES_ARG -c /orbita-override.yml %s",
-			projectDir, shellQuote(base), shellQuote(p.Stack)),
+		fmt.Sprintf("cd %s && docker stack deploy --detach=true --prune --with-registry-auth -c %s $IMAGES_ARG%s -c /orbita-override.yml %s",
+			projectDir, shellQuote(base), envArg, shellQuote(p.Stack)),
 	)
 
 	return strings.Join(steps, "\n")
@@ -237,19 +307,70 @@ func composeScript(p composeScriptParams) string {
 // buildComposeOverride returns the merge layer that makes a compose stack
 // routable by Traefik. Kept as a plain string so we never have to round-trip
 // (and risk mangling) the user's own compose file.
-func buildComposeOverride(webService, orgNet, alias string) string {
-	return fmt.Sprintf(`services:
-  %s:
-    networks:
-      default: {}
-      %s:
-        aliases:
-          - %s
-networks:
-  %s:
-    external: true
-`, webService, orgNet, alias, orgNet)
+//
+// Resource limits land on the web service only. Orbita's memory/CPU setting is
+// a single per-container figure, and blanket-applying it to every service would
+// both clobber any `deploy.resources` the user wrote and happily OOM a database
+// that was sized for a web tier. Per-service limits belong in the compose file,
+// which can express them properly.
+func buildComposeOverride(webService, orgNet, alias string, deployCfg DeployConfig) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "services:\n  %s:\n", webService)
+	fmt.Fprintf(&b, "    networks:\n      default: {}\n      %s:\n        aliases:\n          - %s\n", orgNet, alias)
+
+	if deployCfg.MemoryMB > 0 || deployCfg.CPUShares > 0 {
+		b.WriteString("    deploy:\n      resources:\n        limits:\n")
+		if deployCfg.MemoryMB > 0 {
+			fmt.Fprintf(&b, "          memory: %dM\n", deployCfg.MemoryMB)
+		}
+		if deployCfg.CPUShares > 0 {
+			// 1000 shares == 1 core, matching the non-compose path.
+			fmt.Fprintf(&b, "          cpus: \"%.2f\"\n", float64(deployCfg.CPUShares)/1000.0)
+		}
+	}
+
+	fmt.Fprintf(&b, "networks:\n  %s:\n    external: true\n", orgNet)
+	return b.String()
 }
+
+// renderEnvFile writes the app's env vars in docker-compose env_file format.
+//
+// Values are written raw. Verified against `docker stack deploy`: it takes each
+// value literally to end of line — spaces, quotes, `#` and `$` all survive
+// untouched, and `$` is NOT interpolated. Quoting would be actively wrong, as
+// the surrounding quotes end up *inside* the value.
+//
+// The format can't represent a newline, so multi-line values (a PEM key, say)
+// are skipped with a warning rather than silently corrupting every variable
+// after them. Keys that aren't valid environment names are skipped too.
+func renderEnvFile(envVars map[string]string) string {
+	if len(envVars) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(envVars))
+	for k := range envVars {
+		if envKeyRe.MatchString(k) {
+			keys = append(keys, k)
+		} else {
+			log.Warn().Str("key", k).Msg("compose: skipping env var with an invalid name")
+		}
+	}
+	sort.Strings(keys) // deterministic output keeps deploys reproducible
+
+	var b strings.Builder
+	for _, k := range keys {
+		v := envVars[k]
+		if strings.ContainsAny(v, "\n\r\x00") {
+			log.Warn().Str("key", k).Msg("compose: skipping env var — multi-line values can't be passed to a compose stack")
+			continue
+		}
+		fmt.Fprintf(&b, "%s=%s\n", k, v)
+	}
+	return b.String()
+}
+
+// envKeyRe matches a POSIX-ish environment variable name.
+var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // findStackService resolves the Swarm service ID for <stack>_<service>. Swarm
 // registers services a moment after `stack deploy` returns, so we retry briefly.
@@ -377,6 +498,28 @@ func composeWebService(app *models.Application) string {
 		return ""
 	}
 	return strings.TrimSpace(cfg.ComposeService)
+}
+
+// restartComposeStack restarts every service in place, preserving each one's
+// replica count (unlike a stop/start cycle, which loses it).
+func (o *Orchestrator) restartComposeStack(ctx context.Context, app *models.Application) error {
+	services, err := o.composeStackServices(ctx, app)
+	if err != nil {
+		return err
+	}
+	if len(services) == 0 {
+		return fmt.Errorf("no services found for stack %s", stackName(app))
+	}
+	var firstErr error
+	for _, svc := range services {
+		if err := o.dockerClient.ForceUpdateService(ctx, svc.ID); err != nil {
+			log.Warn().Err(err).Str("service", svc.Name).Msg("compose: restart failed")
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+	return firstErr
 }
 
 // removeComposeStack tears down every service in the stack.

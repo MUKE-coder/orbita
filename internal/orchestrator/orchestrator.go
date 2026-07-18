@@ -88,7 +88,7 @@ func (o *Orchestrator) DeployApplication(ctx context.Context, app *models.Applic
 	// Compose is the one source that isn't a single image on a single service —
 	// it owns its whole deploy path (N services via `docker stack deploy`).
 	if isCompose(app) {
-		return o.deployCompose(ctx, app, deployment, &srcCfg, orgSlug, envVars)
+		return o.deployCompose(ctx, app, deployment, &srcCfg, deployCfg, orgSlug, envVars)
 	}
 
 	// Resolve the image reference we'll run, building it from git if needed.
@@ -338,13 +338,12 @@ func (o *Orchestrator) StartApplication(ctx context.Context, app *models.Applica
 }
 
 func (o *Orchestrator) RestartApplication(ctx context.Context, app *models.Application) error {
+	// Force-update rather than scale 0→N: a compose service's replica count is
+	// its own (deploy.replicas), and cycling through zero would silently reset
+	// every non-web service to a single replica.
 	if isCompose(app) {
-		if err := o.stopComposeStack(ctx, app); err != nil {
-			return fmt.Errorf("RestartApplication: stop: %w", err)
-		}
-		time.Sleep(500 * time.Millisecond)
-		if err := o.startComposeStack(ctx, app); err != nil {
-			return fmt.Errorf("RestartApplication: start: %w", err)
+		if err := o.restartComposeStack(ctx, app); err != nil {
+			return fmt.Errorf("RestartApplication: %w", err)
 		}
 		app.Status = models.AppStatusRunning
 		return nil

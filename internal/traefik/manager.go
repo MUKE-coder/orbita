@@ -81,6 +81,12 @@ type headers struct {
 }
 
 func (m *Manager) UpsertRoute(resource TraefikResource) error {
+	// Refuse rather than write http://<svc>:0, which is a syntactically valid
+	// route that 502s forever with no diagnostic anywhere.
+	if resource.ServicePort <= 0 || resource.ServicePort > 65535 {
+		return fmt.Errorf("UpsertRoute: invalid port %d for %s — set the app's port to the port its container listens on", resource.ServicePort, resource.Domain)
+	}
+
 	dynamicDir := filepath.Join(m.configDir, "dynamic")
 	if err := os.MkdirAll(dynamicDir, 0755); err != nil {
 		return fmt.Errorf("UpsertRoute: create dir: %w", err)

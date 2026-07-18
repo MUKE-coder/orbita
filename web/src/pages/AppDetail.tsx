@@ -115,7 +115,10 @@ function AppDetail() {
   const rollbackMutation = useMutation({
     mutationFn: (deployId: string) => appsApi.rollback(slug, appId!, deployId),
     onSuccess: () => { invalidate(); toast.success("Rollback triggered"); },
-    onError: () => toast.error("Rollback failed"),
+    // Surface the server's reason (e.g. compose apps can't be rolled back)
+    // instead of a bare "Rollback failed".
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.error?.message || err?.response?.data?.message || "Rollback failed"),
   });
 
   const app = appData?.data?.data;
@@ -236,7 +239,9 @@ function AppDetail() {
                     {d.started_at ? new Date(d.started_at).toLocaleString() : "—"}
                   </TableCell>
                   <TableCell>
-                    {d.status === "success" && (
+                    {/* Compose deploys record a stack, not an image, so there's
+                        nothing to roll back to — don't offer it. */}
+                    {d.status === "success" && app?.source_type !== "docker-compose" && (
                       <Button
                         size="sm"
                         variant="ghost"

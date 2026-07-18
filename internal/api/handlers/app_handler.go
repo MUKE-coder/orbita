@@ -145,6 +145,12 @@ func (h *AppHandler) CreateApp(c *gin.Context) {
 			response.BadRequest(c, "a pasted compose file can't use build: — reference prebuilt images, or point Orbita at a Git repository instead")
 			return
 		}
+		// Domains route to <web service>:<port>. Without a port there's nothing
+		// to route to, and the resulting Traefik entry would silently 502.
+		if req.Port == nil || *req.Port <= 0 {
+			response.BadRequest(c, "port is required for a compose app — set it to the port your web service listens on")
+			return
+		}
 	}
 	if req.SourceType == "git" {
 		// git_connection_id is optional: public repos clone without a token.
