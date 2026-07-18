@@ -290,10 +290,26 @@ Create App → Source: Git Repository
 Dockerfile** — Orbita detects the language for you. **Dockerfile** builds the one in your repo.
 Either way Orbita registers a webhook, so every future `git push` redeploys.
 
-<Callout type="note" title="Docker Compose is still on the way">
-Deploying a multi-service **Docker Compose** stack from the dashboard is planned but not
-available yet. For a single service, use Nixpacks or a Dockerfile. Grit apps deploy
-[zero-config](/docs/grit-apps).
+### A Docker Compose stack
+
+For an app that's several services at once (web + worker + queue), choose **Source: Docker
+Compose**:
+
+```text title="Orbita dashboard"
+Create App → Source: Docker Compose
+  Compose file: from your Git repo, or pasted inline
+  Web service:  the service name that serves HTTP (e.g. web)
+→ Create
+```
+
+Orbita deploys the whole file to Docker Swarm as a stack. Your **web service** is the one domains
+route to; every other service stays private to the stack, reachable by its compose service name
+just like on your laptop.
+
+<Callout type="note" title="Two things to know about Compose">
+Services that use `build:` only work when the compose file comes **from a Git repo** — a pasted
+file has no source tree to build. And **rollback isn't available** for Compose apps, because a
+compose deploy has no single image to roll back to; redeploy the previous commit instead.
 </Callout>
 
 ### Then add a domain, env vars, and a database

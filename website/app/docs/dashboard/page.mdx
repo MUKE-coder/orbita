@@ -87,10 +87,23 @@ Builds your code into an image on every push.
 Orbita builds the image and deploys it. Every future `git push` to that branch redeploys
 automatically.
 
-<Callout type="note" title="Docker Compose is still on the way">
-Deploying a multi-service **Docker Compose** stack from the dashboard is planned but not
-available yet. For a single service, use **Nixpacks** (no Dockerfile) or a **Dockerfile**. For a
-framework with zero config, see [Deploying Grit apps](/docs/grit-apps).
+### Option C — Docker Compose
+
+For an app made of several services, choose **Source: Docker Compose**. Point Orbita at a compose
+file in your repo (path defaults to `docker-compose.yml`) or paste one in, then name the **web
+service** — the service that serves HTTP.
+
+Orbita deploys the file to Docker Swarm as a stack. The web service gets your domains and TLS;
+the rest stay private to the stack and reach each other by compose service name, exactly as they
+do locally. Stopping, starting, or deleting the app applies to every service in the stack.
+
+<Callout type="note" title="Compose limits worth knowing">
+- `build:` works only when the compose file comes from a **Git repo** — pasted YAML has no source
+  tree to build from. Pasted files must reference prebuilt images.
+- **Rollback isn't supported** for Compose apps: a compose deploy has no single image to revert
+  to. Redeploy the previous commit instead.
+- Only the web service is routable. Give another service its own domain by splitting it into its
+  own app.
 </Callout>
 
 ## 5. Configure the app
@@ -147,15 +160,14 @@ Add people under **Members → Invite** (org admins only). Enter their email and
 They get an email with a join link. If registration is closed, invitees still need an account to
 accept — have them register while it's briefly open, or keep sign-up open for your team's domain.
 
-## What's not supported yet
+## What works today
 
-To set expectations honestly:
+All of these deploy end to end: **Docker images**, **Git repos with Nixpacks** (no Dockerfile),
+**Git repos with a Dockerfile**, **Docker Compose stacks**, and **Grit apps** (zero-config).
 
-- **Docker Compose** as an app source (multi-service stacks) — planned, not yet available.
-
-Today, all of these work end to end: **Docker images**, **Git repos with Nixpacks** (no
-Dockerfile), **Git repos with a Dockerfile**, and **Grit apps** (zero-config). For a multi-service
-stack, deploy each service as its own app for now.
+Known gaps, stated plainly: Compose apps can't be rolled back (redeploy instead), only the
+nominated web service in a stack is routable, and pasted compose files can't `build:` from
+source.
 
 ## Next
 

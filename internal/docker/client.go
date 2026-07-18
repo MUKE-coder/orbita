@@ -654,6 +654,54 @@ func (c *Client) FindServiceEnvByName(ctx context.Context, name string) (map[str
 	return nil, false, nil
 }
 
+// ListServicesByLabel returns every service carrying label key=value. Compose
+// stacks are the reason this exists: `docker stack deploy` labels each service
+// it creates with com.docker.stack.namespace=<stack>, which is the only handle
+// we get on "all the services belonging to this app".
+func (c *Client) ListServicesByLabel(ctx context.Context, key, value string) ([]ServiceInfo, error) {
+	if c.cli == nil {
+		return nil, fmt.Errorf("ListServicesByLabel: client not initialized")
+	}
+
+	f := filtertypes.NewArgs()
+	f.Add("label", fmt.Sprintf("%s=%s", key, value))
+	services, err := c.cli.ServiceList(ctx, dockertypes.ServiceListOptions{Filters: f})
+	if err != nil {
+		return nil, fmt.Errorf("ListServicesByLabel: %w", err)
+	}
+
+	out := make([]ServiceInfo, 0, len(services))
+	for _, svc := range services {
+		replicas := 0
+		if svc.Spec.Mode.Replicated != nil && svc.Spec.Mode.Replicated.Replicas != nil {
+			replicas = int(*svc.Spec.Mode.Replicated.Replicas)
+		}
+		image := ""
+		if svc.Spec.TaskTemplate.ContainerSpec != nil {
+			image = svc.Spec.TaskTemplate.ContainerSpec.Image
+		}
+		status := "unknown"
+		if svc.ServiceStatus != nil {
+			switch {
+			case svc.ServiceStatus.RunningTasks > 0:
+				status = "running"
+			case svc.ServiceStatus.DesiredTasks == 0:
+				status = "stopped"
+			default:
+				status = "pending"
+			}
+		}
+		out = append(out, ServiceInfo{
+			ID:       svc.ID,
+			Name:     svc.Spec.Name,
+			Image:    image,
+			Replicas: replicas,
+			Status:   status,
+		})
+	}
+	return out, nil
+}
+
 // FindContainerIDForService returns the container ID of a running task of the
 // service. Single-node assumption: the container is on this host.
 func (c *Client) FindContainerIDForService(ctx context.Context, serviceID string) (string, error) {

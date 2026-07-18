@@ -21,6 +21,7 @@ const rows: Row[] = [
   { label: 'DB migrations under an advisory lock', orbita: true, dokploy: false, coolify: false, highlight: true },
   { label: 'Deploy Docker images + Dockerfile repos', orbita: true, dokploy: true, coolify: true },
   { label: 'Nixpacks build (no Dockerfile)', orbita: true, dokploy: true, coolify: true },
+  { label: 'Docker Compose stacks', orbita: true, dokploy: true, coolify: true },
   { label: 'Automatic HTTPS (Let’s Encrypt)', orbita: true, dokploy: true, coolify: true },
   { label: 'Push-to-deploy + CLI', orbita: true, dokploy: true, coolify: true },
   { label: '4-role RBAC + teams', orbita: true, dokploy: true, coolify: true },

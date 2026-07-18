@@ -21,6 +21,8 @@ import (
 var (
 	ErrAppNotFound        = errors.New("application not found")
 	ErrDeploymentNotFound = errors.New("deployment not found")
+	// Compose stacks have no single rollback-able image — see Rollback.
+	ErrRollbackUnsupported = errors.New("rollback is not supported for Docker Compose apps — redeploy the previous commit instead")
 	ErrAppAlreadyRunning  = errors.New("application is already running")
 	ErrAppNotRunning      = errors.New("application is not running")
 )
@@ -121,7 +123,7 @@ func (s *AppService) resolveEnvForDeploy(ctx context.Context, app *models.Applic
 type CreateAppInput struct {
 	Name          string    `json:"name"`
 	EnvironmentID uuid.UUID `json:"environment_id"`
-	SourceType    string    `json:"source_type"` // "docker-image" | "git"
+	SourceType    string    `json:"source_type"` // "docker-image" | "git" | "docker-compose"
 	Port          *int      `json:"port"`
 	Replicas      int       `json:"replicas"`
 
@@ -142,6 +144,13 @@ type CreateAppInput struct {
 	Builder         string     `json:"builder"`     // "dockerfile" (default) | "nixpacks"
 	AutoDeploy      *bool      `json:"auto_deploy"` // git apps default to true
 
+	// source_type = docker-compose: the stack comes either from a file in the
+	// repo above (ComposePath) or from YAML pasted directly (ComposeContent).
+	// ComposeService is the service web traffic routes to.
+	ComposePath    string `json:"compose_path"`
+	ComposeContent string `json:"compose_content"`
+	ComposeService string `json:"compose_service"`
+
 	// source_type = grit: per-service build args + grouping/role
 	BuildArgs map[string]string `json:"build_args,omitempty"`
 	GritApp   string            `json:"grit_app,omitempty"`  // logical Grit app name (groups services)
@@ -153,7 +162,10 @@ func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input Creat
 	src := map[string]interface{}{
 		"image": input.Image, // kept for docker-image and as a build target tag for git
 	}
-	if input.SourceType == models.SourceTypeGit || input.SourceType == models.SourceTypeGrit {
+	// A compose stack may be backed by a repo too, in which case it needs the
+	// same clone metadata as a git app (and gets push-to-deploy for free).
+	composeFromGit := input.SourceType == models.SourceTypeCompose && input.RepoFullName != ""
+	if input.SourceType == models.SourceTypeGit || input.SourceType == models.SourceTypeGrit || composeFromGit {
 		dockerfile := input.DockerfilePath
 		if dockerfile == "" {
 			dockerfile = "Dockerfile"
@@ -184,6 +196,15 @@ func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input Creat
 				src["grit_role"] = input.GritRole
 			}
 		}
+	}
+	if input.SourceType == models.SourceTypeCompose {
+		composePath := input.ComposePath
+		if composePath == "" {
+			composePath = "docker-compose.yml"
+		}
+		src["compose_path"] = composePath
+		src["compose_content"] = input.ComposeContent
+		src["compose_service"] = input.ComposeService
 	}
 	sourceConfig, _ := json.Marshal(src)
 
@@ -223,7 +244,7 @@ func (s *AppService) CreateApp(ctx context.Context, orgID uuid.UUID, input Creat
 		app.GritRole = &input.GritRole
 	}
 
-	if input.SourceType == models.SourceTypeGit || input.SourceType == models.SourceTypeGrit {
+	if input.SourceType == models.SourceTypeGit || input.SourceType == models.SourceTypeGrit || composeFromGit {
 		// Auto-deploy on push is the default for git/grit apps; a webhook secret
 		// is always generated so unsigned webhook deliveries are never accepted.
 		autoDeploy := true
@@ -419,6 +440,13 @@ func (s *AppService) Rollback(ctx context.Context, appID, deploymentID, orgID uu
 	app, err := s.appRepo.FindByID(ctx, appID, orgID)
 	if err != nil {
 		return nil, ErrAppNotFound
+	}
+
+	// A compose deployment records a stack marker, not an image digest, and the
+	// compose file may itself have changed since. Redeploying would quietly apply
+	// the *current* file while reporting a rollback, so refuse outright.
+	if app.SourceType == models.SourceTypeCompose {
+		return nil, ErrRollbackUnsupported
 	}
 
 	targetDeploy, err := s.appRepo.FindDeploymentByID(ctx, deploymentID)

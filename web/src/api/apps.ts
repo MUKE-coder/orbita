@@ -37,7 +37,7 @@ export const appsApi = {
     data: {
       name: string;
       environment_id: string;
-      source_type: "docker-image" | "git";
+      source_type: "docker-image" | "git" | "docker-compose";
       // docker-image source
       image?: string;
       // git source
@@ -47,6 +47,11 @@ export const appsApi = {
       branch?: string;
       dockerfile_path?: string;
       build_context?: string;
+      builder?: "dockerfile" | "nixpacks";
+      // docker-compose source
+      compose_path?: string;
+      compose_content?: string;
+      compose_service?: string;
       // runtime
       port?: number;
       replicas?: number;

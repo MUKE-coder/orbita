@@ -52,6 +52,13 @@ type SourceConfig struct {
 	// language and builds without one.
 	Builder string `json:"builder,omitempty"`
 
+	// docker-compose: either a path to a compose file inside the git repo above,
+	// or the compose YAML pasted inline. ComposeService names the service that
+	// receives web traffic — it's the one domains route to.
+	ComposePath    string `json:"compose_path,omitempty"`
+	ComposeContent string `json:"compose_content,omitempty"`
+	ComposeService string `json:"compose_service,omitempty"`
+
 	// grit only: build-time args baked into the image (e.g. NEXT_PUBLIC_API_URL
 	// for the Next.js services) and the service role for labeling.
 	BuildArgs map[string]string `json:"build_args,omitempty"`
@@ -77,6 +84,12 @@ func (o *Orchestrator) DeployApplication(ctx context.Context, app *models.Applic
 
 	var deployCfg DeployConfig
 	_ = json.Unmarshal(app.DeployConfig, &deployCfg)
+
+	// Compose is the one source that isn't a single image on a single service —
+	// it owns its whole deploy path (N services via `docker stack deploy`).
+	if isCompose(app) {
+		return o.deployCompose(ctx, app, deployment, &srcCfg, orgSlug, envVars)
+	}
 
 	// Resolve the image reference we'll run, building it from git if needed.
 	imageRef, err := o.resolveImage(ctx, app, deployment, &srcCfg, orgSlug)
@@ -287,6 +300,15 @@ func truncate(s string, n int) string {
 }
 
 func (o *Orchestrator) StopApplication(ctx context.Context, app *models.Application) error {
+	// A compose app is a whole stack — stopping only the web service would leave
+	// its workers and databases running.
+	if isCompose(app) {
+		if err := o.stopComposeStack(ctx, app); err != nil {
+			return fmt.Errorf("StopApplication: %w", err)
+		}
+		app.Status = models.AppStatusStopped
+		return nil
+	}
 	if app.DockerServiceID == nil {
 		return nil
 	}
@@ -298,6 +320,13 @@ func (o *Orchestrator) StopApplication(ctx context.Context, app *models.Applicat
 }
 
 func (o *Orchestrator) StartApplication(ctx context.Context, app *models.Application) error {
+	if isCompose(app) {
+		if err := o.startComposeStack(ctx, app); err != nil {
+			return fmt.Errorf("StartApplication: %w", err)
+		}
+		app.Status = models.AppStatusRunning
+		return nil
+	}
 	if app.DockerServiceID == nil {
 		return fmt.Errorf("StartApplication: no service ID")
 	}
@@ -309,6 +338,17 @@ func (o *Orchestrator) StartApplication(ctx context.Context, app *models.Applica
 }
 
 func (o *Orchestrator) RestartApplication(ctx context.Context, app *models.Application) error {
+	if isCompose(app) {
+		if err := o.stopComposeStack(ctx, app); err != nil {
+			return fmt.Errorf("RestartApplication: stop: %w", err)
+		}
+		time.Sleep(500 * time.Millisecond)
+		if err := o.startComposeStack(ctx, app); err != nil {
+			return fmt.Errorf("RestartApplication: start: %w", err)
+		}
+		app.Status = models.AppStatusRunning
+		return nil
+	}
 	if app.DockerServiceID == nil {
 		return fmt.Errorf("RestartApplication: no service ID")
 	}
@@ -324,6 +364,13 @@ func (o *Orchestrator) RestartApplication(ctx context.Context, app *models.Appli
 }
 
 func (o *Orchestrator) RemoveApplication(ctx context.Context, app *models.Application) error {
+	// Tear down every service in the stack, not just the routable one.
+	if isCompose(app) {
+		if err := o.removeComposeStack(ctx, app); err != nil {
+			return fmt.Errorf("RemoveApplication: %w", err)
+		}
+		return nil
+	}
 	if app.DockerServiceID != nil {
 		if err := o.dockerClient.RemoveService(ctx, *app.DockerServiceID); err != nil {
 			return fmt.Errorf("RemoveApplication: %w", err)

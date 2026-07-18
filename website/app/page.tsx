@@ -53,7 +53,7 @@ const highlights = [
   {
     icon: Layers,
     title: 'Any app, no Dockerfile',
-    body: 'Nixpacks builds Laravel/Django/Rails/Node/static with no Dockerfile — or bring your own Dockerfile or a raw image. Grit apps get a zero-config fast path on top.',
+    body: 'Nixpacks builds Laravel/Django/Rails/Node/static with no Dockerfile — or bring a Dockerfile, a Compose stack, or a raw image. Grit apps get a zero-config fast path on top.',
   },
   {
     icon: GitBranch,
@@ -334,7 +334,7 @@ export default function Home() {
               {
                 icon: Boxes,
                 title: 'Orbita builds it',
-                body: 'Nixpacks auto-detects the language — no Dockerfile needed — or Orbita builds the Dockerfile you already ship. The image lands on Docker Swarm.',
+                body: 'Nixpacks auto-detects the language — no Dockerfile needed — or Orbita builds the Dockerfile you already ship. Multi-service Compose stacks deploy whole. It all lands on Docker Swarm.',
               },
               {
                 icon: Globe,

@@ -19,6 +19,7 @@ import {
   KeyRound,
   Eye,
   EyeOff,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -60,8 +61,37 @@ const gitSchema = z.object({
   build_context: z.string(),
 });
 
+// Compose: the stack is defined either by a file in a repo or by pasted YAML.
+// compose_service names the service domains route to.
+const composeSchema = z
+  .object({
+    ...baseSchema,
+    compose_source: z.enum(["git", "inline"]),
+    git_connection_id: z.string(),
+    repo_full_name: z.string(),
+    branch: z.string(),
+    compose_path: z.string(),
+    compose_content: z.string(),
+    compose_service: z.string().min(1, "Name the service that serves web traffic"),
+  })
+  .superRefine((v, ctx) => {
+    if (v.compose_source === "git") {
+      if (!v.repo_full_name)
+        ctx.addIssue({ code: "custom", path: ["repo_full_name"], message: "Select a repository" });
+      if (!v.branch)
+        ctx.addIssue({ code: "custom", path: ["branch"], message: "Select a branch" });
+    } else if (!v.compose_content.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["compose_content"],
+        message: "Paste your docker-compose.yml",
+      });
+    }
+  });
+
 type DockerForm = z.infer<typeof dockerSchema>;
 type GitForm = z.infer<typeof gitSchema>;
+type ComposeForm = z.infer<typeof composeSchema>;
 
 export default function CreateApp() {
   const navigate = useNavigate();
@@ -76,7 +106,7 @@ export default function CreateApp() {
   const isQuickCreate = !!lockedProjectId;
 
   // Default source = git (most common for end-users via cPanel-style flow)
-  const [source, setSource] = useState<"docker-image" | "git">("git");
+  const [source, setSource] = useState<"docker-image" | "git" | "docker-compose">("git");
   const [selectedProject, setSelectedProject] = useState<string>(lockedProjectId);
   const [envText, setEnvText] = useState<string>("");
 
@@ -231,7 +261,7 @@ export default function CreateApp() {
       )}
 
       {/* 2. Source type tabs (Git first + default) */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-3">
         <SourceCard
           active={source === "git"}
           icon={GitBranch}
@@ -245,6 +275,13 @@ export default function CreateApp() {
           title="Docker image"
           desc="Deploy from Docker Hub, GHCR, or any registry"
           onClick={() => setSource("docker-image")}
+        />
+        <SourceCard
+          active={source === "docker-compose"}
+          icon={Layers}
+          title="Docker Compose"
+          desc="Deploy a multi-service stack from a compose file"
+          onClick={() => setSource("docker-compose")}
         />
       </div>
 
@@ -260,6 +297,26 @@ export default function CreateApp() {
             createMutation.mutate({
               ...d,
               source_type: "docker-image",
+            })
+          }
+          isSubmitting={createMutation.isPending}
+        />
+      ) : source === "docker-compose" ? (
+        <ComposeSourceForm
+          slug={slug}
+          environments={environments}
+          lockedEnvId={lockedEnvId}
+          envText={envText}
+          onEnvTextChange={setEnvText}
+          onSubmit={({ compose_source, ...d }) =>
+            createMutation.mutate({
+              ...d,
+              // Inline YAML and repo-backed stacks are mutually exclusive —
+              // don't send repo fields we aren't using.
+              ...(compose_source === "inline"
+                ? { git_connection_id: "", repo_full_name: "", branch: "" }
+                : { compose_content: "" }),
+              source_type: "docker-compose",
             })
           }
           isSubmitting={createMutation.isPending}
@@ -587,6 +644,270 @@ function GitSourceForm({
         <div className="space-y-1.5">
           <Label htmlFor="name">App name</Label>
           <Input id="name" placeholder="my-api" {...register("name")} />
+          {errors.name && <Err msg={errors.name.message} />}
+        </div>
+
+        <input type="hidden" {...register("environment_id")} />
+        <EnvSelect
+          environments={environments}
+          value={watch("environment_id")}
+          onChange={(v) => setValue("environment_id", v)}
+        />
+        {errors.environment_id && <Err msg={errors.environment_id.message} />}
+      </Section>
+
+      <RuntimeSection register={register} errors={errors} />
+
+      <EnvVarsSection value={envText} onChange={onEnvTextChange} />
+
+      <Submit isSubmitting={isSubmitting} />
+    </form>
+  );
+}
+
+// -------- Docker Compose source form --------
+
+function ComposeSourceForm({
+  slug,
+  environments,
+  lockedEnvId,
+  envText,
+  onEnvTextChange,
+  onSubmit,
+  isSubmitting,
+}: {
+  slug: string;
+  environments: { id: string; name: string; type: string }[];
+  lockedEnvId?: string;
+  envText: string;
+  onEnvTextChange: (v: string) => void;
+  onSubmit: (data: ComposeForm & { repo_url?: string }) => void;
+  isSubmitting: boolean;
+}) {
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<ComposeForm>({
+    resolver: zodResolver(composeSchema),
+    defaultValues: {
+      replicas: 1,
+      memory_mb: 0,
+      cpu_shares: 0,
+      compose_source: "git",
+      git_connection_id: "",
+      repo_full_name: "",
+      branch: "",
+      compose_path: "docker-compose.yml",
+      compose_content: "",
+      compose_service: "",
+      environment_id: lockedEnvId || "",
+    },
+  });
+
+  useEffect(() => {
+    if (lockedEnvId) setValue("environment_id", lockedEnvId);
+  }, [lockedEnvId, setValue]);
+
+  const composeSource = watch("compose_source");
+  const connId = watch("git_connection_id");
+  const repoFullName = watch("repo_full_name");
+
+  const { data: connsData } = useQuery({
+    queryKey: ["git-connections", slug],
+    queryFn: () => gitApi.listConnections(slug),
+    enabled: !!slug && composeSource === "git",
+  });
+  const conns = connsData?.data?.data || [];
+
+  const { data: reposData, isLoading: loadingRepos } = useQuery({
+    queryKey: ["git-repos", slug, connId],
+    queryFn: () => gitApi.listRepos(slug, connId!),
+    enabled: !!connId,
+  });
+  const repos = reposData?.data?.data || [];
+
+  const [owner, repo] = useMemo(() => {
+    if (!repoFullName) return ["", ""];
+    const [o, r] = repoFullName.split("/");
+    return [o || "", r || ""];
+  }, [repoFullName]);
+
+  const { data: branchesData, isLoading: loadingBranches } = useQuery({
+    queryKey: ["git-branches", slug, connId, owner, repo],
+    queryFn: () => gitApi.listBranches(slug, connId!, owner, repo),
+    enabled: !!connId && !!owner && !!repo,
+  });
+  const branches = branchesData?.data?.data || [];
+
+  const selectedRepo = repos.find((r) => r.full_name === repoFullName);
+
+  const submit = handleSubmit((d) => {
+    const data = d as ComposeForm;
+    if (data.compose_source === "inline") {
+      onSubmit(data);
+      return;
+    }
+    const cloneURL = selectedRepo?.clone_url || `https://github.com/${data.repo_full_name}.git`;
+    onSubmit({ ...data, repo_url: cloneURL });
+  });
+
+  return (
+    <form onSubmit={submit} className="space-y-6">
+      <Section
+        title="Compose file"
+        description="Deploy a multi-service stack. Orbita runs it on Docker Swarm."
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="compose_source">Where's your compose file?</Label>
+          <select
+            id="compose_source"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            {...register("compose_source")}
+          >
+            <option value="git">In a Git repository — redeploys on push</option>
+            <option value="inline">Paste it here — no repo needed</option>
+          </select>
+        </div>
+
+        {composeSource === "git" ? (
+          conns.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card/50 px-6 py-10 text-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                <GitBranch className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                No git connections yet. Add one, or paste the compose file instead.
+              </p>
+              <a href={`/orgs/${slug}/git`}>
+                <Button variant="brand" size="sm">
+                  Connect a provider
+                  <ArrowRight className="h-3 w-3" />
+                </Button>
+              </a>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <Label>Git connection</Label>
+                <SearchableSelect
+                  value={connId}
+                  onChange={(v) => setValue("git_connection_id", v)}
+                  placeholder="Select a connection"
+                  searchPlaceholder="Search connections..."
+                  options={conns.map<SearchableOption>((c) => ({
+                    value: c.id,
+                    label: c.provider.charAt(0).toUpperCase() + c.provider.slice(1),
+                    hint: new Date(c.created_at).toLocaleDateString(),
+                  }))}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Repository</Label>
+                <SearchableSelect
+                  value={repoFullName}
+                  onChange={(v) => setValue("repo_full_name", v)}
+                  disabled={!connId}
+                  placeholder={
+                    loadingRepos
+                      ? "Loading repositories..."
+                      : !connId
+                      ? "Pick a connection first"
+                      : "Select a repository"
+                  }
+                  searchPlaceholder="Search repositories..."
+                  options={repos.map<SearchableOption>((r) => ({
+                    value: r.full_name,
+                    label: r.full_name,
+                    hint: r.default_branch,
+                  }))}
+                />
+                {errors.repo_full_name && <Err msg={errors.repo_full_name.message} />}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Branch</Label>
+                <SearchableSelect
+                  value={watch("branch")}
+                  onChange={(v) => setValue("branch", v)}
+                  disabled={!repoFullName}
+                  placeholder={
+                    loadingBranches
+                      ? "Loading branches..."
+                      : !repoFullName
+                      ? "Pick a repo first"
+                      : "Select a branch"
+                  }
+                  searchPlaceholder="Search branches..."
+                  options={branches.map<SearchableOption>((b) => ({ value: b, label: b }))}
+                />
+                {errors.branch && <Err msg={errors.branch.message} />}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="compose_path">Compose file path</Label>
+                <Input
+                  id="compose_path"
+                  placeholder="docker-compose.yml"
+                  className="font-mono"
+                  {...register("compose_path")}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Relative to the repo root.
+                </p>
+              </div>
+            </>
+          )
+        ) : (
+          <div className="space-y-1.5">
+            <Label htmlFor="compose_content">docker-compose.yml</Label>
+            <textarea
+              id="compose_content"
+              rows={12}
+              spellCheck={false}
+              placeholder={"services:\n  web:\n    image: nginx:alpine\n    ports:\n      - 80"}
+              className="w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm"
+              {...register("compose_content")}
+            />
+            {errors.compose_content && <Err msg={errors.compose_content.message} />}
+            <p className="text-[11px] text-muted-foreground">
+              Services must reference an <code>image:</code>, or a <code>build:</code> context
+              Orbita can build.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="compose_service">Web service</Label>
+          <Input
+            id="compose_service"
+            placeholder="web"
+            className="font-mono"
+            {...register("compose_service")}
+          />
+          {errors.compose_service && <Err msg={errors.compose_service.message} />}
+          <p className="text-[11px] text-muted-foreground">
+            The service name in your compose file that serves HTTP. Domains route here; the other
+            services stay private to the stack.
+          </p>
+        </div>
+
+        <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
+          <span>
+            The stack deploys to Docker Swarm. Rollback isn't available for Compose apps — redeploy
+            the previous commit instead.
+          </span>
+        </div>
+      </Section>
+
+      <Section title="App" description="How it's identified.">
+        <div className="space-y-1.5">
+          <Label htmlFor="name">App name</Label>
+          <Input id="name" placeholder="my-stack" {...register("name")} />
           {errors.name && <Err msg={errors.name.message} />}
         </div>
 

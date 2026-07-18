@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -21,13 +22,23 @@ func NewAppHandler(appService *service.AppService) *AppHandler {
 	return &AppHandler{appService: appService}
 }
 
+// composeBuildRe matches a `build:` key on a service. Mirrors the grep the
+// builder script uses to decide whether images need building.
+var composeBuildRe = regexp.MustCompile(`(?m)^\s+build:`)
+
 type CreateAppRequest struct {
 	Name          string `json:"name" binding:"required,min=2"`
 	EnvironmentID string `json:"environment_id" binding:"required"`
-	SourceType    string `json:"source_type" binding:"required,oneof=docker-image git"`
+	SourceType    string `json:"source_type" binding:"required,oneof=docker-image git docker-compose"`
 
 	// docker-image source
 	Image string `json:"image"`
+
+	// docker-compose source: the stack comes from a file in the repo below
+	// (compose_path) or from YAML pasted inline (compose_content).
+	ComposePath    string `json:"compose_path"`    // default "docker-compose.yml"
+	ComposeContent string `json:"compose_content"` // inline YAML, used when there's no repo
+	ComposeService string `json:"compose_service"` // the service domains route to
 
 	// git source
 	GitConnectionID string `json:"git_connection_id"` // optional — public repos need no connection
@@ -96,6 +107,9 @@ func (h *AppHandler) CreateApp(c *gin.Context) {
 		BuildContext:   req.BuildContext,
 		Builder:        req.Builder,
 		AutoDeploy:     req.AutoDeploy,
+		ComposePath:    req.ComposePath,
+		ComposeContent: req.ComposeContent,
+		ComposeService: req.ComposeService,
 	}
 	if req.GitConnectionID != "" {
 		connID, err := uuid.Parse(req.GitConnectionID)
@@ -110,6 +124,27 @@ func (h *AppHandler) CreateApp(c *gin.Context) {
 	if req.SourceType == "docker-image" && req.Image == "" {
 		response.BadRequest(c, "image is required for docker-image source")
 		return
+	}
+	if req.SourceType == "docker-compose" {
+		// Either a repo to pull the compose file from, or inline YAML.
+		if req.ComposeContent == "" && req.RepoFullName == "" && req.RepoURL == "" {
+			response.BadRequest(c, "docker-compose source needs either compose_content or a repository")
+			return
+		}
+		if req.ComposeContent == "" && req.Branch == "" {
+			response.BadRequest(c, "branch is required when the compose file comes from a repository")
+			return
+		}
+		// Without this we can't know which service to route domains to.
+		if req.ComposeService == "" {
+			response.BadRequest(c, "compose_service is required — name the service that should receive web traffic")
+			return
+		}
+		// Pasted YAML has no source tree, so a build: has nothing to build.
+		if req.ComposeContent != "" && composeBuildRe.MatchString(req.ComposeContent) {
+			response.BadRequest(c, "a pasted compose file can't use build: — reference prebuilt images, or point Orbita at a Git repository instead")
+			return
+		}
 	}
 	if req.SourceType == "git" {
 		// git_connection_id is optional: public repos clone without a token.
@@ -129,9 +164,10 @@ func (h *AppHandler) CreateApp(c *gin.Context) {
 		return
 	}
 
-	// For git apps, return the webhook secret once so the caller can configure
-	// the repository webhook. It is never exposed again (only regenerated).
-	if app.SourceType == models.SourceTypeGit && app.WebhookSecret != nil {
+	// For git-backed apps (including compose stacks pulled from a repo), return
+	// the webhook secret once so the caller can configure the repository
+	// webhook. It is never exposed again (only regenerated).
+	if (app.SourceType == models.SourceTypeGit || app.SourceType == models.SourceTypeCompose) && app.WebhookSecret != nil {
 		response.Success(c, http.StatusCreated, gin.H{
 			"app":            app,
 			"webhook_secret": *app.WebhookSecret,
@@ -284,6 +320,10 @@ func (h *AppHandler) Rollback(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, service.ErrAppNotFound) || errors.Is(err, service.ErrDeploymentNotFound) {
 			response.NotFound(c, "Not found")
+			return
+		}
+		if errors.Is(err, service.ErrRollbackUnsupported) {
+			response.BadRequest(c, err.Error())
 			return
 		}
 		response.InternalError(c, "Failed to rollback")
