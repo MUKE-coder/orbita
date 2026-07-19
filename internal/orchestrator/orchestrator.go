@@ -264,7 +264,10 @@ func (o *Orchestrator) buildFromGit(ctx context.Context, app *models.Application
 	// as a JSON line in the stream — capture last 4KB for diagnostics.
 	tail := drainLastBytes(reader, 4096)
 	if strings.Contains(tail, "errorDetail") {
-		return "", fmt.Errorf("buildFromGit: build failed: %s", truncate(tail, 500))
+		// Surface the END of the output — that's where the failure is. Using
+		// truncate here would show the first 500 chars of the tail, i.e. build
+		// steps that succeeded, and hide the actual error.
+		return "", fmt.Errorf("buildFromGit: build failed: %s", tailLog(tail, 1200))
 	}
 
 	return tag, nil

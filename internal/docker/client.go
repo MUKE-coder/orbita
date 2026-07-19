@@ -281,6 +281,34 @@ func (c *Client) ScaleService(ctx context.Context, serviceID string, replicas in
 	return nil
 }
 
+// RemoveNetworksByLabel deletes every network carrying label key=value.
+//
+// `docker stack rm` tears down a stack's networks as well as its services; we
+// remove services individually, so without this the stack's overlay network is
+// orphaned on every delete. Best-effort: a network still holding an endpoint
+// can't be removed, and that shouldn't fail an app deletion.
+func (c *Client) RemoveNetworksByLabel(ctx context.Context, key, value string) error {
+	if c.cli == nil {
+		return fmt.Errorf("RemoveNetworksByLabel: client not initialized")
+	}
+
+	f := filtertypes.NewArgs()
+	f.Add("label", fmt.Sprintf("%s=%s", key, value))
+	networks, err := c.cli.NetworkList(ctx, networktypes.ListOptions{Filters: f})
+	if err != nil {
+		return fmt.Errorf("RemoveNetworksByLabel: %w", err)
+	}
+
+	for _, n := range networks {
+		if err := c.cli.NetworkRemove(ctx, n.ID); err != nil {
+			log.Warn().Err(err).Str("network", n.Name).Msg("Could not remove stack network")
+			continue
+		}
+		log.Info().Str("network", n.Name).Msg("Removed stack network")
+	}
+	return nil
+}
+
 // ForceUpdateService restarts a service's tasks without changing its spec, by
 // bumping ForceUpdate (the SDK equivalent of `docker service update --force`).
 //

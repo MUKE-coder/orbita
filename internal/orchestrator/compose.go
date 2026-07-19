@@ -522,7 +522,8 @@ func (o *Orchestrator) restartComposeStack(ctx context.Context, app *models.Appl
 	return firstErr
 }
 
-// removeComposeStack tears down every service in the stack.
+// removeComposeStack tears down every service in the stack, then its networks —
+// the two things `docker stack rm` would have done for us.
 func (o *Orchestrator) removeComposeStack(ctx context.Context, app *models.Application) error {
 	services, err := o.composeStackServices(ctx, app)
 	if err != nil {
@@ -537,6 +538,21 @@ func (o *Orchestrator) removeComposeStack(ctx context.Context, app *models.Appli
 			}
 		}
 	}
+
+	// Swarm frees a network's endpoints asynchronously after its services go, so
+	// give it a moment before trying — otherwise the removal always fails with
+	// "network has active endpoints" and the network is orphaned.
+	if len(services) > 0 {
+		select {
+		case <-ctx.Done():
+		case <-time.After(3 * time.Second):
+		}
+	}
+	// Best-effort: a leaked network shouldn't block deleting the app.
+	if err := o.dockerClient.RemoveNetworksByLabel(ctx, stackLabel, stackName(app)); err != nil {
+		log.Warn().Err(err).Str("stack", stackName(app)).Msg("compose: could not remove stack networks")
+	}
+
 	return firstErr
 }
 
