@@ -87,4 +87,52 @@ export const adminApi = {
 
   assignPlan: (orgSlug: string, planId: string) =>
     apiClient.put(`/admin/orgs/${orgSlug}/plan`, { plan_id: planId }),
+
+  // Onboard a tenant: the org plus the account its admin signs in with.
+  provisionOrg: (data: {
+    name: string;
+    slug?: string;
+    plan_id?: string;
+    custom_cpu_cores?: number;
+    custom_ram_mb?: number;
+    custom_disk_gb?: number;
+    custom_max_apps?: number;
+    custom_max_databases?: number;
+    billing_type?: string;
+    price_monthly_cents?: number;
+    currency?: string;
+    billing_cycle?: string;
+    admin_email: string;
+    admin_name?: string;
+    admin_password?: string;
+    admin_role?: string;
+  }) => apiClient.post<{ data: ProvisionResult }>("/admin/orgs", data),
+
+  // Email settings
+  getEmailSettings: () =>
+    apiClient.get<{ data: EmailSettings }>("/admin/settings/email"),
+
+  updateEmailSettings: (data: {
+    api_key?: string | null;
+    email_from: string;
+    email_from_name: string;
+  }) => apiClient.put<{ data: EmailSettings }>("/admin/settings/email", data),
+
+  sendTestEmail: (to: string) =>
+    apiClient.post<{ data: { message: string } }>("/admin/settings/email/test", { to }),
 };
+
+export interface EmailSettings {
+  configured: boolean;
+  has_api_key: boolean;
+  email_from: string;
+  email_from_name: string;
+  source: "dashboard" | "environment" | "unset";
+}
+
+export interface ProvisionResult {
+  organization: { id: string; name: string; slug: string };
+  user: { id: string; email: string; name: string };
+  password: string;
+  generated: boolean;
+}

@@ -91,10 +91,17 @@ func main() {
 	// cgroup enforcement manager (gracefully no-ops when /sys/fs/cgroup isn't writable)
 	cgroupMgr := orchestrator.NewCgroupManager()
 
-	// Initialize services
-	mail := mailer.New(cfg.ResendAPIKey, cfg.ResendFromEmail)
+	// Initialize services.
+	//
+	// Email credentials are resolved per send from platform settings (dashboard
+	// first, environment as fallback), so the super admin can turn email on
+	// without restarting the server.
+	settingsRepo := repository.NewSettingsRepository(db)
+	settingsService := service.NewSettingsService(settingsRepo, cfg)
+	mail := mailer.New(settingsService.MailerSettings)
 	authService := service.NewAuthService(userRepo, orgRepo, mail, cfg)
 	orgService := service.NewOrgService(orgRepo, userRepo, mail, cfg)
+	provisioningService := service.NewProvisioningService(userRepo, orgRepo, orgService)
 	orgService.SetCgroupEnforcer(cgroupMgr)
 	projectService := service.NewProjectService(projectRepo)
 	appService := service.NewAppService(appRepo, orch)
@@ -176,6 +183,9 @@ func main() {
 		NotificationService: notifService,
 		GitService:          gitService,
 		GritService:         gritService,
+		SettingsService:     settingsService,
+		ProvisioningService: provisioningService,
+		Mailer:              mail,
 		NodeManager:         nodeManager,
 		DockerClient:        dockerClient,
 		UserRepo:            userRepo,

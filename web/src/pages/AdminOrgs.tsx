@@ -101,9 +101,14 @@ export default function AdminOrgs() {
             ]}
             nextLinks={[
               {
-                label: "Create a new org",
-                to: `/orgs/new`,
-                description: "Onboard a new tenant with a custom quota + billing",
+                label: "New tenant",
+                to: `/admin/orgs/new`,
+                description: "Create an org, size it, and create its admin's login",
+              },
+              {
+                label: "Email settings",
+                to: `/admin/settings/email`,
+                description: "Configure Resend, or work without email using passwords",
               },
               {
                 label: "Nodes",

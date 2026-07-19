@@ -19,14 +19,15 @@ import (
 )
 
 var (
-	ErrInvalidCredentials = errors.New("invalid email or password")
+	ErrInvalidCredentials   = errors.New("invalid email or password")
 	ErrEmailAlreadyExists   = errors.New("email already registered")
 	ErrRegistrationDisabled = errors.New("registration is disabled — ask an admin to invite you")
-	ErrUserNotFound       = errors.New("user not found")
-	ErrInvalidToken       = errors.New("invalid or expired token")
-	ErrInvalidOTP         = errors.New("invalid or expired OTP")
-	ErrSessionNotFound    = errors.New("session not found")
-	ErrSessionExpired     = errors.New("session expired")
+	ErrUserNotFound         = errors.New("user not found")
+	ErrInvalidToken         = errors.New("invalid or expired token")
+	ErrInvalidOTP           = errors.New("invalid or expired OTP")
+	ErrSessionNotFound      = errors.New("session not found")
+	ErrSessionExpired       = errors.New("session expired")
+	ErrPasswordUnchanged    = errors.New("the new password must be different from the current one")
 )
 
 type AuthService struct {
@@ -391,27 +392,51 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID uuid.UUID, name 
 	return user, nil
 }
 
-func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
-	user, err := s.userRepo.FindUserByID(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("ChangePassword: %w", err)
+// ChangePassword rotates a user's password, clears any forced-rotation flag,
+// and returns fresh tokens.
+//
+// The current password is required even during a forced change: an
+// admin-provisioned account was handed over with a credential the operator
+// knows, and proving possession of it is what makes this a rotation rather than
+// a takeover. Other sessions are revoked, so a handover password that leaked
+// stops working everywhere.
+func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) (*models.User, *AuthTokens, error) {
+	if len(newPassword) < 8 {
+		return nil, nil, ErrWeakPassword
 	}
 
+	user, err := s.userRepo.FindUserByID(ctx, userID)
+	if err != nil || user == nil {
+		return nil, nil, ErrUserNotFound
+	}
 	if !auth.CheckPassword(currentPassword, user.PasswordHash) {
-		return ErrInvalidCredentials
+		return nil, nil, ErrInvalidCredentials
+	}
+	if auth.CheckPassword(newPassword, user.PasswordHash) {
+		return nil, nil, ErrPasswordUnchanged
 	}
 
 	passwordHash, err := auth.HashPassword(newPassword)
 	if err != nil {
-		return fmt.Errorf("ChangePassword: %w", err)
+		return nil, nil, fmt.Errorf("ChangePassword: %w", err)
 	}
 
 	user.PasswordHash = passwordHash
+	user.MustChangePassword = false
 	if err := s.userRepo.UpdateUser(ctx, user); err != nil {
-		return fmt.Errorf("ChangePassword: %w", err)
+		return nil, nil, fmt.Errorf("ChangePassword: %w", err)
 	}
 
-	return nil
+	// Revoke existing sessions so the replaced credential is dead everywhere.
+	if err := s.userRepo.DeleteUserSessions(ctx, user.ID); err != nil {
+		log.Warn().Err(err).Msg("ChangePassword: could not revoke existing sessions")
+	}
+
+	tokens, err := s.generateTokens(ctx, user, "", "")
+	if err != nil {
+		return nil, nil, fmt.Errorf("ChangePassword: %w", err)
+	}
+	return user, tokens, nil
 }
 
 func (s *AuthService) GetSessions(ctx context.Context, userID uuid.UUID) ([]models.Session, error) {
@@ -467,7 +492,7 @@ func (s *AuthService) GetConfig() *config.Config {
 func (s *AuthService) generateTokens(ctx context.Context, user *models.User, deviceInfo, ip string) (*AuthTokens, error) {
 	sessionID := uuid.New()
 
-	accessToken, err := auth.GenerateAccessToken(user.ID, user.Email, user.IsSuperAdmin, s.cfg.JWTSecret)
+	accessToken, err := auth.GenerateAccessToken(user.ID, user.Email, user.IsSuperAdmin, user.MustChangePassword, s.cfg.JWTSecret)
 	if err != nil {
 		return nil, fmt.Errorf("generateTokens: access: %w", err)
 	}

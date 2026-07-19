@@ -72,6 +72,46 @@ func DeriveOrgKey(masterKey []byte, orgID uuid.UUID) ([]byte, error) {
 	return derivedKey, nil
 }
 
+// DerivePlatformKey derives the key for instance-wide secrets that belong to no
+// organisation — the Resend API key, for example.
+//
+// Separate info string from DeriveOrgKey so platform and tenant ciphertexts can
+// never be decrypted with each other's keys, and so the master key is still
+// never used to encrypt anything directly.
+func DerivePlatformKey(masterKey []byte) ([]byte, error) {
+	hkdfReader := hkdf.New(sha256.New, masterKey, []byte("orbita-platform"), []byte("orbita-platform-key"))
+	derivedKey := make([]byte, 32)
+	if _, err := io.ReadFull(hkdfReader, derivedKey); err != nil {
+		return nil, fmt.Errorf("DerivePlatformKey: %w", err)
+	}
+	return derivedKey, nil
+}
+
+// passwordAlphabet omits characters that are easy to confuse when a password is
+// read off a screen and typed by hand — 0/O, 1/l/I — because these are handed
+// over person to person rather than pasted from a manager.
+const passwordAlphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789@#%+=?"
+
+// GeneratePassword returns a cryptographically random password of n characters.
+// Used for admin-provisioned accounts, which the user must change at first
+// sign-in anyway.
+func GeneratePassword(n int) (string, error) {
+	if n < 12 {
+		n = 12
+	}
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("GeneratePassword: %w", err)
+	}
+	// Modulo bias is negligible here: 62-char alphabet over a 256-value byte,
+	// and the output is a throwaway credential, not a long-lived key.
+	out := make([]byte, n)
+	for i, v := range b {
+		out[i] = passwordAlphabet[int(v)%len(passwordAlphabet)]
+	}
+	return string(out), nil
+}
+
 func GenerateRandomToken(size int) (string, error) {
 	b := make([]byte, size)
 	if _, err := rand.Read(b); err != nil {

@@ -74,16 +74,29 @@ func (h *MeHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.authService.ChangePassword(c.Request.Context(), userID, req.CurrentPassword, req.NewPassword); err != nil {
+	user, tokens, err := h.authService.ChangePassword(c.Request.Context(), userID, req.CurrentPassword, req.NewPassword)
+	if err != nil {
 		if errors.Is(err, service.ErrInvalidCredentials) {
 			response.BadRequest(c, "Current password is incorrect")
+			return
+		}
+		if errors.Is(err, service.ErrWeakPassword) || errors.Is(err, service.ErrPasswordUnchanged) {
+			response.BadRequest(c, err.Error())
 			return
 		}
 		response.InternalError(c, "Failed to change password")
 		return
 	}
 
-	response.Success(c, http.StatusOK, gin.H{"message": "Password changed successfully"})
+	// Changing the password revokes every session, so hand back fresh tokens —
+	// otherwise the caller is signed out by their own successful request. This
+	// is also how a forced rotation clears the must_change_password claim.
+	setRefreshTokenCookie(c, tokens.RefreshToken)
+	response.Success(c, http.StatusOK, gin.H{
+		"message":      "Password changed successfully",
+		"user":         user,
+		"access_token": tokens.AccessToken,
+	})
 }
 
 func (h *MeHandler) GetSessions(c *gin.Context) {

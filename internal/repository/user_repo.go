@@ -199,3 +199,15 @@ func (r *UserRepository) UpdateAPIKeyLastUsed(ctx context.Context, id uuid.UUID)
 	}
 	return nil
 }
+
+// HardDeleteUser permanently removes a user row.
+//
+// Used to undo a half-finished provisioning attempt: a soft delete would keep
+// the unique email index occupied, so the operator could never retry with the
+// same address.
+func (r *UserRepository) HardDeleteUser(ctx context.Context, id uuid.UUID) error {
+	if err := r.db.WithContext(ctx).Unscoped().Delete(&models.User{}, "id = ?", id).Error; err != nil {
+		return fmt.Errorf("HardDeleteUser: %w", err)
+	}
+	return nil
+}

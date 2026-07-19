@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"net/http"
 	"strings"
 	"time"
 
@@ -199,4 +200,31 @@ func extractBearerToken(c *gin.Context) string {
 		return ""
 	}
 	return parts[1]
+}
+
+// RequirePasswordRotated blocks an account that still holds a handover password
+// from doing anything except changing it.
+//
+// Enforced server-side rather than trusted to the dashboard redirect: the
+// credential travelled over chat or email, so an account that never rotates it
+// leaves a shared secret valid indefinitely. Reads the flag from the token, so
+// it costs no database lookup — tokens are 15 minutes and are reissued the
+// moment the password changes.
+func RequirePasswordRotated(jwtSecret string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tokenString := extractBearerToken(c)
+		if tokenString == "" {
+			c.Next() // unauthenticated routes are handled by the auth middleware
+			return
+		}
+		claims, err := auth.ValidateAccessToken(tokenString, jwtSecret)
+		if err != nil || !claims.MustChangePassword {
+			c.Next()
+			return
+		}
+
+		response.Error(c, http.StatusForbidden, "PASSWORD_CHANGE_REQUIRED",
+			"Set your own password before continuing.")
+		c.Abort()
+	}
 }

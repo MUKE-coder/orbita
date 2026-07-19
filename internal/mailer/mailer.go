@@ -2,21 +2,108 @@ package mailer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/resend/resend-go/v2"
 )
 
-type Mailer struct {
-	client    *resend.Client
-	fromEmail string
+// ErrNotConfigured is returned when no email provider is set up. Callers treat
+// it as "this instance doesn't do email" rather than as a failure — the super
+// admin hands out credentials directly instead.
+var ErrNotConfigured = errors.New("email is not configured on this server")
+
+// Settings is the provider config used for one send.
+type Settings struct {
+	APIKey    string
+	FromEmail string
+	FromName  string
 }
 
-func New(apiKey, fromEmail string) *Mailer {
-	return &Mailer{
-		client:    resend.NewClient(apiKey),
-		fromEmail: fromEmail,
+// Configured reports whether email can actually be sent.
+func (s Settings) Configured() bool {
+	return s.APIKey != "" && s.FromEmail != ""
+}
+
+// from renders the RFC 5322 From header.
+func (s Settings) from() string {
+	name := s.FromName
+	if name == "" {
+		name = "Orbita"
 	}
+	return fmt.Sprintf("%s <%s>", name, s.FromEmail)
+}
+
+// Mailer sends transactional email via Resend.
+//
+// Config is resolved per send rather than captured at construction, because the
+// super admin can change the API key and from-address from the dashboard at
+// runtime — a mailer holding a client from boot would keep using stale creds
+// (or none) until the process restarted.
+type Mailer struct {
+	resolve func(context.Context) Settings
+}
+
+// New builds a mailer over a live settings source.
+func New(resolve func(context.Context) Settings) *Mailer {
+	return &Mailer{resolve: resolve}
+}
+
+// NewStatic builds a mailer over fixed credentials. Used before the database is
+// available, and in tests.
+func NewStatic(apiKey, fromEmail, fromName string) *Mailer {
+	s := Settings{APIKey: apiKey, FromEmail: fromEmail, FromName: fromName}
+	return &Mailer{resolve: func(context.Context) Settings { return s }}
+}
+
+// settings returns the current config, or ErrNotConfigured.
+func (m *Mailer) settings(ctx context.Context) (Settings, error) {
+	if m == nil || m.resolve == nil {
+		return Settings{}, ErrNotConfigured
+	}
+	s := m.resolve(ctx)
+	if !s.Configured() {
+		return Settings{}, ErrNotConfigured
+	}
+	return s, nil
+}
+
+// IsConfigured reports whether this instance can send email. Drives the
+// dashboard's "email configured" status and the credential-handover fallback.
+func (m *Mailer) IsConfigured(ctx context.Context) bool {
+	_, err := m.settings(ctx)
+	return err == nil
+}
+
+// send delivers one message using the current settings.
+func (m *Mailer) send(ctx context.Context, to, subject, html string) error {
+	s, err := m.settings(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = resend.NewClient(s.APIKey).Emails.SendWithContext(ctx, &resend.SendEmailRequest{
+		From:    s.from(),
+		To:      []string{to},
+		Subject: subject,
+		Html:    html,
+	})
+	return err
+}
+
+// SendTest verifies the configured credentials actually work, so the operator
+// finds out on the settings page rather than when a real invite goes missing.
+func (m *Mailer) SendTest(ctx context.Context, to string) error {
+	html := `
+		<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+			<h2 style="color: #1a1a2e;">Email is working</h2>
+			<p>This is a test message from your Orbita instance. If you're reading
+			it, invitations and password resets will reach your users.</p>
+		</div>
+	`
+	if err := m.send(ctx, to, "Orbita test email", html); err != nil {
+		return fmt.Errorf("SendTest: %w", err)
+	}
+	return nil
 }
 
 func (m *Mailer) SendEmailVerification(ctx context.Context, to, name, verifyURL string) error {
@@ -30,13 +117,7 @@ func (m *Mailer) SendEmailVerification(ctx context.Context, to, name, verifyURL 
 		</div>
 	`, name, verifyURL)
 
-	_, err := m.client.Emails.SendWithContext(ctx, &resend.SendEmailRequest{
-		From:    fmt.Sprintf("Orbita <%s>", m.fromEmail),
-		To:      []string{to},
-		Subject: "Verify your email — Orbita",
-		Html:    html,
-	})
-	if err != nil {
+	if err := m.send(ctx, to, "Verify your email — Orbita", html); err != nil {
 		return fmt.Errorf("SendEmailVerification: %w", err)
 	}
 	return nil
@@ -53,13 +134,7 @@ func (m *Mailer) SendPasswordReset(ctx context.Context, to, name, otp string) er
 		</div>
 	`, name, otp)
 
-	_, err := m.client.Emails.SendWithContext(ctx, &resend.SendEmailRequest{
-		From:    fmt.Sprintf("Orbita <%s>", m.fromEmail),
-		To:      []string{to},
-		Subject: "Password Reset Code — Orbita",
-		Html:    html,
-	})
-	if err != nil {
+	if err := m.send(ctx, to, "Password Reset Code — Orbita", html); err != nil {
 		return fmt.Errorf("SendPasswordReset: %w", err)
 	}
 	return nil
@@ -75,13 +150,7 @@ func (m *Mailer) SendInvite(ctx context.Context, to, orgName, inviterName, accep
 		</div>
 	`, inviterName, orgName, acceptURL)
 
-	_, err := m.client.Emails.SendWithContext(ctx, &resend.SendEmailRequest{
-		From:    fmt.Sprintf("Orbita <%s>", m.fromEmail),
-		To:      []string{to},
-		Subject: fmt.Sprintf("Invitation to join %s — Orbita", orgName),
-		Html:    html,
-	})
-	if err != nil {
+	if err := m.send(ctx, to, fmt.Sprintf("Invitation to join %s — Orbita", orgName), html); err != nil {
 		return fmt.Errorf("SendInvite: %w", err)
 	}
 	return nil
@@ -101,13 +170,7 @@ func (m *Mailer) SendDeployNotification(ctx context.Context, to, appName, status
 		</div>
 	`, status, appName, orgName, statusColor, status)
 
-	_, err := m.client.Emails.SendWithContext(ctx, &resend.SendEmailRequest{
-		From:    fmt.Sprintf("Orbita <%s>", m.fromEmail),
-		To:      []string{to},
-		Subject: fmt.Sprintf("Deploy %s: %s — Orbita", status, appName),
-		Html:    html,
-	})
-	if err != nil {
+	if err := m.send(ctx, to, fmt.Sprintf("Deploy %s: %s — Orbita", status, appName), html); err != nil {
 		return fmt.Errorf("SendDeployNotification: %w", err)
 	}
 	return nil

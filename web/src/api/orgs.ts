@@ -87,6 +87,19 @@ export interface UpdateOrgResourcesInput {
 }
 
 export const orgsApi = {
+  // Create a member outright — the no-email alternative to an invite.
+  createMember: (
+    orgSlug: string,
+    data: { email: string; name?: string; password?: string; role: string }
+  ) =>
+    apiClient.post<{
+      data: {
+        user: { id: string; email: string; name: string };
+        password: string;
+        generated: boolean;
+      };
+    }>(`/orgs/${orgSlug}/members`, data),
+
   list: () => apiClient.get<{ data: Organization[] }>("/orgs"),
 
   create: (data: CreateOrgInput) =>

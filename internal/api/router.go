@@ -17,6 +17,7 @@ import (
 	"github.com/orbita-sh/orbita/internal/api/handlers"
 	"github.com/orbita-sh/orbita/internal/config"
 	"github.com/orbita-sh/orbita/internal/docker"
+	"github.com/orbita-sh/orbita/internal/mailer"
 	mw "github.com/orbita-sh/orbita/internal/middleware"
 	"github.com/orbita-sh/orbita/internal/orchestrator"
 	"github.com/orbita-sh/orbita/internal/repository"
@@ -42,6 +43,9 @@ type RouterDeps struct {
 	NotificationService *service.NotificationService
 	GitService          *service.GitService
 	GritService         *service.GritService
+	SettingsService     *service.SettingsService
+	ProvisioningService *service.ProvisioningService
+	Mailer              *mailer.Mailer
 	NodeManager         *orchestrator.NodeManager
 	DockerClient        *docker.Client
 	UserRepo            *repository.UserRepository
@@ -99,6 +103,8 @@ func NewRouter(deps *RouterDeps) *Router {
 	nodeHandler := handlers.NewNodeHandler(deps.NodeManager)
 	dashboardHandler := handlers.NewDashboardHandler(deps.AppRepo, deps.DBRepo, deps.CronRepo, deps.DockerClient)
 	adminHandler := handlers.NewAdminHandler(deps.OrgService, deps.DockerClient)
+	settingsHandler := handlers.NewSettingsHandler(deps.SettingsService, deps.Mailer)
+	provisioningHandler := handlers.NewProvisioningHandler(deps.ProvisioningService)
 
 	// WebSocket terminal handler
 	terminalHandler := ws.NewTerminalHandler(deps.Config.JWTSecret, deps.AppRepo, deps.OrgRepo, deps.DockerClient, strings.Split(deps.Config.CORSOrigins, ","))
@@ -151,7 +157,11 @@ func NewRouter(deps *RouterDeps) *Router {
 		v1.GET("/orgs/:orgSlug/apps/:appId/terminal", terminalHandler.HandleTerminal)
 		v1.GET("/orgs/:orgSlug/apps/:appId/logs/stream", terminalHandler.HandleLogStream)
 
-		orgsGroup := v1.Group("/orgs", authOrKey)
+		// An account still holding a handover password may not do anything except
+		// change it — enforced here rather than trusting the dashboard redirect.
+		requirePasswordRotated := mw.RequirePasswordRotated(deps.Config.JWTSecret)
+
+		orgsGroup := v1.Group("/orgs", authOrKey, requirePasswordRotated)
 		{
 			orgsGroup.GET("", orgHandler.ListOrgs)
 			orgsGroup.POST("", orgHandler.CreateOrg)
@@ -281,6 +291,9 @@ func NewRouter(deps *RouterDeps) *Router {
 				{
 					adminAccess.PUT("", orgHandler.UpdateOrg)
 					adminAccess.POST("/invites", orgHandler.InviteMember)
+					// Create a member outright, for instances with no email
+					// provider where an invite link would never arrive.
+					adminAccess.POST("/members", provisioningHandler.CreateOrgUser)
 					adminAccess.GET("/invites", orgHandler.ListInvites)
 					adminAccess.DELETE("/invites/:id", orgHandler.RevokeInvite)
 					adminAccess.DELETE("/members/:userId", orgHandler.RemoveMember)
@@ -314,6 +327,16 @@ func NewRouter(deps *RouterDeps) *Router {
 			adminGroup.PUT("/orgs/:orgSlug/plan", adminHandler.AssignPlanToOrg)
 			adminGroup.PUT("/orgs/:orgSlug/resources", orgHandler.UpdateOrgResources)
 			adminGroup.GET("/platform/capacity", adminHandler.GetPlatformCapacity)
+
+			// Instance-wide settings (email provider).
+			adminGroup.GET("/settings/email", settingsHandler.GetEmailSettings)
+			adminGroup.PUT("/settings/email", settingsHandler.UpdateEmailSettings)
+			adminGroup.POST("/settings/email/test", settingsHandler.SendTestEmail)
+
+			// Onboard a tenant directly: org + the account its admin signs in
+			// with. The path for instances with no email provider, where an
+			// invite link would never arrive.
+			adminGroup.POST("/orgs", provisioningHandler.ProvisionOrg)
 
 			// Nodes (super admin)
 			adminGroup.GET("/nodes", nodeHandler.ListNodes)

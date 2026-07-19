@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import CreateOrg from "./pages/CreateOrg";
 import OrgMembers from "./pages/OrgMembers";
 import JoinOrg from "./pages/JoinOrg";
+import ChangePassword from "./pages/ChangePassword";
 import OrgSettings from "./pages/OrgSettings";
 import ProjectDetail from "./pages/ProjectDetail";
 import AppDetail from "./pages/AppDetail";
@@ -22,6 +23,8 @@ import CreateCron from "./pages/CreateCron";
 import Marketplace from "./pages/Marketplace";
 import AdminNodes from "./pages/AdminNodes";
 import AdminOrgs from "./pages/AdminOrgs";
+import AdminNewTenant from "./pages/AdminNewTenant";
+import AdminEmailSettings from "./pages/AdminEmailSettings";
 import AuditLogs from "./pages/AuditLogs";
 import Projects from "./pages/Projects";
 import NotFound from "./pages/NotFound";
@@ -50,6 +53,7 @@ function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/join" element={<JoinOrg />} />
+        <Route path="/change-password" element={<ChangePassword />} />
 
         {/* Protected routes */}
         <Route
@@ -194,6 +198,26 @@ function App() {
             <ProtectedRoute>
               <Dashboard>
                 <AdminOrgs />
+              </Dashboard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/orgs/new"
+          element={
+            <ProtectedRoute>
+              <Dashboard>
+                <AdminNewTenant />
+              </Dashboard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/settings/email"
+          element={
+            <ProtectedRoute>
+              <Dashboard>
+                <AdminEmailSettings />
               </Dashboard>
             </ProtectedRoute>
           }

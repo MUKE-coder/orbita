@@ -7,6 +7,7 @@ import {
   Users,
   Settings,
   Server,
+  Mail,
   Building2,
   ScrollText,
   Rocket,
@@ -275,6 +276,12 @@ export function Sidebar() {
                 to="/admin/nodes"
                 icon={Server}
                 label="Nodes"
+                collapsed={collapsed}
+              />
+              <NavItem
+                to="/admin/settings/email"
+                icon={Mail}
+                label="Email"
                 collapsed={collapsed}
               />
             </div>

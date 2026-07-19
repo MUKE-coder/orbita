@@ -18,6 +18,10 @@ type Claims struct {
 	Email        string     `json:"email"`
 	IsSuperAdmin bool       `json:"is_super_admin"`
 	OrgID        *uuid.UUID `json:"org_id,omitempty"`
+	// MustChangePassword rides in the token so the gate costs no database read
+	// per request. Tokens are short-lived (15m) and reissued the moment the
+	// password is changed, so the flag can't go stale for long.
+	MustChangePassword bool `json:"must_change_password,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -27,12 +31,13 @@ type RefreshClaims struct {
 	jwt.RegisteredClaims
 }
 
-func GenerateAccessToken(userID uuid.UUID, email string, isSuperAdmin bool, secret string) (string, error) {
+func GenerateAccessToken(userID uuid.UUID, email string, isSuperAdmin, mustChangePassword bool, secret string) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		UserID:       userID,
-		Email:        email,
-		IsSuperAdmin: isSuperAdmin,
+		UserID:             userID,
+		Email:              email,
+		IsSuperAdmin:       isSuperAdmin,
+		MustChangePassword: mustChangePassword,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(AccessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),

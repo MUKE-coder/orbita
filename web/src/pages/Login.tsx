@@ -40,6 +40,12 @@ function Login() {
       const res = await authApi.login(data);
       setAccessToken(res.data.data.access_token);
       toast.success("Welcome back!");
+      // An admin-provisioned account must replace its handover password before
+      // it can do anything — the API enforces this, so send them there first.
+      if (res.data.data.user?.must_change_password) {
+        navigate("/change-password");
+        return;
+      }
       // Honour ?redirect= so an invite link survives the login detour.
       // Only same-site paths — never bounce to an absolute URL from a param.
       const redirect = searchParams.get("redirect");

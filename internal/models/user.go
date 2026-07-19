@@ -17,6 +17,11 @@ type User struct {
 	IsEmailVerified bool           `json:"is_email_verified" gorm:"default:false;not null"`
 	TOTPSecret      *string        `json:"-"`
 	TOTPEnabled     bool           `json:"totp_enabled" gorm:"default:false;not null"`
+	// Set when an admin provisions the account with a handover password. The
+	// user must replace it at first sign-in, so the credential that travelled
+	// over chat or email stops working.
+	MustChangePassword bool       `json:"must_change_password" gorm:"default:false;not null"`
+	CreatedBy          *uuid.UUID `json:"created_by" gorm:"type:uuid"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `json:"-" gorm:"index"`

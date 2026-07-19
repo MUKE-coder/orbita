@@ -8,6 +8,9 @@ export interface User {
   is_super_admin: boolean;
   is_email_verified: boolean;
   totp_enabled: boolean;
+  // Set on admin-provisioned accounts until the user replaces the handover
+  // password. The API blocks everything else until they do.
+  must_change_password?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -53,7 +56,12 @@ export const authApi = {
   changePassword: (data: {
     current_password: string;
     new_password: string;
-  }) => apiClient.post("/me/change-password", data),
+  }) =>
+    // Changing the password revokes every session, so the response carries a
+    // fresh token to adopt.
+    apiClient.post<{
+      data: { message: string; access_token: string; user: { id: string; email: string } };
+    }>("/me/change-password", data),
 
   getSessions: () =>
     apiClient.get<{
