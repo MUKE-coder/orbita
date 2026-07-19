@@ -188,3 +188,37 @@ func TestComposeOverrideAliasesWebService(t *testing.T) {
 		}
 	}
 }
+
+// Nixpacks start commands bind to $PORT; without it the app crashes on boot.
+func TestWithPortEnv(t *testing.T) {
+	p := func(i int) *int { return &i }
+
+	got := withPortEnv(map[string]string{"FOO": "bar"}, p(3000))
+	if got["PORT"] != "3000" {
+		t.Errorf("PORT = %q, want 3000", got["PORT"])
+	}
+	if got["FOO"] != "bar" {
+		t.Error("existing vars must be preserved")
+	}
+
+	// A user-set PORT is authoritative.
+	got = withPortEnv(map[string]string{"PORT": "9999"}, p(3000))
+	if got["PORT"] != "9999" {
+		t.Errorf("user PORT overwritten: got %q, want 9999", got["PORT"])
+	}
+
+	// No port configured → nothing injected.
+	if _, ok := withPortEnv(nil, nil)["PORT"]; ok {
+		t.Error("should not set PORT when the app has no port")
+	}
+	if _, ok := withPortEnv(nil, p(0))["PORT"]; ok {
+		t.Error("should not set PORT for port 0")
+	}
+
+	// The caller's map must not be mutated.
+	src := map[string]string{"A": "1"}
+	_ = withPortEnv(src, p(8080))
+	if _, leaked := src["PORT"]; leaked {
+		t.Error("withPortEnv must not mutate the caller's map")
+	}
+}

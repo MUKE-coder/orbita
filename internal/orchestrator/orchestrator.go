@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -85,6 +86,13 @@ func (o *Orchestrator) DeployApplication(ctx context.Context, app *models.Applic
 	var deployCfg DeployConfig
 	_ = json.Unmarshal(app.DeployConfig, &deployCfg)
 
+	// Every buildpack-style platform injects PORT, and Nixpacks' generated start
+	// commands lean on it — `gunicorn --bind 0.0.0.0:$PORT` and friends. Without
+	// it those apps bind to an empty port and crash on boot, while apps that
+	// happen to write `process.env.PORT || 3000` survive by luck. An explicit
+	// user value always wins.
+	envVars = withPortEnv(envVars, app.Port)
+
 	// Compose is the one source that isn't a single image on a single service —
 	// it owns its whole deploy path (N services via `docker stack deploy`).
 	if isCompose(app) {
@@ -157,6 +165,24 @@ func (o *Orchestrator) DeployApplication(ctx context.Context, app *models.Applic
 	app.Status = models.AppStatusRunning
 	log.Info().Str("app", app.Name).Str("image", imageRef).Msg("Deployment completed")
 	return nil
+}
+
+// withPortEnv returns a copy of env with PORT set to the app's port.
+//
+// Copies rather than mutating: the caller's map comes from the service layer
+// and is reused across a deploy, so writing into it would leak PORT between
+// callers. A PORT the user set themselves is left alone.
+func withPortEnv(env map[string]string, port *int) map[string]string {
+	out := make(map[string]string, len(env)+1)
+	for k, v := range env {
+		out[k] = v
+	}
+	if port != nil && *port > 0 {
+		if _, userSet := out["PORT"]; !userSet {
+			out["PORT"] = strconv.Itoa(*port)
+		}
+	}
+	return out
 }
 
 // resolveImage returns a usable Docker image reference for deployment.
