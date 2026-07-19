@@ -14,34 +14,67 @@ Open the dashboard (`https://orbita.example.com`, or `http://YOUR_IP:8080` in IP
 **Register**. Fill in your name, email, and a password.
 
 <Callout type="danger" title="Register immediately — the first account owns the server">
-The **first** person to register becomes the **super-admin**, with full control of the box.
-Registration is open, so do this the moment install finishes. If a stranger reaches the URL and
-registers first, they own your server.
+The **first** person to register becomes the **super-admin**, with full control of the box. Do this
+the moment install finishes. If a stranger reaches the URL and registers first, they own your
+server.
 </Callout>
 
-### Close registration after setup (recommended)
+### Sign-up closes itself
 
-By default, registration stays **open** — later visitors can still create (non-admin) accounts.
-Once your admin account exists and you don't need public sign-up, close it. Run this on the
-server; it adds the setting to Orbita's container and restarts it:
+Once that first account exists, public registration is **closed automatically** — `/register`
+returns **403** for everyone else. You don't have to do anything.
 
-```bash title="Server terminal (SSH)"
-cd /opt/orbita
-grep -q ORBITA_DISABLE_REGISTRATION docker-compose.yml \
-  || sudo sed -i '/- IS_PRODUCTION=true/a\      - ORBITA_DISABLE_REGISTRATION=true' docker-compose.yml
-sudo docker compose up -d --force-recreate orbita
-```
+After that, people join in one of two ways:
 
-Now `/register` returns **403** for everyone except the very first account (so a fresh install can
-still be bootstrapped). New teammates join by **invitation** instead — see
-[step 8](#8-invite-your-team).
+- **By invitation** — see [step 8](#8-invite-your-team). The invite link lets them create an
+  account even though sign-up is closed, and drops them straight into your org.
+- **Created for them** — you set their email and password directly and hand the credentials over.
+  This is the path when [email isn't configured](#email-and-the-no-email-path).
 
-<Callout type="tip" title="Verify it">
-Try registering a second account from a private browser window — you should be turned away with
-“Registration is disabled”.
+<Callout type="tip" title="Want an open instance instead?">
+To let anyone sign up (a public PaaS, say), set `ORBITA_ALLOW_OPEN_REGISTRATION=true` in
+`/opt/orbita/docker-compose.yml` and recreate the container. `ORBITA_DISABLE_REGISTRATION=true`
+remains a hard lock that blocks even invited users.
 </Callout>
+
+## Email, and the no-email path
+
+Orbita uses [Resend](https://resend.com) for invitations, password resets, and deploy
+notifications. Configure it under **Admin → Email**: paste an API key, set a from-address on a
+domain you've verified with Resend, and send yourself a test to confirm delivery. The key is
+stored encrypted and overrides the `RESEND_API_KEY` environment variable, so you can turn email on
+without SSHing in or restarting.
+
+**You don't have to configure it.** With no email provider, invitations can't be delivered — so
+instead of inviting people, you create their accounts directly and pass the credentials on
+yourself. Everything else works the same.
+
+## Onboard a tenant directly
+
+**Admin → Organisations → New tenant** creates an organisation and the account its admin signs in
+with, in one step:
+
+1. **Organisation** — name, and a **plan** as the resource baseline.
+2. **Resource overrides** — optional. Fill in only what differs from the plan; blank inherits.
+   This is how one client gets 4 GB while everyone else stays on the plan's 512 MB.
+3. **Org admin** — their email and name. A strong password is generated for you (edit it if you
+   prefer), and you choose whether they're **owner** (full control of their org) or **admin**.
+
+Orbita then shows the sign-in URL, email, and password **once**, with a copy button. The password
+is not stored in plaintext and cannot be retrieved again — copy it before leaving the page.
+
+<Callout type="note" title="They must set their own password">
+The account is flagged so the handover password only works once. At first sign-in the user is sent
+to **Set your password** and can't do anything else until they choose one — the API refuses every
+other request, not just the dashboard. Changing it also signs out every other session, so a
+credential that leaked in chat stops working.
+</Callout>
+
+To add more people to an existing org without email, use **Members → Add user**, which works the
+same way.
 
 ## 2. Create an organisation
+
 
 An **organisation** is your top-level workspace. Every app, database, and domain lives inside
 one, and each org is fully isolated from the others — its own Docker network, encryption key, and
@@ -166,8 +199,11 @@ Add people under **Members → Invite** (org admins only). Enter their email and
 | **admin** | Manage members, git connections, everything in the org |
 | **owner** | Admin + transfer/delete the org |
 
-They get an email with a join link. If registration is closed, invitees still need an account to
-accept — have them register while it's briefly open, or keep sign-up open for your team's domain.
+They get an email with a join link. The link lets them create an account even though public
+sign-up is closed — they don't need one beforehand, and you don't need to reopen the instance.
+
+If email isn't configured, use **Members → Add user** instead: set their password directly and
+pass the credentials on yourself.
 
 ## What works today
 
