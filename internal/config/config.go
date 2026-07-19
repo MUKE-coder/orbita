@@ -25,6 +25,10 @@ type Config struct {
 	SuperAdminEmail     string
 	BackupDir           string
 	DisableRegistration bool
+	// AllowOpenRegistration re-opens public sign-up. Off by default: an Orbita
+	// instance closes registration automatically once the first account exists,
+	// and everyone after that arrives via an org invite.
+	AllowOpenRegistration bool
 }
 
 func Load() (*Config, error) {
@@ -44,9 +48,12 @@ func Load() (*Config, error) {
 		CORSOrigins:         getEnv("CORS_ORIGINS", "http://localhost:5173"),
 		AppBaseURL:          getEnv("APP_BASE_URL", "http://localhost:8080"),
 		IsProduction:        getEnvBool("IS_PRODUCTION", false),
-		// When true, public self-registration is closed after the first user
-		// (the super-admin). Further accounts must come through org invites.
+		// Hard lock: closes sign-up even for an otherwise-open instance. Kept for
+		// operators who already set it; the default behaviour below now closes
+		// registration on its own.
 		DisableRegistration: getEnvBool("ORBITA_DISABLE_REGISTRATION", false),
+		// Opt back in to open public sign-up (anyone can create an account).
+		AllowOpenRegistration: getEnvBool("ORBITA_ALLOW_OPEN_REGISTRATION", false),
 		SuperAdminEmail:     getEnv("SUPER_ADMIN_EMAIL", ""),
 		BackupDir:           getEnv("BACKUP_DIR", "/var/lib/orbita/backups"),
 	}

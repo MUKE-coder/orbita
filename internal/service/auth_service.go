@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 
 	"github.com/orbita-sh/orbita/internal/auth"
@@ -29,13 +31,15 @@ var (
 
 type AuthService struct {
 	userRepo *repository.UserRepository
+	orgRepo  *repository.OrgRepository
 	mailer   *mailer.Mailer
 	cfg      *config.Config
 }
 
-func NewAuthService(userRepo *repository.UserRepository, mailer *mailer.Mailer, cfg *config.Config) *AuthService {
+func NewAuthService(userRepo *repository.UserRepository, orgRepo *repository.OrgRepository, mailer *mailer.Mailer, cfg *config.Config) *AuthService {
 	return &AuthService{
 		userRepo: userRepo,
+		orgRepo:  orgRepo,
 		mailer:   mailer,
 		cfg:      cfg,
 	}
@@ -46,7 +50,15 @@ type AuthTokens struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-func (s *AuthService) Register(ctx context.Context, email, password, name string) (*models.User, *AuthTokens, error) {
+// Register creates an account.
+//
+// Sign-up closes itself: the first account on a fresh instance is always
+// allowed (and becomes the super admin), and after that public registration is
+// shut unless the operator explicitly re-opens it. Everyone else arrives
+// holding an org invite, which is the only other key that opens the door — so
+// an admin inviting a teammate doesn't have to briefly re-open the whole
+// instance to the internet just so they can create an account.
+func (s *AuthService) Register(ctx context.Context, email, password, name, inviteToken string) (*models.User, *AuthTokens, error) {
 	// Check if user already exists
 	existing, err := s.userRepo.FindUserByEmail(ctx, email)
 	if err == nil && existing != nil {
@@ -63,11 +75,11 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 	count, _ := s.userRepo.CountUsers(ctx)
 	isSuperAdmin := count == 0
 
-	// With ORBITA_DISABLE_REGISTRATION set, public sign-up is closed once the
-	// first user exists — the takeover window after setup is shut, and new
-	// people join via org invites instead. The very first account is always
-	// allowed so the instance can still be bootstrapped.
-	if s.cfg.DisableRegistration && count > 0 {
+	// Resolve the invite first — it decides both whether sign-up is permitted
+	// and which org the new account joins.
+	invite := s.resolveSignupInvite(ctx, inviteToken, email)
+
+	if !registrationAllowed(count, invite != nil, s.cfg.AllowOpenRegistration, s.cfg.DisableRegistration) {
 		return nil, nil, ErrRegistrationDisabled
 	}
 
@@ -81,6 +93,23 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 
 	if err := s.userRepo.CreateUser(ctx, user); err != nil {
 		return nil, nil, fmt.Errorf("Register: %w", err)
+	}
+
+	// Consume the invite now that the account exists, so an invited user lands
+	// already inside the org rather than having to accept a second time.
+	if invite != nil {
+		if err := s.orgRepo.AddMember(ctx, &models.OrgMember{
+			OrgID:    invite.OrgID,
+			UserID:   user.ID,
+			Role:     invite.Role,
+			JoinedAt: time.Now(),
+		}); err != nil {
+			// The account is already created; failing here would strand them.
+			// They can still accept the invite from /join.
+			log.Warn().Err(err).Str("email", email).Msg("Register: could not auto-join invited org")
+		} else {
+			_ = s.orgRepo.MarkInviteUsed(ctx, invite.ID)
+		}
 	}
 
 	// Generate email verification token
@@ -112,6 +141,58 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 	}
 
 	return user, tokens, nil
+}
+
+// registrationAllowed decides whether a sign-up may proceed.
+//
+// The default posture is closed: an instance accepts exactly one public
+// sign-up — the operator's own account — and from then on new people arrive
+// through an org invite. Keeping this a pure function makes the matrix
+// testable, which matters because getting it wrong either locks the owner out
+// of their own server or leaves it open to strangers.
+func registrationAllowed(userCount int64, hasInvite, allowOpen, hardDisabled bool) bool {
+	switch {
+	case userCount == 0:
+		// Bootstrap. Always permitted, even with sign-up hard-disabled —
+		// otherwise a fresh instance could never be set up at all.
+		return true
+	case hasInvite:
+		// Vouched for by an org admin. Still refused if the operator has
+		// hard-disabled sign-up.
+		return !hardDisabled
+	case allowOpen:
+		// Operator deliberately runs an open instance.
+		return !hardDisabled
+	default:
+		return false
+	}
+}
+
+// resolveSignupInvite returns the invite a sign-up is riding on, or nil.
+//
+// The invite must be unused, unexpired, and addressed to the email being
+// registered — otherwise a leaked token would be a way into someone else's org
+// under any address the holder likes. Returns nil rather than an error: an
+// absent or bad invite just means the normal registration rules apply.
+func (s *AuthService) resolveSignupInvite(ctx context.Context, token, email string) *models.OrgInvite {
+	if token == "" || s.orgRepo == nil {
+		return nil
+	}
+
+	// FindInviteByTokenHash already filters on used_at IS NULL AND expires_at > now.
+	invite, err := s.orgRepo.FindInviteByTokenHash(ctx, auth.HashToken(token))
+	if err != nil || invite == nil {
+		return nil
+	}
+
+	if !strings.EqualFold(strings.TrimSpace(invite.Email), strings.TrimSpace(email)) {
+		log.Warn().
+			Str("invited", invite.Email).
+			Str("attempted", email).
+			Msg("Register: invite token used with a different email")
+		return nil
+	}
+	return invite
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password, deviceInfo, ip string) (*models.User, *AuthTokens, error) {

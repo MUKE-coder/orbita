@@ -18,7 +18,12 @@ export interface LoginResponse {
 }
 
 export const authApi = {
-  register: (data: { email: string; password: string; name: string }) =>
+  register: (data: {
+    email: string;
+    password: string;
+    name: string;
+    invite_token?: string;
+  }) =>
     apiClient.post<{ data: LoginResponse }>("/auth/register", data),
 
   login: (data: { email: string; password: string }) =>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,6 +46,9 @@ function PasswordHint({ password }: { password: string }) {
 
 function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // An invite token doubles as permission to sign up on a closed instance.
+  const inviteToken = searchParams.get("token") || undefined;
   const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -63,7 +66,7 @@ function Register() {
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true);
     try {
-      const res = await authApi.register(data);
+      const res = await authApi.register({ ...data, invite_token: inviteToken });
       setAccessToken(res.data.data.access_token);
       toast.success("Account created — check your email to verify.");
       navigate("/dashboard");

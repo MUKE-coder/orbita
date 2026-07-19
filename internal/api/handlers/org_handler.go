@@ -397,6 +397,10 @@ func (h *OrgHandler) AcceptInvite(c *gin.Context) {
 			response.Conflict(c, "You are already a member")
 			return
 		}
+		if errors.Is(err, service.ErrInviteEmailMismatch) {
+			response.Forbidden(c, err.Error())
+			return
+		}
 		response.InternalError(c, "Failed to accept invite")
 		return
 	}

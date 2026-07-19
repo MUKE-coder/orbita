@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,7 +47,8 @@ function JoinOrg() {
     if (!token) return;
 
     if (!isAuthenticated) {
-      navigate(`/login?redirect=/join?token=${token}`);
+      // Encode the whole path — a raw nested "?" truncates the token.
+      navigate(`/login?redirect=${encodeURIComponent(`/join?token=${token}`)}`);
       return;
     }
 
@@ -93,6 +94,21 @@ function JoinOrg() {
                 )}
                 {isAuthenticated ? "Accept Invitation" : "Sign In to Accept"}
               </Button>
+
+              {/* Sign-up is closed on most instances, so an invitee with no
+                  account needs this path — the invite token is what lets them
+                  register at all. */}
+              {!isAuthenticated && (
+                <p className="mt-3 text-center text-xs text-muted-foreground">
+                  Don't have an account yet?{" "}
+                  <Link
+                    to={`/register?token=${encodeURIComponent(token || "")}`}
+                    className="font-medium text-brand hover:underline"
+                  >
+                    Create one to accept
+                  </Link>
+                </p>
+              )}
             </>
           )}
 

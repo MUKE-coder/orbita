@@ -93,7 +93,7 @@ func main() {
 
 	// Initialize services
 	mail := mailer.New(cfg.ResendAPIKey, cfg.ResendFromEmail)
-	authService := service.NewAuthService(userRepo, mail, cfg)
+	authService := service.NewAuthService(userRepo, orgRepo, mail, cfg)
 	orgService := service.NewOrgService(orgRepo, userRepo, mail, cfg)
 	orgService.SetCgroupEnforcer(cgroupMgr)
 	projectService := service.NewProjectService(projectRepo)

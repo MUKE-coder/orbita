@@ -27,6 +27,9 @@ var (
 	ErrCannotLeave      = errors.New("owner cannot leave the organization")
 	ErrInsufficientRole = errors.New("insufficient role")
 	ErrInviteNotFound   = errors.New("invite not found")
+	// Raised when a signed-in user tries to consume an invite addressed to
+	// somebody else.
+	ErrInviteEmailMismatch = errors.New("this invitation was sent to a different email address — sign in as that user to accept it")
 	ErrInviteExpired    = errors.New("invite expired or already used")
 	ErrSelfRoleChange   = errors.New("cannot change your own role")
 	ErrPlanNotFound     = errors.New("plan not found")
@@ -436,6 +439,17 @@ func (s *OrgService) AcceptInvite(ctx context.Context, token string, userID uuid
 	invite, err := s.orgRepo.FindInviteByTokenHash(ctx, tokenHash)
 	if err != nil {
 		return ErrInviteNotFound
+	}
+
+	// An invite is addressed to one person. Without this check, anyone who gets
+	// hold of the token — a forwarded email, a shared screen — could join the
+	// org with whatever account they happen to be signed in as.
+	user, err := s.userRepo.FindUserByID(ctx, userID)
+	if err != nil || user == nil {
+		return ErrInviteNotFound
+	}
+	if !strings.EqualFold(strings.TrimSpace(user.Email), strings.TrimSpace(invite.Email)) {
+		return ErrInviteEmailMismatch
 	}
 
 	// Check if already a member

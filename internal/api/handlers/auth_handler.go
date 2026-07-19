@@ -24,6 +24,9 @@ type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=8"`
 	Name     string `json:"name" binding:"required,min=2"`
+	// Optional org invite. On a closed instance this is what permits the
+	// sign-up, and it drops the new account straight into the inviting org.
+	InviteToken string `json:"invite_token"`
 }
 
 type LoginRequest struct {
@@ -52,14 +55,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	user, tokens, err := h.authService.Register(c.Request.Context(), req.Email, req.Password, req.Name)
+	user, tokens, err := h.authService.Register(c.Request.Context(), req.Email, req.Password, req.Name, req.InviteToken)
 	if err != nil {
 		if errors.Is(err, service.ErrEmailAlreadyExists) {
 			response.Conflict(c, "Email already registered")
 			return
 		}
 		if errors.Is(err, service.ErrRegistrationDisabled) {
-			response.Forbidden(c, "Registration is disabled on this server. Ask an admin to invite you.")
+			response.Forbidden(c, "Sign-up is closed on this server. Ask an admin to invite you — the invite link lets you create an account.")
 			return
 		}
 		response.InternalError(c, "Failed to register")
